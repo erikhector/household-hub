@@ -12,12 +12,14 @@ import { plannedItemType } from "@/lib/planned-expense-calc";
 import { SPLIT_SUM_TOLERANCE } from "@/lib/share-split-form";
 import { repeatTemplateFields } from "@/lib/repeat-template";
 import { assertNoDuplicateTemplatePeriod, revalidateBudgetPages, type ParsedSplit } from "./action-helpers";
+import { normalizeMoney } from "@/lib/decimal-input";
+import { invalidateHome } from "@/lib/household-cache";
 
 // --- Transactions --------------------------------------------------------
 
 const transactionSchema = z.object({
   categoryId: z.string().min(1, v("categoryRequired")),
-  amount: z.coerce.number().positive(v("amountPositive")),
+  amount: z.coerce.number({ error: v("amountFormat") }).positive(v("amountPositive")),
   description: z.string().trim().max(200).optional(),
   date: z.string().min(1, v("dateRequired")),
   isRecurring: z.boolean(),
@@ -42,7 +44,7 @@ const transactionSchema = z.object({
 function parseTransactionFormData(formData: FormData) {
   return transactionSchema.safeParse({
     categoryId: formData.get("categoryId"),
-    amount: formData.get("amount"),
+    amount: normalizeMoney(formData.get("amount")),
     description: formData.get("description") || undefined,
     date: formData.get("date"),
     isRecurring: formData.get("isRecurring") === "on",
@@ -121,19 +123,23 @@ async function parseSplitFormData(
   if (formData.get("splitEnabled") !== "on") return null;
 
   const memberIds = formData.getAll("splitMemberId").map((v) => String(v));
-  const amounts = formData.getAll("splitAmount").map((v) => Number(v));
+  const amounts = formData.getAll("splitAmount").map((v) => Number(normalizeMoney(v)));
   // An empty "paid" input means nothing paid yet, not an invalid number.
-  const paid = formData.getAll("splitPaid").map((v) => (String(v).trim() === "" ? 0 : Number(v)));
+  const paid = formData.getAll("splitPaid").map((v) => (String(v).trim() === "" ? 0 : Number(normalizeMoney(v))));
   if (memberIds.length === 0 || memberIds.length !== amounts.length || memberIds.length !== paid.length) {
     return fail("splitInvalid");
   }
   if (new Set(memberIds).size !== memberIds.length) {
     return fail("splitInvalid");
   }
-  if (amounts.some((a) => Number.isNaN(a) || a < 0)) {
+  // UX-30: "1,200" or "abc" is a format problem, not a negative one.
+  if (amounts.some(Number.isNaN) || paid.some(Number.isNaN)) {
+    return fail("amountFormat");
+  }
+  if (amounts.some((a) => a < 0)) {
     return fail("splitAmountNegative");
   }
-  if (paid.some((a) => Number.isNaN(a) || a < 0)) {
+  if (paid.some((a) => a < 0)) {
     return fail("splitPaidNegative");
   }
 
@@ -279,6 +285,7 @@ export async function createTransactionAction(
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidateBudgetPages();
   return { createdId: created.id };
 }
@@ -371,6 +378,7 @@ export async function createSharedExpenseFromPersonalBudgetAction(
     return toFriendlyError(error);
   }
 
+  invalidateHome(householdId);
   revalidateBudgetPages();
   return {};
 }
@@ -388,7 +396,7 @@ export async function updateTransactionAction(
   const parsed = updateTransactionSchema.safeParse({
     id: formData.get("id"),
     categoryId: formData.get("categoryId"),
-    amount: formData.get("amount"),
+    amount: normalizeMoney(formData.get("amount")),
     description: formData.get("description") || undefined,
     date: formData.get("date"),
     isRecurring: formData.get("isRecurring") === "on",
@@ -450,6 +458,7 @@ export async function updateTransactionAction(
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidateBudgetPages();
   return {};
 }
@@ -465,6 +474,7 @@ export async function deleteTransactionAction(transactionId: string): Promise<Ac
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidateBudgetPages();
   return {};
 }

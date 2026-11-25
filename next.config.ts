@@ -1,6 +1,7 @@
 import path from "node:path";
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs/config";
+import { isHomeCacheEnabled } from "./src/lib/home-cache-flag";
 
 const isDev = process.env.NODE_ENV === "development";
 
@@ -117,6 +118,12 @@ const nextConfig: NextConfig = {
   // full prefetches (this one has none).
   cacheComponents: true,
   partialPrefetching: true,
+  // PERF-32a: "use cache: remote" (Home's batch, src/lib/home-data.ts) goes
+  // to Upstash Redis only while the Home cache is on. Off, there's no
+  // cacheHandlers key at all, so the build is what it was before the flag.
+  ...(isHomeCacheEnabled()
+    ? { cacheHandlers: { remote: path.resolve(__dirname, "src/lib/cache/redis-cache-handler.mjs") } }
+    : {}),
   turbopack: {
     root: path.resolve(__dirname),
   },

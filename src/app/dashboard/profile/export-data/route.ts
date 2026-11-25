@@ -37,6 +37,7 @@ export async function GET() {
     personalPlannedExpenses,
     notes,
     tasks,
+    events,
     transactionSplits,
     recurringTemplateSplits,
     plannedExpenseSplits,
@@ -69,6 +70,16 @@ export async function GET() {
         household: { select: { name: true } },
         assignedToMember: { select: { userId: true } },
         completedByMember: { select: { userId: true } },
+      },
+      orderBy: { createdAt: "asc" },
+    }),
+    // GAP-35: calendar events that are for this user or that they added.
+    prisma.householdEvent.findMany({
+      where: { OR: [{ forMember: mine }, { createdByMember: mine }] },
+      include: {
+        household: { select: { name: true } },
+        forMember: { select: { userId: true } },
+        createdByMember: { select: { userId: true } },
       },
       orderBy: { createdAt: "asc" },
     }),
@@ -238,6 +249,20 @@ export async function GET() {
       recurrenceIntervalDays: task.recurrenceIntervalDays,
       dueDate: task.dueDate,
       createdAt: task.createdAt,
+    })),
+    // GAP-35: calendar events for this user or added by them. Who else an
+    // event is for isn't this user's data, so it's a flag, not a name.
+    householdEvents: events.map((event) => ({
+      householdName: event.household.name,
+      title: event.title,
+      date: event.date,
+      startTime: event.startTime,
+      endTime: event.endTime,
+      notes: event.notes,
+      recurrence: event.recurrence,
+      forMe: event.forMember?.userId === userId,
+      addedByMe: event.createdByMember?.userId === userId,
+      createdAt: event.createdAt,
     })),
     // This user's share of split household bills, with the bill it belongs
     // to so the amounts mean something. Other members' shares stay out.

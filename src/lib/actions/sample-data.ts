@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { buildSampleData } from "@/lib/sample-data";
+import { invalidateHome } from "@/lib/household-cache";
 
 // UX-136: "Try with sample data" / "Clear sample data" on the overview. See
 // src/lib/sample-data.ts for what is seeded and how it is tagged. Both are
@@ -69,6 +70,7 @@ export async function seedSampleDataAction(): Promise<void> {
     prisma.householdTask.createMany({ data: data.tasks.map((row) => ({ ...row, householdId })) }),
   ]);
 
+  invalidateHome(household.id);
   revalidateSampleSurfaces();
 }
 
@@ -96,5 +98,6 @@ export async function clearSampleDataAction(): Promise<void> {
     prisma.inventoryItem.deleteMany({ where: { householdId, sample: tagged } }),
   ]);
 
+  invalidateHome(household.id);
   revalidateSampleSurfaces();
 }

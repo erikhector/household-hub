@@ -43,6 +43,7 @@ import {
   type AssignSlot,
 } from "@/app/dashboard/meal-planning/prep-assign";
 import { revalidateAutoAdded, type AutoAddedItem } from "@/lib/shopping/default-list";
+import { invalidateHome } from "@/lib/household-cache";
 
 const MEAL_PLANNING_PATH = "/dashboard/meal-planning";
 
@@ -181,6 +182,7 @@ export async function recordPrepAction(
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath(MEAL_PLANNING_PATH);
   revalidatePath("/dashboard/inventory");
   revalidatePath("/dashboard");
@@ -241,6 +243,7 @@ export async function undoRecordPrepAction(undo: PrepUndo): Promise<ActionState>
   }
   if (refused) return await fail("prepUndoAlreadyPlanned");
 
+  invalidateHome(household.id);
   revalidatePath(MEAL_PLANNING_PATH);
   revalidatePath("/dashboard/inventory");
   revalidatePath("/dashboard");
@@ -277,6 +280,7 @@ export async function assignBatchPortionsAction(input: {
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath(MEAL_PLANNING_PATH);
   revalidatePath("/dashboard");
   return {};
@@ -363,6 +367,7 @@ export async function unassignBatchPortionAction(entryId: string): Promise<Actio
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath(MEAL_PLANNING_PATH);
   revalidatePath("/dashboard");
   return {};
@@ -426,6 +431,7 @@ export async function discardBatchAction(
   }
   if (!snapshot) return await fail("prepBatchNotFound");
 
+  invalidateHome(household.id);
   revalidatePath(MEAL_PLANNING_PATH);
   revalidatePath("/dashboard");
   return { snapshot };
@@ -515,6 +521,7 @@ export async function undoDiscardBatchAction(snapshot: DiscardSnapshot): Promise
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath(MEAL_PLANNING_PATH);
   revalidatePath("/dashboard");
   return {};

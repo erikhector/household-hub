@@ -236,6 +236,17 @@ describe("createInventoryItemAction validation (itemSchema)", () => {
     );
   });
 
+  it("reads a quantity and threshold typed with a decimal comma (UX-30)", async () => {
+    createMock.mockResolvedValue({});
+
+    const result = await createInventoryItemAction({}, formData({ ...validItem, quantity: "12,5", lowStockThreshold: "0,5" }));
+
+    expect(result).toEqual({});
+    expect(createMock).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ quantity: 12.5, lowStockThreshold: 0.5 }) }),
+    );
+  });
+
   it("rejects a negative quantity", async () => {
     const result = await createInventoryItemAction({}, formData({ ...validItem, quantity: "-1" }));
     expect(result.error).toBe("Quantity can't be negative");
@@ -1205,6 +1216,21 @@ describe("remembering a scanned barcode on create (AUTO-6)", () => {
 });
 
 describe("bulkUpdateFieldAction", () => {
+  it("reads a bulk quantity typed with a decimal comma (UX-30), but leaves text fields as typed", async () => {
+    updateManyMock.mockResolvedValue({ count: 1 });
+
+    await bulkUpdateFieldAction(["item-1"], "quantity", "1,5");
+    expect(updateManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ quantity: 1.5 }) }),
+    );
+
+    updateManyMock.mockClear();
+    await bulkUpdateFieldAction(["item-1"], "location", "Shelf 1,5");
+    expect(updateManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ location: "Shelf 1,5" }) }),
+    );
+  });
+
   it("scopes the update to the caller's household (IDOR guard)", async () => {
     updateManyMock.mockResolvedValue({ count: 2 });
 

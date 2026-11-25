@@ -534,9 +534,11 @@ describe("createTransactionAction", () => {
       const fd = formData({ ...base, amount: "10", splitEnabled: "on" });
       fd.append("splitMemberId", "member-1");
       fd.append("splitMemberId", "member-2");
-      fd.append("splitAmount", "4.995");
+      // A cent off either way (typed shares have at most two decimals since
+      // UX-30; three is a format error).
+      fd.append("splitAmount", "4.99");
       fd.append("splitAmount", "5");
-      fd.append("splitPaid", "10.005");
+      fd.append("splitPaid", "10.01");
       fd.append("splitPaid", "");
 
       const result = await createTransactionAction({}, fd);
@@ -606,6 +608,67 @@ describe("createTransactionAction", () => {
         select: { id: true },
       });
     });
+  });
+});
+
+describe("decimal comma (UX-30)", () => {
+  // A Swedish-region iPhone's decimal keypad has only ",", so the amount
+  // and the split's shares arrive as "12,5".
+  it("saves an amount typed with a decimal comma", async () => {
+    categoryFindFirstMock.mockResolvedValue({ id: "cat-1", type: "EXPENSE" });
+    transactionCreateMock.mockResolvedValue({ id: "new-tx" });
+
+    const result = await createTransactionAction(
+      {},
+      formData({ categoryId: "cat-1", amount: "1 234,5", date: "2026-01-15", isRecurring: "" }),
+    );
+
+    expect(result).toEqual(expect.not.objectContaining({ error: expect.anything() }));
+    expect(transactionCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ amount: 1234.5 }) }),
+    );
+  });
+
+  it("reads split shares and payments typed with a decimal comma", async () => {
+    categoryFindFirstMock.mockResolvedValue({ id: "cat-1", type: "EXPENSE" });
+    householdMemberFindManyMock.mockResolvedValue([{ id: "member-1" }, { id: "member-2" }]);
+    transactionCreateMock.mockResolvedValue({});
+    const fd = formData({ categoryId: "cat-1", amount: "12,5", date: "2026-01-15", isRecurring: "", splitEnabled: "on" });
+    fd.append("splitMemberId", "member-1");
+    fd.append("splitMemberId", "member-2");
+    fd.append("splitAmount", "6,25");
+    fd.append("splitAmount", "6,25");
+    fd.append("splitPaid", "12,5");
+    fd.append("splitPaid", "");
+
+    const result = await createTransactionAction({}, fd);
+
+    expect(result).toEqual({});
+    expect(transactionCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          amount: 12.5,
+          splits: {
+            create: [
+              { householdMemberId: "member-1", amountOwed: 6.25, amountPaid: 12.5 },
+              { householdMemberId: "member-2", amountOwed: 6.25, amountPaid: 0 },
+            ],
+          },
+        }),
+      }),
+    );
+  });
+
+  it("turns down an amount with both separators rather than guessing", async () => {
+    categoryFindFirstMock.mockResolvedValue({ id: "cat-1", type: "EXPENSE" });
+
+    const result = await createTransactionAction(
+      {},
+      formData({ categoryId: "cat-1", amount: "1.234,5", date: "2026-01-15", isRecurring: "" }),
+    );
+
+    expect(result.error).toBeTruthy();
+    expect(transactionCreateMock).not.toHaveBeenCalled();
   });
 });
 
@@ -819,5 +882,55 @@ describe("deleteTransactionAction", () => {
     expect(transactionDeleteManyMock).toHaveBeenCalledWith({
       where: { id: "someone-elses-transaction", householdId: "household-1" },
     });
+  });
+});
+
+// UX-30: money with more than two decimals ("1,200", twelve hundred to an
+// English-locale user) is turned down rather than saved as 1.2.
+describe("typed transaction amounts (UX-30)", () => {
+  const base = { categoryId: "cat-1", date: "2026-01-15", isRecurring: "" };
+
+  beforeEach(() => {
+    categoryFindFirstMock.mockResolvedValue({ id: "cat-1", type: "EXPENSE" });
+    transactionCreateMock.mockResolvedValue({ id: "new-tx" });
+  });
+
+  it.each(["0,00", "-12,5", "abc", "1.234,5", "1e3", "1,200"])("create turns down %j", async (amount) => {
+    const result = await createTransactionAction({}, formData({ ...base, amount }));
+    expect(result.error).toBeTruthy();
+    expect(transactionCreateMock).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["12,5", 12.5],
+    ["12,50", 12.5],
+    ["1 200,50", 1200.5],
+  ])("create saves %j as %d", async (amount, expected) => {
+    const result = await createTransactionAction({}, formData({ ...base, amount }));
+    expect(result.error).toBeUndefined();
+    expect(transactionCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ amount: expected }) }),
+    );
+  });
+
+  it("turns down a split share or payment of 1,200 as a format error", async () => {
+    householdMemberFindManyMock.mockResolvedValue([{ id: "member-1" }, { id: "member-2" }]);
+    for (const [share, paid] of [
+      ["1,200", "0"],
+      ["1200", "1,200"],
+    ]) {
+      const fd = formData({ ...base, amount: "1200", splitEnabled: "on" });
+      fd.append("splitMemberId", "member-1");
+      fd.append("splitMemberId", "member-2");
+      fd.append("splitAmount", share);
+      fd.append("splitAmount", "0");
+      fd.append("splitPaid", paid);
+      fd.append("splitPaid", "");
+
+      const result = await createTransactionAction({}, fd);
+
+      expect(result.error).toBe("Write the amount with at most two decimals and no thousands separator, like 1200 or 1200.50");
+    }
+    expect(transactionCreateMock).not.toHaveBeenCalled();
   });
 });

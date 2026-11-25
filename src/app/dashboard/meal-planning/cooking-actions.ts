@@ -33,6 +33,7 @@ import { defaultBatchExpiry } from "@/app/dashboard/meal-planning/prepared-batch
 import { findSessionMemberId } from "@/app/dashboard/meal-planning/prep-assign";
 import { clearCookSoon } from "@/app/dashboard/meal-planning/cook-soon";
 import { defaultLineEstimate } from "@/lib/shopping/unit-price";
+import { invalidateHome } from "@/lib/household-cache";
 
 const MEAL_PLANNING_PATH = "/dashboard/meal-planning";
 
@@ -226,6 +227,7 @@ export async function addMissingIngredientsToShoppingListAction(
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath(MEAL_PLANNING_PATH);
   revalidatePath("/dashboard/shopping-list");
   revalidatePath(`/dashboard/shopping-list/${listId}`);
@@ -357,6 +359,7 @@ export async function markMealEntryCookedAction(
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath(MEAL_PLANNING_PATH);
   revalidatePath("/dashboard/inventory");
   revalidatePath("/dashboard");
@@ -429,6 +432,7 @@ export async function undoMarkMealEntryCookedAction(
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath(MEAL_PLANNING_PATH);
   revalidatePath("/dashboard/inventory");
   revalidatePath("/dashboard");

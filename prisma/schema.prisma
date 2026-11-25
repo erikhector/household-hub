@@ -244,6 +244,8 @@ model Household {
   notifications      Notification[]
   tasks              HouseholdTask[]
   notes              HouseholdNote[]
+  // GAP-35: the household calendar's own events (appointments, birthdays).
+  events             HouseholdEvent[]
   weeklyDigestSends  WeeklyDigestSend[]
   duplicateDismissals InventoryDuplicateDismissal[]
   preparedBatches    PreparedBatch[]
@@ -273,6 +275,9 @@ model HouseholdMember {
   assignedTasks           HouseholdTask[]          @relation("TaskAssignedTo")
   completedTasks          HouseholdTask[]          @relation("TaskCompletedBy")
   authoredNotes           HouseholdNote[]
+  // GAP-35: events this member is the one "for", and the ones they added.
+  eventsFor               HouseholdEvent[]         @relation("EventFor")
+  eventsCreated           HouseholdEvent[]         @relation("EventCreatedBy")
   settlementsPaid         MemberSettlement[]       @relation("SettlementFrom")
   settlementsReceived     MemberSettlement[]       @relation("SettlementTo")
   cookedBatches           PreparedBatch[]
@@ -1839,6 +1844,41 @@ model HouseholdNote {
   authorMember HouseholdMember? @relation(fields: [authorMemberId], references: [id], onDelete: SetNull)
 
   @@index([householdId])
+}
+
+// GAP-35: the household calendar, for what isn't a meal or a bill:
+// appointments, birthdays, school events. Everyone in the household sees
+// every event (no per-member visibility). `date` is a calendar day
+// (`@db.Date`, UTC midnight like HouseholdTask.dueDate); the optional
+// start/end are wall-clock "HH:MM" strings with no zone, so "dentist at
+// 14:30" stays 14:30 wherever it's read, which is what the .ics feed's
+// floating times say too. No start time means all day. `recurrence` null
+// is a one-off; MONTHLY repeats on `date`'s day of the month (clamped to a
+// short month's last day) and YEARLY on its day and month (29 February
+// falls on the 28th in other years). See src/lib/household-events.ts.
+// `forMemberId` and `createdByMemberId` use onDelete: SetNull, the same
+// tradeoff as HouseholdNote.authorMemberId: a member leaving keeps the
+// household's events.
+model HouseholdEvent {
+  id                String               @id @default(cuid())
+  householdId       String
+  title             String
+  date              DateTime             @db.Date
+  startTime         String?
+  endTime           String?
+  notes             String?
+  forMemberId       String?
+  createdByMemberId String?
+  recurrence        RecurrenceFrequency?
+  createdAt         DateTime             @default(now())
+
+  household       Household        @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  forMember       HouseholdMember? @relation("EventFor", fields: [forMemberId], references: [id], onDelete: SetNull)
+  createdByMember HouseholdMember? @relation("EventCreatedBy", fields: [createdByMemberId], references: [id], onDelete: SetNull)
+
+  @@index([householdId])
+  @@index([forMemberId])
+  @@index([createdByMemberId])
 }
 
 // GAP-27: one row per weekly digest email actually handed to Resend, keyed by

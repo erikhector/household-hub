@@ -1,10 +1,10 @@
 import { SampleDataCard } from "@/components/dashboard/sample-data-card";
-import { loadSampleDataState } from "@/lib/sample-data-state";
 import { GettingStarted, type GettingStartedStep } from "@/components/dashboard/getting-started";
 import { TodayBlock, type TodayMissing, type TodayTask } from "@/components/dashboard/today-block";
 import { ShoppingPantryCard } from "@/components/dashboard/shopping-pantry-card";
 import { SafeToSpendTiles } from "@/components/dashboard/safe-to-spend-tiles";
 import { HomeAddToList } from "@/components/dashboard/home-add-to-list";
+import { ComingUpCard } from "@/components/dashboard/coming-up-card";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import { isHouseholdStepSkipped } from "@/lib/household-step-skip";
@@ -17,12 +17,10 @@ import { getPersonalBudgetStartDay } from "@/lib/personal-budget-period";
 import { periodBounds, periodKeyOf } from "@/lib/budget-date-utils";
 import { isTaskOpen } from "@/app/dashboard/tasks/recurrence";
 import { daysOverdue, getTaskDueDay, sortByUrgency, todayDayNumber } from "@/app/dashboard/tasks/task-due";
-import { loadHouseholdSafeToSpend } from "@/lib/household-safe-to-spend";
 import { createMoneyFormat } from "@/lib/currency";
 import { withCommonUnits } from "@/lib/units";
 import { loadIncomingByItem } from "@/lib/incoming-stock";
-import { parseDateKey, toDateKey } from "@/app/dashboard/meal-planning/date-utils";
-import { loadMissingIngredients } from "@/app/dashboard/meal-planning/missing-for-range";
+import { loadHomeData } from "@/lib/home-data";
 import { COOK_PARAM } from "@/app/dashboard/meal-planning/meal-types";
 import { SETUP_FULL_CARD_MAX_DONE, pickTargetList, pickUseSoon, summarizePantry } from "@/lib/home-summary";
 import { Greeting } from "@/components/dashboard/greeting";
@@ -30,7 +28,6 @@ import { WelcomeToast } from "@/components/dashboard/welcome-toast";
 import { firstName } from "@/lib/greeting";
 import { PageTitle } from "@/components/dashboard/page-title";
 import { LazyDialogErrorMessage } from "@/components/ui/lazy-dialog";
-import { getActiveBatches } from "@/app/dashboard/meal-planning/prepared-batches";
 
 // UX-70: how many tasks the Today block lists before "N more".
 const TODAY_TASK_LIMIT = 5;
@@ -38,8 +35,6 @@ const TODAY_TASK_LIMIT = 5;
 const USE_SOON_LIMIT = 5;
 // UX-HOME-3: how many missing ingredients the Today line names before "N more".
 const MISSING_NAMES_LIMIT = 3;
-
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 // Home (UX-HOME-1..4, the Oct 2026 redesign; REQUIREMENTS.md "Home"): the
 // screen that answers "what needs me now?" in about one phone screen. Three
@@ -60,95 +55,37 @@ export default async function DashboardOverviewPage(props: PageProps<"/dashboard
   const showWelcome = searchParams.welcome === "1";
 
   const now = new Date();
-  // Planner dates are UTC midnights (date-utils.ts), so today is the UTC
-  // date key, like the planner's own "today".
-  const plannerToday = parseDateKey(toDateKey(now));
 
   const [
     user,
-    todayTasks,
-    items,
-    activeLists,
+    {
+      todayTasks,
+      items,
+      activeLists,
+      shoppingListCount,
+      householdBudget,
+      tonightEntries,
+      tonightMissing,
+      plannedMealCount,
+      prepBatches,
+      sampleState,
+    },
     memberCount,
-    shoppingListCount,
-    householdBudget,
     personalBudgetCategoryCount,
     personalPosition,
-    tonightEntries,
-    tonightMissing,
     householdStepSkipped,
     gettingStartedDismissed,
     gettingStartedCelebrated,
-    plannedMealCount,
-    prepBatches,
-    sampleState,
     incomingByItem,
   ] = await Promise.all([
     prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { displayName: true } }),
-    // UX-70: the tasks that need *you*: yours and the unassigned ones
-    // (nobody's, so anybody's). Filtered by the assignee's user rather than a
-    // membership id looked up first, so it runs in parallel with everything
-    // else instead of after it. A completed task can only reopen if it
-    // recurs, so the rest of the done ones are left in the database.
-    prisma.householdTask.findMany({
-      where: {
-        householdId: household.id,
-        OR: [{ assignedToMemberId: null }, { assignedToMember: { userId } }],
-        AND: [{ OR: [{ completedAt: null }, { recurrenceIntervalDays: { not: null } }] }],
-      },
-      select: {
-        id: true,
-        title: true,
-        assignedToMemberId: true,
-        completedAt: true,
-        recurrenceIntervalDays: true,
-        recurrenceAnchorAt: true,
-        skippedUntil: true,
-        dueDate: true,
-        createdAt: true,
-      },
-      // MAINT-114: the tasks page's order, ties and all (see its query).
-      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
-    }),
-    // The columns the stock and expiry summaries read, plus what the "Add
-    // to list" dialog offers as names and units — not every inventory
-    // column for every item.
-    prisma.inventoryItem.findMany({
-      where: { householdId: household.id },
-      select: {
-        id: true,
-        name: true,
-        category: true,
-        unit: true,
-        quantity: true,
-        everStocked: true,
-        lowStockThreshold: true,
-        expiresAt: true,
-      },
-    }),
-    prisma.shoppingList.findMany({
-      where: { householdId: household.id, status: "ACTIVE" },
-      // The rows still to buy: their count for the list row, which
-      // inventory items they restock for the "already on the list" line, and
-      // their names, so a missing ingredient already added isn't offered again.
-      select: {
-        id: true,
-        name: true,
-        isDefault: true,
-        createdAt: true,
-        items: { where: { purchased: false }, select: { inventoryItemId: true, name: true } },
-      },
-    }),
+    // The household's tasks, pantry, lists, budget and meals in one call,
+    // cached across requests when the Home cache is on (PERF-32a). What
+    // follows stays per request: see src/lib/home-data.ts for why each does.
+    loadHomeData(household, userId, now),
     prisma.householdMember.count({
       where: { householdId: household.id, userId: { not: userId } },
     }),
-    prisma.shoppingList.count({ where: { householdId: household.id } }),
-    // The household's safe to spend only exists once the budget has
-    // categories, so the count gates it, inside this one parallel slot.
-    prisma.budgetCategory.count({ where: { householdId: household.id } }).then(async (count) => ({
-      count,
-      safeToSpend: count > 0 ? await loadHouseholdSafeToSpend(household.id, now, household.budgetMonthStartDay) : null,
-    })),
     prisma.personalBudgetCategory.count({ where: { userId } }),
     // The exact same number Personal Budget shows for this month — shared
     // bills, what's owed to household members, due payments and savings
@@ -166,27 +103,9 @@ export default async function DashboardOverviewPage(props: PageProps<"/dashboard
         sharedLabel: dict.personalBudget.shared.sharedBadge,
       });
     }),
-    // Tonight's dinner. The recipe's steps decide whether it has a cook
-    // mode to start.
-    prisma.mealPlanEntry.findMany({
-      where: { mealPlan: { householdId: household.id }, date: plannerToday, mealType: "DINNER" },
-      select: {
-        freeformName: true,
-        portions: true,
-        recipe: { select: { id: true, name: true, instructions: true } },
-      },
-    }),
-    // UX-HOME-3: what tonight's recipes need that the pantry hasn't got:
-    // the planner's own "Add missing" calculation, for one day's dinner.
-    // With no recipe planned it stops after one small query.
-    loadMissingIngredients(household.id, { from: plannerToday, to: new Date(plannerToday.getTime() + DAY_MS) }, "DINNER"),
     isHouseholdStepSkipped(household.id),
     isGettingStartedDismissed(household.id),
     isGettingStartedCelebrated(household.id),
-    // UX-69: the "Plan this week's meals" step is done once anything is planned.
-    prisma.mealPlanEntry.count({ where: { mealPlan: { householdId: household.id } } }),
-    getActiveBatches(household.id),
-    loadSampleDataState(household.id),
     // Stock ticked off but not put away yet: "Add N" counts it as covered,
     // as the action behind it does.
     loadIncomingByItem(prisma, household.id, now),
@@ -419,6 +338,16 @@ export default async function DashboardOverviewPage(props: PageProps<"/dashboard
                 saveFailedToast: dict.tasks.saveFailedToast,
                 overdueLabel: dict.tasks.overdueLabel,
               }}
+            />
+            {/* GAP-35: the next few calendar events, or nothing. One small
+                indexed query of its own, rendered with the page rather than
+                streamed in after it, so the cards below never jump (M8). */}
+            <ComingUpCard
+              householdId={household.id}
+              today={today}
+              locale={locale}
+              dict={dict.dashboard.comingUp}
+              calendarDict={dict.calendar}
             />
           </div>
           <div className="flex min-w-0 flex-col gap-6">

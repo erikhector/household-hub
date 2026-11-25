@@ -93,7 +93,7 @@ easy for AI coding agents to work in correctly:
   and that the server's `register()` passes them.
 - **Cache Components is on, with nothing cached yet (PERF-31).**
   `next.config.ts` sets `cacheComponents` and `partialPrefetching`, the
-  prerequisite for `"use cache"` (PERF-32 on). The five route handlers
+  prerequisite for `"use cache"` (PERF-32a on). The five route handlers
   (`/api/health`, both crons, the digest unsubscribe redirect and the
   calendar feed) dropped `dynamic = "force-dynamic"`, which the flag
   rejects; they read the request or the DB, so they stay uncached. The root
@@ -113,6 +113,54 @@ easy for AI coding agents to work in correctly:
   make the whole document request-bound), so a client that runs no
   JavaScript sees `lang="en"`. `e2e/smoke.spec.ts` and `public.spec.ts`
   assert `html[lang]` in both languages.
+- **Home's household data can be cached, behind a flag that's off
+  (PERF-32a).** `HOME_CACHE=1`, with both Upstash variables set
+  (`src/lib/home-cache-flag.ts`), turns it on; anything else, the default
+  included, leaves Home and every action exactly as before. On:
+  - `src/lib/home-data.ts` holds the household half of Home's parallel
+    batch (tasks, items, active lists, list count, household budget and
+    safe to spend, tonight's dinner and missing ingredients, planned-meal
+    count, prep batches, sample-data state) and runs it through
+    `"use cache: remote"`, keyed by household, user, UTC day and budget
+    period, tagged `householdTag(id, "home")`, with `cacheLife` stale 30 s,
+    revalidate 5 min, expire 1 h. The page keeps the rest per request: the
+    three cookie-backed setup flags, the user's name and personal budget,
+    the member count, incoming stock, and the Coming up card's events
+    (GAP-35's `ComingUpCard` runs its own small query, so the calendar's
+    actions need no invalidation). `HOME_CACHE_TIMING=1` logs the
+    batch's time (`home batch`, cache on or off, no ids) for PERF-32b's
+    measurement.
+  - `householdTag(id, area)` (`src/lib/household-cache.ts`) builds every
+    tag as `household:<id>:<area>`, so none is unscoped.
+  - Every Server Action that writes data in that batch (tasks, inventory and
+    item conversions, shopping lists and items, the share-link tick,
+    receipts, meal planning, prep, budget categories, transactions,
+    recurring items, planned expenses, barcode stock, sample data) calls
+    `invalidateHome(householdId)`, `updateTag` on that tag, next to its
+    `revalidatePath` calls. A no-op while the flag is off.
+  - `next.config.ts` registers `src/lib/cache/redis-cache-handler.mjs` as
+    `cacheHandlers.remote`, on the rate limiter's Upstash Redis. Reads
+    (`get`, `refreshTags`) time out after 60 ms, the client never retries,
+    and any error is a miss, never a slow or broken page. Invalidations go
+    to a Redis sorted set, which `refreshTags` reads once per request, so
+    one instance's `updateTag` reaches the others; while that read is
+    failing, every read misses without asking Redis. It checks soft (path)
+    tags itself, so `revalidatePath` clears entries too, for every
+    household (a path tag isn't scoped). With `HOME_CACHE_TIMING=1` each
+    read logs its outcome (hit, miss, invalidated, unsynced, error) with
+    running counts, no keys or ids. Entries live at most 7 days, as long as an invalidation is
+    remembered.
+  - Writes outside a Server Action don't clear it: the crons, the
+    background AI category fallback and anything run straight against
+    Postgres. The 5 min revalidate bounds how long Home can show those
+    stale. PERF-36 adds `revalidateTag` to the crons.
+  - Tests: `household-cache.test.ts` (tag and flag), `home-data.test.ts`
+    (which path runs, what it tags, the keys), `redis-cache-handler.test.ts`
+    (hit, miss, timeout, refreshTags across instances, soft tags) and
+    `e2e/home-cache.spec.ts` (a task renamed on Tasks and ticked on Home,
+    and an item renamed on its page, show on Home at once). DEPLOYMENT.md,
+    "Home cache (PERF-32)", says how to turn it on and what to measure
+    (PERF-32b).
 - **Recently visited pages stay in the browser for 15 s (PERF-21).**
   `next.config.ts` sets `experimental.staleTimes.dynamic` to 15 (Next 16's
   default is 0), so switching back to a tab seen seconds ago reuses its
@@ -122,8 +170,9 @@ easy for AI coding agents to work in correctly:
   to appear on a client navigation (a reload always shows it). `static`
   keeps its 5 min default. The flag is experimental in Next; reverting is
   deleting the block. It still applies with Cache Components on (PERF-31):
-  nothing uses `cacheLife` yet, so there is no `stale` value to conflict
-  with it; once routes do, `cacheLife`'s `stale` replaces it per route. `e2e/flows.spec.ts`
+  only Home's cached batch uses `cacheLife`, and only with PERF-32a's flag
+  on (stale 30 s, Next's minimum), so otherwise there is no `stale` value to
+  conflict with it; once routes do, `cacheLife`'s `stale` replaces it per route. `e2e/flows.spec.ts`
   ("an edit still shows after navigating away and back") covers it.
 - **Dialogs load on first use (PERF-26).** A dialog is most of a heavy
   page's unused JS, so a page declares each one's chunk with
@@ -389,7 +438,45 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
   `datedName(prefix, locale)` (`src/lib/i18n/format.ts`), e.g.
   "Inköpslista — 5 okt. 2026"; the shopping-list and receipt dialogs'
   name placeholders use the same helper so they match what gets saved.
-  Number *inputs* stay `type="number"` with dot-decimal values.
+- **Money and quantity fields take a decimal comma (UX-30)**: a
+  Swedish-region iPhone's decimal keypad offers only ",", and WebKit
+  submitted `""` for "12,5" in a `type="number"` field, losing the
+  amount. So every money and quantity field (budget amounts, split
+  shares and payments, limits and goals, settlements, shopping
+  quantities and prices, receipt lines, inventory quantities and
+  thresholds, recipe ingredient, component and nutrition amounts, a
+  task's "Amount each time", cooked quantities) is a `DecimalInput`
+  (`src/components/shared/decimal-input.tsx`): `type="text"
+  inputMode="decimal"` with `DECIMAL_PATTERN`, still the decimal keypad
+  and still 16 px. One parser reads them, `src/lib/decimal-input.ts`:
+  - `normalizeDecimal` runs on the server before Zod (on the FormData
+    value, or in the limit/goal preprocess), and `parseDecimal` in the
+    client's previews (split remainders, the "Added 12,50 kr" toast,
+    live totals) and in the JSON the bulk and scan dialogs send, so a
+    preview never disagrees with what saves.
+  - Whitespace is dropped, including sv-SE's no-break thousands spaces
+    ("1 234,5" is 1234.5). One "," with no "." is the decimal separator.
+    Both separators together, or two commas ("1,234.5", "1.234,5",
+    "1,2,3"), are not a number rather than a guessed thousands
+    separator, so "1,234" is 1.234. Anything else that isn't a plain
+    decimal ("abc", "0x10", "1e3") is not a number either; "" stays ""
+    so each schema's own empty rule still applies.
+  - Money is stricter (`normalizeMoney` / `parseMoney`): a value with
+    more than two decimals is not a number, so "1,200" (twelve hundred to
+    an English-locale user) is turned down with "Write the amount with at
+    most two decimals and no thousands separator" (`amountFormat`) rather
+    than saved as 1.2. Every amount, split share and payment, settlement,
+    limit, goal and shopping price uses it, on the server and in the
+    client previews; quantities keep the plain reader (1,250 kg).
+  - The receipt dialogs (register receipt, receipt scan) name a line
+    whose typed price or quantity doesn't read instead of leaving it out
+    of the total; only a line with no price is skipped.
+  - The stock check reads its count with `parseDecimal` too.
+  - A text field has no `min`/`max`/`step`, so every range rule is the
+    action's Zod schema (all of them already checked it).
+  - Whole-number fields (portions, servings, leftover portions,
+    calories, day of month, "use within N days") stay `type="number"
+    inputMode="numeric"`: the digit pad has no separator to get wrong.
 - **Units are shown in the viewer's language (UX-44)**: stored units are
   free text ("pcs", "tbsp"), but every place that displays one goes
   through `unitLabel(unit, labels)` (`src/lib/units.ts`), which looks the
@@ -4590,6 +4677,8 @@ shape is deliberate:
   wrote; `householdTasks` assigned to or last completed by them
   (`assignedToMe`/`completedByMe`, no rotation list, since a task keeps only
   its latest completion this is all the task history there is);
+  `householdEvents` (GAP-35) that are for them or that they added
+  (`forMe`/`addedByMe`, never another member's name);
   `transactionSplits`, `recurringTemplateSplits` and `plannedExpenseSplits`
   (their share of a split bill plus the bill's description/name, amount and
   date or due date);
@@ -7672,7 +7761,8 @@ co-managers, not kids earning rewards.
   `task-anchor-day.spec.ts` covers the edit (it waits for the tick's
   POST to answer before it reloads, since the tick is optimistic, MAINT-52). "Local" is the
   visitor's browser zone: `TimeZoneCookie` (dashboard layout) keeps the
-  `time_zone` cookie equal to it and refreshes once when it changes;
+  `time_zone` cookie equal to it and refreshes once when it changes (on
+  Home, Tasks and, since GAP-35, Calendar, the pages that read it);
   `getTimeZone()` (`src/lib/get-time-zone.ts`) reads it, falling back to
   UTC before the first visit has set it. `recurring-task-day.spec.ts`
   covers it (the day rolling over is back-dated in Postgres, since the
@@ -7962,8 +8052,8 @@ from a pure list/calendar app; this is the minimal version of it.
 
 ## Calendar feed
 
-GAP-3. A read-only iCalendar (`.ics`) feed of the household's meal plan and
-monthly bill due dates, so the plan shows up in the calendar app people
+GAP-3. A read-only iCalendar (`.ics`) feed of the household's meal plan,
+monthly bill due dates and calendar events (GAP-35), so the plan shows up in the calendar app people
 already have open (Cozi's core differentiator). Calendar apps subscribe by
 URL and re-fetch on their own; nothing is ever written back.
 
@@ -7989,7 +8079,8 @@ URL and re-fetch on their own; nothing is ever written back.
   feed on again gives a new link.
 - **UI** (`CalendarFeedSetting`, `src/components/household/calendar-feed-setting.tsx`):
   a card on the Household page that always states, before and after turning
-  it on, that anyone with the link can see planned meals and bill names
+  it on, that anyone with the link can see planned meals, calendar events
+  and bill names
   without logging in and that amounts are never included. Once on, every
   member sees the URL with a copy button and an "Open in calendar app" link
   (the same URL with the `webcal://` scheme, which opens the subscribe
@@ -8014,7 +8105,7 @@ URL and re-fetch on their own; nothing is ever written back.
   unknown value falls back to English.
 - **What's in it** (`buildCalendarFeedEvents`, `src/lib/calendar-feed.ts`):
   a window from 30 days back to 183 days ahead (`calendarFeedWindow`), as
-  all-day events.
+  all-day events (household events can also have a time and a repeat).
   - Meal-plan entries, titled "Dinner: Lasagna" (slot label from
     `mealPlanning.mealType*`, then the recipe name, else the freeform name;
     just the slot when a deleted recipe left neither). Ordered breakfast →
@@ -8030,6 +8121,16 @@ URL and re-fetch on their own; nothing is ever written back.
     clamps a day past a short month's end to its last day (the 31st becomes
     30 April, 28/29 February). Income and savings templates, and the
     personal budget, aren't included.
+  - Household calendar events (GAP-35, see "Household calendar"), titled
+    with their own name, their notes as the `DESCRIPTION`, never the member
+    they're for. A one-off is included when it's inside the window; a
+    repeat is one event with an `RRULE` (`eventRrule`), included once it
+    has started by the window's end, so the calendar app carries it past
+    the window. An event with a start time is written as a floating local
+    `DTSTART` (and `DTEND` when it has an end time): no `Z` and no `TZID`,
+    so "dentist at 14:30" reads 14:30 in every subscriber's zone. UID
+    `event-<id>@squirrel-calendar-feed`. Capped at 2000 rows. Within a day
+    they sort after meals and bills, all-day first, then by start time.
   - **No amounts**, recipes, notes-board notes or member names. The link
     works without a login and gets pasted into third-party calendar
     services, so the feed carries only what a calendar entry needs. A
@@ -8044,11 +8145,93 @@ URL and re-fetch on their own; nothing is ever written back.
   (counted in UTF-8 bytes and never splitting a multi-byte character), TEXT
   values escaped (`\`, `;`, `,`, line breaks as `\n`, other control
   characters dropped), `DTSTAMP` in UTC, `DTSTART;VALUE=DATE` plus an
-  exclusive next-day `DTEND`, and `TRANSP:TRANSPARENT` so a planned dinner
+  exclusive next-day `DTEND` (or, for a timed household event, a floating
+  `DTSTART`/`DTEND` date-time and an optional `RRULE`), and
+  `TRANSP:TRANSPARENT` so a planned dinner, or one member's appointment,
   doesn't mark anyone busy. Dates are read in UTC because meal dates are
   UTC-midnight days and a DATE value has no time zone. The calendar is
   named "<household> (Squirrel)" and hints a 6-hour refresh
   (`REFRESH-INTERVAL` and `X-PUBLISHED-TTL`).
+
+## Household calendar
+
+GAP-35. A shared calendar for what isn't a meal or a bill: appointments,
+birthdays, school events (Cozi's core feature). Everyone in the household
+sees every event; there is no per-member visibility. Reminders and push
+for events are not built yet (BACKLOG.md, GAP-88).
+
+- **Model**: `HouseholdEvent` (migration `20261125173334_household_event`):
+  `householdId` (`onDelete: Cascade`), `title`, `date` (`@db.Date`, a UTC
+  midnight like `HouseholdTask.dueDate`), optional `startTime` and
+  `endTime` as wall-clock `"HH:MM"` strings with no zone (no start time
+  means all day), optional `notes`, optional `forMemberId` (who it's for)
+  and `createdByMemberId`, both `onDelete: SetNull` so a member leaving
+  keeps the household's events, and `recurrence` (the existing
+  `RecurrenceFrequency` enum, null for a one-off; WEEKLY, MONTHLY, YEARLY).
+- **Recurrence** (`src/lib/household-events.ts`, pure, unit-tested):
+  `expandEventOccurrences` lists the days an event falls on in a window.
+  A repeat starts on its own date, never before. MONTHLY keeps its day of
+  the month and clamps it to a short month's last day without drifting
+  (31 January, 28 February, 31 March); YEARLY keeps day and month, and a
+  29 February birthday falls on the 28th in other years. `eventRrule`
+  writes the RRULE that lands on the same days, using
+  `BYMONTHDAY=28,…,<day>;BYSETPOS=-1` for a day past the 28th, since a
+  plain `FREQ=MONTHLY` on the 31st skips every shorter month. `buildAgenda`
+  groups occurrences by day: all-day first, then by start time, then title.
+- **Actions** (`src/app/dashboard/calendar/actions.ts`): `createEventAction`
+  and `updateEventAction` (bound to the event's id) are form actions;
+  `deleteEventAction` is a click action. All go through
+  `requireHousehold()`; update is an `updateMany` and delete a `deleteMany`
+  on `{ id, householdId }`, so another household's id changes nothing
+  (update answers `eventNotFound`). Validation: a title of 1–120
+  characters, a real date (`eventDateInvalid`), times as 24-hour `HH:MM`
+  (`eventTimeInvalid`), no end without a start (`eventEndNeedsStart`), an
+  end after the start (`eventEndBeforeStart`), notes trimmed and cut at
+  500, and a "for" member that belongs to the household (`memberNotFound`).
+  Who added it is the caller's member id, from the session. Any member may
+  edit or delete any event, as on the notes board. Each action revalidates
+  the calendar and Home.
+- **Page** (`/dashboard/calendar`, `src/app/dashboard/calendar/page.tsx`):
+  an agenda of the next 60 days (`AGENDA_DAYS`) from today in the user's
+  time zone (the `time_zone` cookie, which this page reads and refreshes
+  on like Tasks), one group per day with anything on it ("Today, Thursday
+  3 December", "Tomorrow, …"; the year only when it differs), repeats
+  expanded. A row leads with its time ("All day", or the start, or
+  start–end, in the locale's clock), then the title, and under it who it's
+  for, a repeat badge and one line of notes. It is the task list's row:
+  the title opens the edit sheet (which has Delete), a left swipe shows
+  Edit and Delete (`SwipeRow`), and from `sm` the two are icons. Delete
+  takes every day of the event out at once with an Undo toast
+  (`startUndoableDelete`); editing a repeat edits the whole series, and
+  its sheet shows the series' first date. "Add event" is the page's
+  `PrimaryAction`; with no events at all the mascot empty state holds it
+  instead, and with events but none in the window the page says "Nothing
+  in the next 60 days." Data loading is `loadUpcomingEvents`
+  (`src/app/dashboard/calendar/upcoming.ts`): one query for one-offs in
+  the window and repeats started by its end.
+- **Sheet** (`src/components/calendar/event-form-dialog.tsx`): name, date
+  (today by default), Starts and Ends (`type="time"`, side by side; "Make
+  all day" clears both), Repeats (doesn't repeat, every week, month or
+  year), For (Everyone or a member; only shown with more than one member)
+  and Notes. An empty name or date is worded under the field
+  (`useRequiredFields`); a dropped request shows the save-failed line
+  (`guardFormAction`) and keeps what was typed.
+- **Navigation**: "Calendar" (`CalendarClock`) after Tasks in the sidebar,
+  the phone's "More" menu and the command palette. The bottom bar's four
+  slots stay the hands-on Home, Inventory, Shopping, Meals.
+- **Home**: a "Coming up" card (`src/components/dashboard/coming-up-card.tsx`)
+  under Today lists the next three events in the coming 7 days, each a link
+  to the calendar ("Tomorrow, Fri, Dec 4 · 2:30 PM"), with "Open calendar". With none
+  it renders nothing, so a household that doesn't use the calendar never
+  sees an empty card. It is rendered with the page, not streamed in, so
+  the cards below don't jump.
+- **Calendar feed**: events are the feed's third source; see "Calendar
+  feed".
+- Tests: `src/lib/household-events.test.ts`,
+  `src/app/dashboard/calendar/actions.test.ts`,
+  `src/app/dashboard/calendar/upcoming.test.ts`, the feed's tests, and
+  `e2e/calendar.spec.ts` (add, see it today and on Home, edit into a weekly
+  repeat, delete with Undo).
 
 ## Theming
 
@@ -8541,11 +8724,15 @@ components directly.
 - **In between (640 px wide and up, but a tablet or a phone in landscape;
   UX-7)**: these get the desktop shell, so it has to hold at 810×1080 and
   863×393 too. The content column next to the sidebar is `min-w-0`, so a
-  wide row wraps instead of widening the page. The sidebar is `h-dvh`; on a
-  short screen (the `short:` variant, `max-height: 500px`, defined in
-  `globals.css`) the whole aside scrolls and the nav list takes its
+  wide row wraps instead of widening the page. The sidebar is `h-dvh`, and
+  the whole aside scrolls at every height while the nav list takes its
   natural height, instead of the nav getting a sliver of inner scroll
-  between the household switcher and the footer. The aside pads
+  between the household switcher and the footer. The footer rows are
+  `sticky bottom-0` where they fit, and scroll with the rest on a short
+  screen (the `short:` variant, `max-height: 500px`, defined in
+  `globals.css`). Until GAP-35 only `short:` screens scrolled the aside;
+  the calendar's tenth section made the nav list too tall for a 720 px
+  laptop as well. The aside pads
   `env(safe-area-inset-left)` (content-box, so `w-56`/`w-16` stay the
   content width) and its footer the bottom inset; `main` pads the right
   inset, and the left one on phones where there's no sidebar. The

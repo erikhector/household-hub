@@ -221,3 +221,31 @@ describe("deletePersonalPlannedExpenseAction", () => {
     expect(plannedDeleteManyMock).not.toHaveBeenCalled();
   });
 });
+
+// UX-30: the amount field is free text. Money with more than two decimals
+// ("1,200", twelve hundred to an English-locale user) is turned down rather
+// than saved as 1.2; a decimal comma and thousands spaces are read.
+describe("typed amounts (UX-30)", () => {
+  const rejected = ["0,00", "-12,5", "abc", "1.234,5", "1e3", "1,200"];
+  const accepted: [string, number][] = [
+    ["12,5", 12.5],
+    ["12,50", 12.5],
+    ["1 200,50", 1200.5],
+  ];
+
+  it.each(rejected)("create and update turn down %j", async (amount) => {
+    expect((await createPersonalPlannedExpenseAction({}, form({ ...valid, amount }))).error).toBeTruthy();
+    expect((await updatePersonalPlannedExpenseAction({}, form({ ...valid, id: "p1", amount }))).error).toBeTruthy();
+    expect(plannedCreateMock).not.toHaveBeenCalled();
+    expect(plannedUpdateManyMock).not.toHaveBeenCalled();
+  });
+
+  it.each(accepted)("create and update save %j as %d", async (amount, expected) => {
+    expect(await createPersonalPlannedExpenseAction({}, form({ ...valid, amount }))).toEqual({});
+    expect(plannedCreateMock).toHaveBeenCalledWith({ data: expect.objectContaining({ amount: expected }) });
+    expect(await updatePersonalPlannedExpenseAction({}, form({ ...valid, id: "p1", amount }))).toEqual({});
+    expect(plannedUpdateManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ amount: expected }) }),
+    );
+  });
+});

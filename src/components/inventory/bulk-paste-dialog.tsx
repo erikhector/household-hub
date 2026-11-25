@@ -5,6 +5,7 @@ import { Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DecimalInput } from "@/components/shared/decimal-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -21,6 +22,7 @@ import { parsePastedList } from "@/lib/inventory/parse-pasted-list";
 import { parseImportCsv, type ImportCsvError } from "@/lib/inventory/parse-import-csv";
 import { format, plural } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
+import { parseDecimal } from "@/lib/decimal-input";
 
 type Row = { key: string; name: string; quantity: string; unit: string };
 type Step = "paste" | "review";
@@ -137,7 +139,7 @@ export function BulkPasteDialog({
     }
     setSubmitting(true);
     const result = await bulkCreateInventoryItemsAction(
-      rows.map((row) => ({ name: row.name.trim(), quantity: Number(row.quantity) || 0, unit: row.unit })),
+      rows.map((row) => ({ name: row.name.trim(), quantity: parseDecimal(row.quantity) || 0, unit: row.unit })),
       { category: category.trim() || undefined, location: location.trim() || undefined },
     );
     setSubmitting(false);
@@ -272,11 +274,7 @@ export function BulkPasteDialog({
                     aria-invalid={!row.name.trim()}
                     aria-label={dict.nameLabel}
                   />
-                  <Input
-                    type="number"
-                    inputMode="decimal"
-                    min={0}
-                    step="any"
+                  <DecimalInput
                     value={row.quantity}
                     onChange={(e) => updateRow(row.key, { quantity: e.target.value })}
                     className="w-16"

@@ -14,6 +14,7 @@ import { learnItemAlias } from "@/lib/item-alias";
 import { createCategoryResolver, scheduleAiCategoryFallback } from "@/lib/inventory/category-resolver";
 import { matchSmartAddInventoryItem } from "@/lib/shopping/smart-add-suggestions";
 import { defaultLineEstimate } from "@/lib/shopping/unit-price";
+import { invalidateHome } from "@/lib/household-cache";
 
 const smartAddSchema = z.object({
   listId: z.string().min(1),
@@ -181,6 +182,7 @@ export async function smartAddShoppingListItemsAction(
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   if (addedIds.length > 0) revalidatePath(`/dashboard/shopping-list/${list.id}`);
   if (createdInventory) revalidatePath("/dashboard/inventory");
   return { addedIds, alreadyOnList };
@@ -296,6 +298,7 @@ export async function resolveShoppingListMappingsAction(
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   if (shoppingListId) {
     revalidatePath(`/dashboard/shopping-list/${shoppingListId}`);
     revalidatePath("/dashboard/inventory");

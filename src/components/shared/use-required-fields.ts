@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { parseDecimal } from "@/lib/decimal-input";
 
 // UX-183b: required-field errors under the field, in the page's language,
 // in place of the browser's own bubble (a Swedish user got "Please fill out
@@ -19,7 +20,8 @@ export type RequiredRule = {
    * hangs off (`fieldErrorId(id)`). */
   id: string;
   message: string;
-  /** A number input counts as missing when it isn't a finite number. */
+  /** A number field counts as missing when it isn't a finite number
+   * ("12,5" is one: see parseDecimal). */
   numeric?: boolean;
   /** UX-194: a format rule for a field that isn't empty (a password under
    * 8 characters, a confirmation that differs). Gets the value as typed and
@@ -36,7 +38,7 @@ export function findMissingFields(data: FormData, rules: readonly RequiredRule[]
   return rules.filter((rule) => {
     const value = String(data.get(rule.name) ?? "").trim();
     if (value === "") return true;
-    return rule.numeric ? !Number.isFinite(Number(value)) : false;
+    return rule.numeric ? !Number.isFinite(parseDecimal(value)) : false;
   });
 }
 

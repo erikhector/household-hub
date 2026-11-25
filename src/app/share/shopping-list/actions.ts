@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { invalidateHome } from "@/lib/household-cache";
 import { fail, toFriendlyError } from "@/lib/actions/errors";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
@@ -184,12 +185,15 @@ export async function toggleItemViaShareTokenAction(
   // account, so every household member hears about it.
   let householdId = null as string | null;
   const recordedPrices: RecordedPrice[] = [];
+  // PERF-32a: whose Home cache the tick clears.
+  let listHouseholdId = null as string | null;
   try {
     await prisma.$transaction(async (tx) => {
       const list = await tx.shoppingList.findUnique({
         where: { id: item.shoppingListId },
         select: { householdId: true, household: { select: { inventorySyncMode: true } } },
       });
+      listHouseholdId = list?.householdId ?? null;
       const arrivesNow = nextPurchased && !!list && !defersToPutAway(list.household ?? {});
       const reversesArrival = !nextPurchased && item.putAwayAt !== null;
       const now = new Date();
@@ -257,6 +261,7 @@ export async function toggleItemViaShareTokenAction(
     return toFriendlyError(error);
   }
   if (householdId) recordPriceSpikes(householdId, recordedPrices);
+  if (listHouseholdId) invalidateHome(listHouseholdId);
 
   revalidatePath(`/share/shopping-list/${token}`);
   revalidatePath(`/dashboard/shopping-list/${item.shoppingListId}`);

@@ -6,6 +6,7 @@ import { requireHousehold } from "@/lib/session";
 import type { ActionState } from "@/lib/actions/auth";
 import { fail, toFriendlyError, v, zodFail } from "@/lib/actions/errors";
 import { revalidateBudgetPages } from "./action-helpers";
+import { normalizeMoney } from "@/lib/decimal-input";
 
 // --- Settling up between members ---------------------------------------------
 // See MemberSettlement's doc comment in schema.prisma and HouseholdBalances
@@ -15,7 +16,7 @@ import { revalidateBudgetPages } from "./action-helpers";
 const settlementSchema = z.object({
   fromMemberId: z.string().min(1, v("chooseWhoPaid")),
   toMemberId: z.string().min(1, v("chooseWhoWasPaid")),
-  amount: z.coerce.number().positive(v("amountPositive")),
+  amount: z.coerce.number({ error: v("amountFormat") }).positive(v("amountPositive")),
   date: z.string().min(1, v("dateRequired")),
 });
 
@@ -37,7 +38,7 @@ export async function recordSettlementAction(
   const parsed = settlementSchema.safeParse({
     fromMemberId: formData.get("fromMemberId"),
     toMemberId: formData.get("toMemberId"),
-    amount: formData.get("amount"),
+    amount: normalizeMoney(formData.get("amount")),
     date: formData.get("date"),
   });
   if (!parsed.success) {

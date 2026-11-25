@@ -36,6 +36,7 @@ import { Camera, ImageUp, Loader2, Plus, Trash2 } from "lucide-react";
 import { DiscardReviewDialog } from "@/components/ui/discard-review-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DecimalInput } from "@/components/shared/decimal-input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
@@ -59,6 +60,7 @@ import { HOUSEHOLD_BASE_CURRENCY, SUPPORTED_CURRENCIES } from "@/lib/currency";
 import { datedName, format, plural } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import type { Locale } from "@/lib/i18n/locales";
+import { parseDecimal, parseMoney } from "@/lib/decimal-input";
 
 type InventoryItemOption = {
   id: string;
@@ -322,12 +324,24 @@ export function RegisterReceiptDialog({
       return;
     }
 
+    // UX-30: the price and quantity are free text, so a typed value that
+    // doesn't read ("1.234,50", "45,00,") is named instead of the line
+    // quietly dropping out of the total. Only a line with no price is
+    // left out, as before.
+    const unreadable = live.find(
+      (row) => row.price.trim() !== "" && !(parseMoney(row.price) > 0 && parseDecimal(row.quantity) > 0),
+    );
+    if (unreadable) {
+      setErrorMessage(format(dict.lineValueInvalid, { name: unreadable.name.trim() || unreadable.price.trim() }));
+      return;
+    }
+
     const items = live
       .map((row) => ({
         name: row.name.trim(),
-        quantity: Number(row.quantity),
+        quantity: parseDecimal(row.quantity),
         unit: row.unit.trim() || "pcs",
-        price: Number(row.price),
+        price: parseMoney(row.price),
         ...(row.mode === "existing"
           ? { inventoryItemId: row.matchId }
           : { newItemCategory: row.category.trim() }),
@@ -417,12 +431,8 @@ export function RegisterReceiptDialog({
             <Label htmlFor={`${row.key}-quantity`} className="text-xs">
               {dict.quantityLabel}
             </Label>
-            <Input
+            <DecimalInput
               id={`${row.key}-quantity`}
-              type="number"
-              inputMode="decimal"
-              min={0.01}
-              step="any"
               value={row.quantity}
               onChange={(e) => updateRow(row.key, { quantity: e.target.value })}
             />
@@ -447,12 +457,8 @@ export function RegisterReceiptDialog({
             <Label htmlFor={`${row.key}-price`} className="text-xs">
               {dict.priceLabel}
             </Label>
-            <Input
+            <DecimalInput
               id={`${row.key}-price`}
-              type="number"
-              inputMode="decimal"
-              min={0}
-              step="any"
               value={row.price}
               onChange={(e) => updateRow(row.key, { price: e.target.value })}
             />
