@@ -19,6 +19,7 @@ const {
   pushSubscriptionFindManyMock,
   householdNoteFindManyMock,
   householdTaskFindManyMock,
+  householdEventFindManyMock,
   transactionSplitFindManyMock,
   recurringTemplateSplitFindManyMock,
   plannedExpenseSplitFindManyMock,
@@ -35,6 +36,7 @@ const {
   pushSubscriptionFindManyMock: vi.fn<() => Promise<unknown[]>>(async () => []),
   householdNoteFindManyMock: vi.fn<() => Promise<unknown[]>>(async () => []),
   householdTaskFindManyMock: vi.fn<() => Promise<unknown[]>>(async () => []),
+  householdEventFindManyMock: vi.fn<() => Promise<unknown[]>>(async () => []),
   transactionSplitFindManyMock: vi.fn<() => Promise<unknown[]>>(async () => []),
   recurringTemplateSplitFindManyMock: vi.fn<() => Promise<unknown[]>>(async () => []),
   plannedExpenseSplitFindManyMock: vi.fn<() => Promise<unknown[]>>(async () => []),
@@ -53,6 +55,7 @@ vi.mock("@/lib/prisma", () => ({
     pushSubscription: { findMany: pushSubscriptionFindManyMock },
     householdNote: { findMany: householdNoteFindManyMock },
     householdTask: { findMany: householdTaskFindManyMock },
+    householdEvent: { findMany: householdEventFindManyMock },
     transactionSplit: { findMany: transactionSplitFindManyMock },
     recurringTemplateSplit: { findMany: recurringTemplateSplitFindManyMock },
     plannedExpenseSplit: { findMany: plannedExpenseSplitFindManyMock },
@@ -293,6 +296,21 @@ describe("GET /dashboard/profile/export-data", () => {
           completedByMember: { userId: "user-1" },
         },
       ]);
+      householdEventFindManyMock.mockResolvedValue([
+        {
+          id: "event-1",
+          title: "Zoe's birthday",
+          date: fixedNow,
+          startTime: null,
+          endTime: null,
+          notes: null,
+          recurrence: "YEARLY",
+          createdAt: fixedNow,
+          household: { name: "The Hectors" },
+          forMember: { userId: "user-1" },
+          createdByMember: { userId: "user-2" },
+        },
+      ]);
       transactionSplitFindManyMock.mockResolvedValue([
         {
           id: "split-1",
@@ -460,6 +478,17 @@ describe("GET /dashboard/profile/export-data", () => {
           "householdTasks[].completedAt",
           "householdTasks[].recurrenceIntervalDays",
           "householdTasks[].createdAt",
+          "householdEvents",
+          "householdEvents[].householdName",
+          "householdEvents[].title",
+          "householdEvents[].date",
+          "householdEvents[].startTime",
+          "householdEvents[].endTime",
+          "householdEvents[].notes",
+          "householdEvents[].recurrence",
+          "householdEvents[].forMe",
+          "householdEvents[].addedByMe",
+          "householdEvents[].createdAt",
           "transactionSplits",
           "transactionSplits[].householdName",
           "transactionSplits[].transactionDescription",
@@ -542,6 +571,7 @@ describe("GET /dashboard/profile/export-data", () => {
       const body = await (await GET()).json();
 
       expect(body.householdTasks[0]).toMatchObject({ assignedToMe: false, completedByMe: true });
+      expect(body.householdEvents[0]).toMatchObject({ forMe: true, addedByMe: false });
       const settlements = body.memberSettlements as { direction: string; counterpartyName: string }[];
       expect(settlements.map((s) => [s.direction, s.counterpartyName])).toEqual([
         ["paid", "Anna"],
@@ -562,6 +592,9 @@ describe("GET /dashboard/profile/export-data", () => {
       );
       expect(householdTaskFindManyMock).toHaveBeenCalledWith(
         expect.objectContaining({ where: { OR: [{ assignedToMember: mine }, { completedByMember: mine }] } }),
+      );
+      expect(householdEventFindManyMock).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { OR: [{ forMember: mine }, { createdByMember: mine }] } }),
       );
       expect(transactionSplitFindManyMock).toHaveBeenCalledWith(
         expect.objectContaining({ where: { householdMember: mine } }),

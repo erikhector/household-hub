@@ -21,7 +21,9 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 //   never touch and which PERF-35 caches by userId if it pays off;
 // - the member count, a cheap count whose writers are the invite and
 //   membership flows, kept uncached so they need no invalidation;
-// - incoming stock, whose two-week window is measured to the millisecond.
+// - incoming stock, whose two-week window is measured to the millisecond;
+// - the Coming up card's calendar events (GAP-35), one small indexed query
+//   in its own component, so the calendar's actions need no invalidation.
 //
 // Everything a cached call reads comes in as an argument, so it's in the
 // cache key: the household, the user (whose tasks come first), the UTC day
