@@ -404,8 +404,10 @@ about 50 ms on Home. To find out:
    a miss that fills the cache; the next ones are hits.
 4. After another day, read the `"cache":"on"` lines the same way. A hit
    pays two Upstash round trips; a miss pays those plus the queries.
-   Compare the Server Actions' duration too: with the cache on, each one
-   that changes Home data also writes an invalidation to Upstash.
+   Compare the Server Actions' duration too: with the cache on, every
+   action that revalidates a page or clears a tag (nearly all of them)
+   also writes the invalidation to Upstash before it answers (one round
+   trip, at most 1 s if Upstash hangs).
 5. Read the hit rate from the last `[remote-cache] get` line of each
    instance: `hit` against the rest. It matters as much as the per-hit
    saving, and it can be low for a reason outside your household: many
