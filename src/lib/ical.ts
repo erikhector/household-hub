@@ -1,6 +1,7 @@
 // Minimal, dependency-free iCalendar (RFC 5545) writer for the read-only
 // household calendar feed (GAP-3, src/app/api/calendar/[token]/route.ts).
-// It only emits what that feed needs: one VCALENDAR of all-day VEVENTs. A
+// It only emits what that feed needs: one VCALENDAR of VEVENTs, all-day or
+// at a floating local time, optionally with an RRULE (GAP-35). A
 // library would be overkill for that, and the parts calendar apps are
 // actually strict about (CRLF line endings, 75-octet folding, TEXT escaping)
 // are small enough to pin down with unit tests here instead. Kept pure (no
