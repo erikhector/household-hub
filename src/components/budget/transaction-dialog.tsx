@@ -41,7 +41,7 @@ import type { CategoryRow } from "@/components/budget/category-manager";
 import { PendingLabel } from "@/components/ui/pending-label";
 import { FieldError, fieldErrorId } from "@/components/auth/field-error";
 import { useRequiredFields } from "@/components/shared/use-required-fields";
-import { parseDecimal } from "@/lib/decimal-input";
+import { parseMoney } from "@/lib/decimal-input";
 
 type RecurrenceFrequency = "WEEKLY" | "MONTHLY" | "YEARLY";
 
@@ -350,7 +350,7 @@ export function TransactionDialog({
         const savedId = result.createdId;
         toast.success(
           format(dict.addedToast, {
-            amount: numberFormat.format(parseDecimal(String(formData.get("amount")))),
+            amount: numberFormat.format(parseMoney(String(formData.get("amount")))),
             category: savedCategory?.name ?? "",
           }),
           // Undo removes only the row, which would leave the repeating item
@@ -408,7 +408,7 @@ export function TransactionDialog({
   }
 
   function resetToEvenSplit(total: string) {
-    const even = evenSplitAmounts(parseDecimal(total) || 0, members.length);
+    const even = evenSplitAmounts(parseMoney(total) || 0, members.length);
     setSplitAmounts(Object.fromEntries(members.map((m, i) => [m.id, (even[i] ?? 0).toFixed(2)])));
   }
 

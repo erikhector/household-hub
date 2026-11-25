@@ -48,6 +48,9 @@ describe("monthlyLimitField", () => {
   it("reads a decimal comma (UX-30)", () => {
     expect(monthlyLimitField.parse("49,50")).toBe(49.5);
     expect(monthlyLimitField.parse("3 000,5")).toBe(3000.5);
+    // Money never has three decimals: "1,200" is twelve hundred to an
+    // English-locale user, so it is turned down rather than saved as 1.2.
+    expect(monthlyLimitField.safeParse("1,200").success).toBe(false);
   });
 
   it("rejects zero and negative amounts", () => {

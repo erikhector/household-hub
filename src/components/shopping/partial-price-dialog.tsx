@@ -14,7 +14,7 @@ import {
 import { DecimalInput } from "@/components/shared/decimal-input";
 import { format, plural } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
-import { parseDecimal } from "@/lib/decimal-input";
+import { parseMoney } from "@/lib/decimal-input";
 
 /**
  * UX-87: the step between "Done shopping" and the budget when only some of
@@ -79,7 +79,7 @@ function PartialPriceForm({
 }) {
   // Rounded so a float sum like 24.900000000000002 doesn't land in the field.
   const [value, setValue] = useState(String(Math.round(suggested * 100) / 100));
-  const amount = parseDecimal(value);
+  const amount = parseMoney(value);
   const valid = value.trim() !== "" && Number.isFinite(amount) && amount >= 0 && amount <= 1_000_000;
 
   return (

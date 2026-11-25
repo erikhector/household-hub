@@ -1,5 +1,33 @@
 import { describe, expect, it } from "vitest";
-import { DECIMAL_PATTERN, normalizeDecimal, parseDecimal } from "./decimal-input";
+import { DECIMAL_PATTERN, normalizeDecimal, normalizeMoney, parseDecimal, parseMoney } from "./decimal-input";
+
+describe("normalizeMoney / parseMoney", () => {
+  it.each([
+    ["12,5", 12.5],
+    ["12,50", 12.5],
+    ["1 200,50", 1200.5],
+    ["1200", 1200],
+    ["12.", 12],
+  ])("reads %j as %d", (typed, expected) => {
+    expect(parseMoney(typed)).toBe(expected);
+    expect(Number(normalizeMoney(typed))).toBe(expected);
+  });
+
+  // "1,200" is twelve hundred to an English-locale user; reading it as 1.2
+  // would save a thousandth of the amount. Money never has three decimals.
+  it.each(["1,200", "1.200", "12,505", "0,001"])("turns down %j (more than two decimals)", (typed) => {
+    expect(normalizeMoney(typed)).toBeNaN();
+    expect(parseMoney(typed)).toBeNaN();
+  });
+
+  it("otherwise behaves like normalizeDecimal", () => {
+    expect(normalizeMoney("")).toBe("");
+    expect(normalizeMoney(null)).toBeNull();
+    expect(normalizeMoney("abc")).toBeNaN();
+    expect(normalizeMoney("-12,5")).toBe("-12.5");
+    expect(parseMoney("")).toBeNaN();
+  });
+});
 
 describe("normalizeDecimal", () => {
   it("turns a decimal comma into a dot", () => {

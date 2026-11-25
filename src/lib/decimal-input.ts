@@ -49,3 +49,27 @@ export function parseDecimal(raw: string): number {
   const normalized = normalizeDecimal(raw);
   return normalized === "" ? Number.NaN : Number(normalized);
 }
+
+/**
+ * `normalizeDecimal` for money: the same, except that a value with more
+ * than two decimals once normalised is NaN. A comma before three digits is
+ * a decimal in a quantity (1,250 kg), but money never has three decimals,
+ * and an English-locale user typing rent as "1,200" means twelve hundred:
+ * reading it as 1.2 would save a thousandth of the amount without a word.
+ * So "1,200" (and "1.200", "12,505") is turned down by the schema, while
+ * "12,5", "12,50" and "1 200,50" are read as typed. Every amount, split
+ * share and payment, settlement, limit and goal goes through it, on the
+ * server and in the client's previews, so a preview never shows a number
+ * that won't save.
+ */
+export function normalizeMoney(value: unknown): unknown {
+  const normalized = normalizeDecimal(value);
+  return typeof normalized === "string" && /\.\d{3,}$/.test(normalized) ? Number.NaN : normalized;
+}
+
+/** `parseDecimal` for money (see normalizeMoney): NaN for a blank field,
+ * text, and anything with more than two decimals. */
+export function parseMoney(raw: string): number {
+  const normalized = normalizeMoney(raw);
+  return normalized === "" ? Number.NaN : Number(normalized);
+}

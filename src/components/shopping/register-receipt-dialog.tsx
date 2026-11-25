@@ -60,7 +60,7 @@ import { HOUSEHOLD_BASE_CURRENCY, SUPPORTED_CURRENCIES } from "@/lib/currency";
 import { datedName, format, plural } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import type { Locale } from "@/lib/i18n/locales";
-import { parseDecimal } from "@/lib/decimal-input";
+import { parseDecimal, parseMoney } from "@/lib/decimal-input";
 
 type InventoryItemOption = {
   id: string;
@@ -324,12 +324,24 @@ export function RegisterReceiptDialog({
       return;
     }
 
+    // UX-30: the price and quantity are free text, so a typed value that
+    // doesn't read ("1.234,50", "45,00,") is named instead of the line
+    // quietly dropping out of the total. Only a line with no price is
+    // left out, as before.
+    const unreadable = live.find(
+      (row) => row.price.trim() !== "" && !(parseMoney(row.price) > 0 && parseDecimal(row.quantity) > 0),
+    );
+    if (unreadable) {
+      setErrorMessage(format(dict.lineValueInvalid, { name: unreadable.name.trim() || unreadable.price.trim() }));
+      return;
+    }
+
     const items = live
       .map((row) => ({
         name: row.name.trim(),
         quantity: parseDecimal(row.quantity),
         unit: row.unit.trim() || "pcs",
-        price: parseDecimal(row.price),
+        price: parseMoney(row.price),
         ...(row.mode === "existing"
           ? { inventoryItemId: row.matchId }
           : { newItemCategory: row.category.trim() }),

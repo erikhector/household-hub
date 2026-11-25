@@ -162,6 +162,13 @@ test("Register receipt can be typed in line by line when the scan fails", async 
     await dialog.locator('input[name="name"]').nth(i).fill(line);
     await page.keyboard.press("Tab");
   }
+  // UX-30: a typed price that doesn't read names its line instead of the
+  // line quietly dropping out of the total; a decimal comma is fine.
+  const jamPrice = dialog.getByRole("textbox", { name: "Price" }).nth(1);
+  await jamPrice.fill("1.234,50");
+  await dialog.getByRole("button", { name: "Register receipt" }).click();
+  await expect(dialog.getByText(`Check the price and quantity on "Typed jam ${t}"`)).toBeVisible();
+  await jamPrice.fill("12,5");
   await dialog.getByRole("button", { name: "Register receipt" }).click();
 
   await expect(page).toHaveURL(/\/dashboard\/shopping-list\/[^/]+$/);

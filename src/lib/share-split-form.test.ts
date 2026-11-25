@@ -89,3 +89,45 @@ describe("parseShareSplitFormData", () => {
     ]);
   });
 });
+
+// UX-30: shares are free text. Money with more than two decimals ("1,200",
+// twelve hundred to an English-locale user) is a format error, never 1.2.
+describe("typed shares (UX-30)", () => {
+  it.each(["abc", "1.234,5", "1e3", "1,200"])("turns down a share of %j as a format error", async (share) => {
+    const r = await parseShareSplitFormData(
+      form({ splitEnabled: "on", splitMemberId: ["m1", "m2"], splitAmount: [share, "0"] }),
+      "h1",
+      1200,
+      MISMATCH,
+    );
+    expect(r).toEqual({
+      error: "Write the amount with at most two decimals and no thousands separator, like 1200 or 1200.50",
+    });
+    expect(memberFindManyMock).not.toHaveBeenCalled();
+  });
+
+  it("turns down a negative share", async () => {
+    const r = await parseShareSplitFormData(
+      form({ splitEnabled: "on", splitMemberId: ["m1", "m2"], splitAmount: ["-12,5", "25"] }),
+      "h1",
+      12.5,
+      MISMATCH,
+    );
+    expect(r).toEqual({ error: "Each split amount must be zero or more" });
+  });
+
+  it("reads 12,5, 12,50 and 1 200,50", async () => {
+    memberFindManyMock.mockResolvedValue([{ id: "m1" }, { id: "m2" }, { id: "m3" }]);
+    const r = await parseShareSplitFormData(
+      form({ splitEnabled: "on", splitMemberId: ["m1", "m2", "m3"], splitAmount: ["12,5", "12,50", "1 200,50"] }),
+      "h1",
+      1225.5,
+      MISMATCH,
+    );
+    expect(r).toEqual([
+      { householdMemberId: "m1", amountOwed: 12.5 },
+      { householdMemberId: "m2", amountOwed: 12.5 },
+      { householdMemberId: "m3", amountOwed: 1200.5 },
+    ]);
+  });
+});

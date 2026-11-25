@@ -412,6 +412,17 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
     separator, so "1,234" is 1.234. Anything else that isn't a plain
     decimal ("abc", "0x10", "1e3") is not a number either; "" stays ""
     so each schema's own empty rule still applies.
+  - Money is stricter (`normalizeMoney` / `parseMoney`): a value with
+    more than two decimals is not a number, so "1,200" (twelve hundred to
+    an English-locale user) is turned down with "Write the amount with at
+    most two decimals and no thousands separator" (`amountFormat`) rather
+    than saved as 1.2. Every amount, split share and payment, settlement,
+    limit, goal and shopping price uses it, on the server and in the
+    client previews; quantities keep the plain reader (1,250 kg).
+  - The receipt dialogs (register receipt, receipt scan) name a line
+    whose typed price or quantity doesn't read instead of leaving it out
+    of the total; only a line with no price is skipped.
+  - The stock check reads its count with `parseDecimal` too.
   - A text field has no `min`/`max`/`step`, so every range rule is the
     action's Zod schema (all of them already checked it).
   - Whole-number fields (portions, servings, leftover portions,

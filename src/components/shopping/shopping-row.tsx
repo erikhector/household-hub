@@ -29,7 +29,7 @@ import type {
   ShoppingListDict,
   ShoppingListItemRow,
 } from "@/components/shopping/shopping-list-types";
-import { parseDecimal } from "@/lib/decimal-input";
+import { parseMoney } from "@/lib/decimal-input";
 
 export function ShoppingRow({
   item,
@@ -460,7 +460,7 @@ function PriceTag({
   }
 
   function save() {
-    const price = parseDecimal(draft);
+    const price = parseMoney(draft);
     if (draft.trim() === "" || !Number.isFinite(price) || price < 0) {
       setError(dict.priceInvalid);
       return;

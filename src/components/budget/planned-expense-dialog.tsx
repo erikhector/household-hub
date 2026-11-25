@@ -38,7 +38,7 @@ import type { PlannedItemType } from "@/lib/planned-expense-calc";
 import { PendingLabel } from "@/components/ui/pending-label";
 import { FieldError, fieldErrorId } from "@/components/auth/field-error";
 import { useRequiredFields } from "@/components/shared/use-required-fields";
-import { parseDecimal } from "@/lib/decimal-input";
+import { parseMoney } from "@/lib/decimal-input";
 
 // createPlannedExpenseAction / updatePlannedExpenseAction
 // (src/app/dashboard/budget/planned-expense-actions.ts), or the personal
@@ -164,7 +164,7 @@ export function PlannedExpenseDialog({
   }, initialState);
 
   function evenShares(total: string) {
-    const even = evenSplitAmounts(parseDecimal(total) || 0, members.length);
+    const even = evenSplitAmounts(parseMoney(total) || 0, members.length);
     return Object.fromEntries(members.map((m, i) => [m.id, (even[i] ?? 0).toFixed(2)]));
   }
 

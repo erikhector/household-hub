@@ -51,7 +51,7 @@ import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import { PendingLabel } from "@/components/ui/pending-label";
 import { FieldError, fieldErrorId } from "@/components/auth/field-error";
 import { useRequiredFields } from "@/components/shared/use-required-fields";
-import { parseDecimal } from "@/lib/decimal-input";
+import { parseMoney } from "@/lib/decimal-input";
 
 type ShareableHouseholdMember = { id: string; displayName: string };
 export type ShareableHouseholdCategory = { id: string; name: string; type: "INCOME" | "EXPENSE" | "SAVINGS" };
@@ -103,7 +103,7 @@ function defaultPaidAmounts(household: ShareableHousehold | undefined, amount: s
 
 function evenShares(household: ShareableHousehold | undefined, total: string) {
   const members = household?.members ?? [];
-  const even = evenSplitAmounts(parseDecimal(total) || 0, members.length);
+  const even = evenSplitAmounts(parseMoney(total) || 0, members.length);
   return Object.fromEntries(members.map((m, i) => [m.id, (even[i] ?? 0).toFixed(2)]));
 }
 

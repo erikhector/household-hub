@@ -41,7 +41,7 @@ import { PendingLabel } from "@/components/ui/pending-label";
 import { FieldError, fieldErrorId } from "@/components/auth/field-error";
 import { useRequiredFields } from "@/components/shared/use-required-fields";
 import { useKeptFormValues } from "@/components/shared/use-kept-form-values";
-import { parseDecimal } from "@/lib/decimal-input";
+import { parseMoney } from "@/lib/decimal-input";
 
 // Shared by both createRecurringTemplateAction/updateRecurringTemplateAction
 // (household) and createPersonalRecurringTemplateAction/
@@ -167,7 +167,7 @@ export function RecurringTemplateDialog({
   }, initialState);
 
   function resetToEvenSplit(total: string) {
-    const even = evenSplitAmounts(parseDecimal(total) || 0, memberOptions.length);
+    const even = evenSplitAmounts(parseMoney(total) || 0, memberOptions.length);
     setSplitAmounts(Object.fromEntries(memberOptions.map((m, i) => [m.id, (even[i] ?? 0).toFixed(2)])));
   }
 

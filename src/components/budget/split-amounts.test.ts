@@ -41,6 +41,8 @@ describe("checkSplitForm", () => {
   it("reads amounts typed with a decimal comma (UX-30)", () => {
     const check = checkSplitForm("12,5", { a: "6,25", b: "6,25" }, { a: "12,5", b: "" });
     expect(check).toMatchObject({ shareTotal: 12.5, paidTotal: 12.5, shareRemainder: 0, shareMismatch: false });
+    // Like the server, "1,200" is not 1.2 (money never has three decimals).
+    expect(checkSplitForm("1200", { a: "1,200" }, {}).shareTotal).toBe(0);
   });
 
   it("reports what's left due on a partly paid bill", () => {

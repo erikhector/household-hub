@@ -4,7 +4,7 @@
 // when the split section is first enabled and by its "Split evenly" reset
 // button. See REQUIREMENTS.md's "Household expense splitting" subsection.
 
-import { parseDecimal } from "@/lib/decimal-input";
+import { parseMoney } from "@/lib/decimal-input";
 
 /**
  * Splits `totalAmount` into `memberCount` amounts that sum exactly to it,
@@ -42,7 +42,7 @@ const TOLERANCE = 0.01;
  * the rest of the form's live totals.
  */
 export function shareRemainder(amount: string, shares: Record<string, string>): number {
-  const toCents = (v: string) => Math.round((parseDecimal(v) || 0) * 100);
+  const toCents = (v: string) => Math.round((parseMoney(v) || 0) * 100);
   const shareCents = Object.values(shares).reduce((sum, v) => sum + toCents(v), 0);
   return (toCents(amount) - shareCents) / 100;
 }
@@ -65,16 +65,16 @@ export type SplitFormCheck = {
  * same two rules the server re-checks (shares sum to the amount, payments
  * don't exceed it), so the dialog can warn and disable submit before a
  * round trip. Inputs are the raw strings from the decimal inputs ("12,5"
- * or "12.5", read by parseDecimal); anything unparseable counts as 0, like the rest of the form's live totals.
+ * or "12.5", read by parseMoney); anything unparseable counts as 0, like the rest of the form's live totals.
  */
 export function checkSplitForm(
   amount: string,
   shares: Record<string, string>,
   paid: Record<string, string>,
 ): SplitFormCheck {
-  const total = parseDecimal(amount) || 0;
-  const shareTotal = Object.values(shares).reduce((sum, v) => sum + (parseDecimal(v) || 0), 0);
-  const paidTotal = Object.values(paid).reduce((sum, v) => sum + (parseDecimal(v) || 0), 0);
+  const total = parseMoney(amount) || 0;
+  const shareTotal = Object.values(shares).reduce((sum, v) => sum + (parseMoney(v) || 0), 0);
+  const paidTotal = Object.values(paid).reduce((sum, v) => sum + (parseMoney(v) || 0), 0);
   const remainder = shareRemainder(amount, shares);
   return {
     shareTotal,

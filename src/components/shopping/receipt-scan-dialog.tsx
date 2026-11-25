@@ -56,7 +56,7 @@ import { fileToResizedDataUrl } from "@/lib/image-resize";
 import { HOUSEHOLD_BASE_CURRENCY, SUPPORTED_CURRENCIES } from "@/lib/currency";
 import { format, plural } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
-import { parseDecimal } from "@/lib/decimal-input";
+import { parseDecimal, parseMoney } from "@/lib/decimal-input";
 
 /** `barcode` is the linked inventory item's (AUTO-6), for exact matching,
  * and `inventoryItemId` the item itself, for the household's learned
@@ -341,12 +341,23 @@ export function ReceiptScanDialog({
   }
 
   function handleApply() {
+    // UX-30: a price that doesn't read ("1.234,50", "45,00,") is named
+    // instead of the line quietly dropping out. A cleared price still
+    // leaves the line out, as before.
+    const unreadable = rows.find(
+      (row) => row.matchId !== SKIP_VALUE && row.price.trim() !== "" && !(parseMoney(row.price) > 0),
+    );
+    if (unreadable) {
+      setErrorMessage(format(dict.lineValueInvalid, { name: unreadable.name }));
+      return;
+    }
+
     const matches = rows
       .filter((row) => row.matchId !== SKIP_VALUE)
       // BUG-3: the receipt line's own count rides along, since the list row it
       // matches may be for a different number ("Milk x1" vs "3 x Milk 45,00")
       // and the server divides the price by it for the unit price.
-      .map((row) => ({ shoppingListItemId: row.matchId, price: parseDecimal(row.price), quantity: row.quantity }))
+      .map((row) => ({ shoppingListItemId: row.matchId, price: parseMoney(row.price), quantity: row.quantity }))
       .filter((m) => Number.isFinite(m.price) && m.price > 0);
 
     if (matches.length === 0) {
@@ -398,10 +409,10 @@ export function ReceiptScanDialog({
             </p>
             {row.quantity !== 1 && (
               <p className="text-xs text-muted-foreground">
-                {parseDecimal(row.price) > 0
+                {parseMoney(row.price) > 0
                   ? format(dict.qtyAtUnitPrice, {
                       qty: row.quantity,
-                      unitPrice: unitPriceFormat.format(parseDecimal(row.price) / row.quantity),
+                      unitPrice: unitPriceFormat.format(parseMoney(row.price) / row.quantity),
                     })
                   : format(dict.qtyLabel, { qty: row.quantity })}
               </p>

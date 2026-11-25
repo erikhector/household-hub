@@ -12,7 +12,7 @@ import { z } from "zod";
 import type { ErrorKey } from "@/lib/actions/errors";
 import { computeCategoryRollover } from "@/lib/budget-rollover-calc";
 import type { CategoryEnvelope } from "@/lib/safe-to-spend-calc";
-import { parseDecimal } from "@/lib/decimal-input";
+import { parseMoney } from "@/lib/decimal-input";
 
 /**
  * The CategoryManager form's optional "Monthly limit" input. An empty (or
@@ -31,7 +31,7 @@ export const monthlyLimitField = z.preprocess(
   (value) => {
     if (value === null || value === undefined) return null;
     const trimmed = String(value).trim();
-    return trimmed === "" ? null : parseDecimal(trimmed);
+    return trimmed === "" ? null : parseMoney(trimmed);
   },
   z
     .number({ error: "monthlyLimitNumber" satisfies ErrorKey })

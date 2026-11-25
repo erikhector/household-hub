@@ -250,3 +250,66 @@ describe("deletePlannedExpenseAction", () => {
     expect(await deletePlannedExpenseAction("foreign")).toEqual({ error: "Planned bill not found" });
   });
 });
+
+// UX-30: the amount fields are free text. Money with more than two decimals
+// ("1,200", twelve hundred to an English-locale user) is turned down rather
+// than saved as 1.2; a decimal comma and thousands spaces are read.
+describe("typed amounts (UX-30)", () => {
+  const rejected = ["0,00", "-12,5", "abc", "1.234,5", "1e3", "1,200"];
+  const accepted: [string, number][] = [
+    ["12,5", 12.5],
+    ["12,50", 12.5],
+    ["1 200,50", 1200.5],
+  ];
+
+  it.each(rejected)("create turns down %j", async (amount) => {
+    const result = await createPlannedExpenseAction({}, form({ ...valid, amount }));
+    expect(result.error).toBeTruthy();
+    expect(plannedCreateMock).not.toHaveBeenCalled();
+  });
+
+  it.each(rejected)("update turns down %j", async (amount) => {
+    const result = await updatePlannedExpenseAction({}, form({ ...valid, id: "p1", amount }));
+    expect(result.error).toBeTruthy();
+    expect(plannedUpdateMock).not.toHaveBeenCalled();
+  });
+
+  it.each(accepted)("create saves %j as %d", async (amount, expected) => {
+    const result = await createPlannedExpenseAction({}, form({ ...valid, amount }));
+    expect(result).toEqual({});
+    expect(plannedCreateMock).toHaveBeenCalledWith({ data: expect.objectContaining({ amount: expected }) });
+  });
+
+  it.each(accepted)("update saves %j as %d", async (amount, expected) => {
+    const result = await updatePlannedExpenseAction({}, form({ ...valid, id: "p1", amount }));
+    expect(result).toEqual({});
+    expect(plannedUpdateMock).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ amount: expected }) }),
+    );
+  });
+
+  it("turns down a split share of 1,200 as a format error, and reads 12,50 shares", async () => {
+    const bad = await createPlannedExpenseAction(
+      {},
+      form({ ...valid, amount: "1200", splitEnabled: "on", splitMemberId: ["m1", "m2"], splitAmount: ["1,200", "0"] }),
+    );
+    expect(bad.error).toBe("Write the amount with at most two decimals and no thousands separator, like 1200 or 1200.50");
+    expect(plannedCreateMock).not.toHaveBeenCalled();
+
+    const good = await createPlannedExpenseAction(
+      {},
+      form({ ...valid, amount: "25", splitEnabled: "on", splitMemberId: ["m1", "m2"], splitAmount: ["12,50", "12,5"] }),
+    );
+    expect(good).toEqual({});
+    expect(plannedCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        splits: {
+          create: [
+            { householdMemberId: "m1", amountOwed: 12.5 },
+            { householdMemberId: "m2", amountOwed: 12.5 },
+          ],
+        },
+      }),
+    });
+  });
+});

@@ -18,7 +18,7 @@ import { DecimalInput } from "@/components/shared/decimal-input";
 import { Label } from "@/components/ui/label";
 import { checkSplitForm } from "@/components/budget/split-amounts";
 import { format } from "@/lib/i18n/format";
-import { parseDecimal } from "@/lib/decimal-input";
+import { parseMoney } from "@/lib/decimal-input";
 
 export type SplitEditorDict = {
   sharesLabel: string;
@@ -55,7 +55,7 @@ export function SplitEditor({
   /** UX-15: the caller's createMoneyFormat(locale, currencyCode), so the
    * warnings read "12,50 kr" to a Swedish household rather than a bare
    * `toFixed(2)` "12.50". The inputs take "12,50" or "12.50" alike (UX-30,
-   * DecimalInput), so totals are read with `parseDecimal`. */
+   * DecimalInput), so totals are read with `parseMoney`. */
   numberFormat: Intl.NumberFormat;
   dict: SplitEditorDict;
 }) {
@@ -105,7 +105,7 @@ export function SplitEditor({
         <p className="text-xs text-destructive">
           {format(dict.overpaidWarning, {
             paid: numberFormat.format(check.paidTotal),
-            amount: numberFormat.format(parseDecimal(amount) || 0),
+            amount: numberFormat.format(parseMoney(amount) || 0),
           })}
         </p>
       )}
@@ -147,7 +147,7 @@ export function ShareRemainderNote({
   /** "The shares are {amount} more than the {total} total." */
   overWarning: string;
 }) {
-  const total = numberFormat.format(parseDecimal(amount) || 0);
+  const total = numberFormat.format(parseMoney(amount) || 0);
   return (
     <div aria-live="polite">
       {remainder > 0 && (

@@ -8,7 +8,7 @@ import type { ActionState } from "@/lib/actions/auth";
 import { errorText, fail, toFriendlyError, v, zodFail } from "@/lib/actions/errors";
 import { parseShareSplitFormData } from "@/lib/share-split-form";
 import { parseDueDate } from "@/lib/planned-expense-calc";
-import { normalizeDecimal } from "@/lib/decimal-input";
+import { normalizeMoney } from "@/lib/decimal-input";
 
 // Planned bills (BUDGET-8): one-off bills with a due date. Kept out of
 // actions.ts, which is already 1 000+ lines. Editing a bill never touches the
@@ -19,7 +19,7 @@ import { normalizeDecimal } from "@/lib/decimal-input";
 
 const plannedExpenseSchema = z.object({
   name: z.string().trim().min(1, v("nameRequired")).max(100, v("billNameTooLong")),
-  amount: z.coerce.number().positive(v("amountPositive")),
+  amount: z.coerce.number({ error: v("amountFormat") }).positive(v("amountPositive")),
   categoryId: z.string().min(1, v("categoryRequired")),
   dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, v("invalidDueDate")),
 });
@@ -47,7 +47,7 @@ function findPlannedCategory(householdId: string, categoryId: string) {
 function parsePlannedExpenseFields(formData: FormData) {
   return plannedExpenseSchema.safeParse({
     name: formData.get("name"),
-    amount: normalizeDecimal(formData.get("amount")),
+    amount: normalizeMoney(formData.get("amount")),
     categoryId: formData.get("categoryId"),
     dueDate: formData.get("dueDate"),
   });

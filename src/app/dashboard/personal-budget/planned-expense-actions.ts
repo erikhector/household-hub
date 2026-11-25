@@ -7,7 +7,7 @@ import { requireUserId } from "@/lib/session";
 import type { ActionState } from "@/lib/actions/auth";
 import { fail, toFriendlyError, v, zodFail } from "@/lib/actions/errors";
 import { parseDueDate } from "@/lib/planned-expense-calc";
-import { normalizeDecimal } from "@/lib/decimal-input";
+import { normalizeMoney } from "@/lib/decimal-input";
 
 // Personal planned bills: the personal budget's mirror of the household's
 // (src/app/dashboard/budget/planned-expense-actions.ts), scoped by the
@@ -18,7 +18,7 @@ import { normalizeDecimal } from "@/lib/decimal-input";
 
 const plannedExpenseSchema = z.object({
   name: z.string().trim().min(1, v("nameRequired")).max(100, v("billNameTooLong")),
-  amount: z.coerce.number().positive(v("amountPositive")),
+  amount: z.coerce.number({ error: v("amountFormat") }).positive(v("amountPositive")),
   categoryId: z.string().min(1, v("categoryRequired")),
   dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, v("invalidDueDate")),
 });
@@ -45,7 +45,7 @@ async function parsePlannedExpense(
 > {
   const parsed = plannedExpenseSchema.safeParse({
     name: formData.get("name"),
-    amount: normalizeDecimal(formData.get("amount")),
+    amount: normalizeMoney(formData.get("amount")),
     categoryId: formData.get("categoryId"),
     dueDate: formData.get("dueDate"),
   });

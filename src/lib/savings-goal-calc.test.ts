@@ -27,6 +27,7 @@ describe("goalAmountField", () => {
 
   it("reads a decimal comma (UX-30)", () => {
     expect(goalAmountField.parse("1 500,50")).toBe(1500.5);
+    expect(goalAmountField.safeParse("1,200").success).toBe(false);
   });
 
   it("rejects zero, negative and non-numeric amounts", () => {
