@@ -17,6 +17,7 @@ import {
   TEMPLATE_NAME_MAX_LENGTH,
   type TemplateItemInput,
 } from "@/lib/shopping/list-templates";
+import { invalidateHome } from "@/lib/household-cache";
 
 // GAP-4: reusable named shopping-list templates. Kept in its own file
 // rather than folded into actions.ts (already ~1,700 lines and edited by
@@ -141,6 +142,7 @@ export async function createListFromTemplateAction(templateId: string): Promise<
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath("/dashboard/shopping-list");
   redirect(`/dashboard/shopping-list/${list.id}`);
 }

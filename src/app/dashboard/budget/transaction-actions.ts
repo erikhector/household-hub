@@ -12,6 +12,7 @@ import { plannedItemType } from "@/lib/planned-expense-calc";
 import { SPLIT_SUM_TOLERANCE } from "@/lib/share-split-form";
 import { repeatTemplateFields } from "@/lib/repeat-template";
 import { assertNoDuplicateTemplatePeriod, revalidateBudgetPages, type ParsedSplit } from "./action-helpers";
+import { invalidateHome } from "@/lib/household-cache";
 
 // --- Transactions --------------------------------------------------------
 
@@ -279,6 +280,7 @@ export async function createTransactionAction(
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidateBudgetPages();
   return { createdId: created.id };
 }
@@ -371,6 +373,7 @@ export async function createSharedExpenseFromPersonalBudgetAction(
     return toFriendlyError(error);
   }
 
+  invalidateHome(householdId);
   revalidateBudgetPages();
   return {};
 }
@@ -450,6 +453,7 @@ export async function updateTransactionAction(
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidateBudgetPages();
   return {};
 }
@@ -465,6 +469,7 @@ export async function deleteTransactionAction(transactionId: string): Promise<Ac
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidateBudgetPages();
   return {};
 }

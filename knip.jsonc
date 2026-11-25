@@ -11,7 +11,10 @@
     "e2e/auth.setup.ts",
     // The Prisma CLI config (AGENTS.md, "Stack"). Its non-default name
     // hides it from knip's Prisma plugin; it's also what uses `dotenv`.
-    "prisma7.config.ts"
+    "prisma7.config.ts",
+    // next.config.ts hands Next this file's path as a cache handler
+    // (PERF-32a); Next imports its default export at runtime, by path.
+    "src/lib/cache/redis-cache-handler.mjs"
   ],
   "ignoreDependencies": [
     // Imported only by the generated client in src/generated/prisma

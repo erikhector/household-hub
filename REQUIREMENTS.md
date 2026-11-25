@@ -93,7 +93,7 @@ easy for AI coding agents to work in correctly:
   and that the server's `register()` passes them.
 - **Cache Components is on, with nothing cached yet (PERF-31).**
   `next.config.ts` sets `cacheComponents` and `partialPrefetching`, the
-  prerequisite for `"use cache"` (PERF-32 on). The five route handlers
+  prerequisite for `"use cache"` (PERF-32a on). The five route handlers
   (`/api/health`, both crons, the digest unsubscribe redirect and the
   calendar feed) dropped `dynamic = "force-dynamic"`, which the flag
   rejects; they read the request or the DB, so they stay uncached. The root
@@ -113,6 +113,49 @@ easy for AI coding agents to work in correctly:
   make the whole document request-bound), so a client that runs no
   JavaScript sees `lang="en"`. `e2e/smoke.spec.ts` and `public.spec.ts`
   assert `html[lang]` in both languages.
+- **Home's household data can be cached, behind a flag that's off
+  (PERF-32a).** `HOME_CACHE=1`, with both Upstash variables set
+  (`src/lib/home-cache-flag.ts`), turns it on; anything else, the default
+  included, leaves Home and every action exactly as before. On:
+  - `src/lib/home-data.ts` holds the household half of Home's parallel
+    batch (tasks, items, active lists, list count, household budget and
+    safe to spend, tonight's dinner and missing ingredients, planned-meal
+    count, prep batches, sample-data state) and runs it through
+    `"use cache: remote"`, keyed by household, user, UTC day and budget
+    period, tagged `householdTag(id, "home")`, with `cacheLife` stale 30 s,
+    revalidate 5 min, expire 1 h. The page keeps the rest per request: the
+    three cookie-backed setup flags, the user's name and personal budget,
+    the member count and incoming stock. `HOME_CACHE_TIMING=1` logs the
+    batch's time (`home batch`, cache on or off, no ids) for PERF-32b's
+    measurement.
+  - `householdTag(id, area)` (`src/lib/household-cache.ts`) builds every
+    tag as `household:<id>:<area>`, so none is unscoped.
+  - Every Server Action that writes data in that batch (tasks, inventory and
+    item conversions, shopping lists and items, the share-link tick,
+    receipts, meal planning, prep, budget categories, transactions,
+    recurring items, planned expenses, barcode stock, sample data) calls
+    `invalidateHome(householdId)`, `updateTag` on that tag, next to its
+    `revalidatePath` calls. A no-op while the flag is off.
+  - `next.config.ts` registers `src/lib/cache/redis-cache-handler.mjs` as
+    `cacheHandlers.remote`, on the rate limiter's Upstash Redis. Reads
+    (`get`, `refreshTags`) time out after 200 ms and any error is a miss,
+    never a slow or broken page. Invalidations go to a Redis sorted set,
+    which `refreshTags` reads once per request, so one instance's
+    `updateTag` reaches the others; while that read is failing, every read
+    misses. It checks soft (path) tags itself, so `revalidatePath` clears
+    entries too. Entries live at most 7 days, as long as an invalidation is
+    remembered.
+  - Writes outside a Server Action don't clear it: the crons, the
+    background AI category fallback and anything run straight against
+    Postgres. The 5 min revalidate bounds how long Home can show those
+    stale. PERF-36 adds `revalidateTag` to the crons.
+  - Tests: `household-cache.test.ts` (tag and flag), `home-data.test.ts`
+    (which path runs, what it tags, the keys), `redis-cache-handler.test.ts`
+    (hit, miss, timeout, refreshTags across instances, soft tags) and
+    `e2e/home-cache.spec.ts` (a task renamed on Tasks and ticked on Home,
+    and an item renamed on its page, show on Home at once). DEPLOYMENT.md,
+    "Home cache (PERF-32)", says how to turn it on and what to measure
+    (PERF-32b).
 - **Recently visited pages stay in the browser for 15 s (PERF-21).**
   `next.config.ts` sets `experimental.staleTimes.dynamic` to 15 (Next 16's
   default is 0), so switching back to a tab seen seconds ago reuses its
@@ -122,8 +165,9 @@ easy for AI coding agents to work in correctly:
   to appear on a client navigation (a reload always shows it). `static`
   keeps its 5 min default. The flag is experimental in Next; reverting is
   deleting the block. It still applies with Cache Components on (PERF-31):
-  nothing uses `cacheLife` yet, so there is no `stale` value to conflict
-  with it; once routes do, `cacheLife`'s `stale` replaces it per route. `e2e/flows.spec.ts`
+  only Home's cached batch uses `cacheLife`, and only with PERF-32a's flag
+  on (stale 30 s, Next's minimum), so otherwise there is no `stale` value to
+  conflict with it; once routes do, `cacheLife`'s `stale` replaces it per route. `e2e/flows.spec.ts`
   ("an edit still shows after navigating away and back") covers it.
 - **Dialogs load on first use (PERF-26).** A dialog is most of a heavy
   page's unused JS, so a page declares each one's chunk with

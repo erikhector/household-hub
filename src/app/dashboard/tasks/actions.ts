@@ -25,6 +25,7 @@ import {
   isRotating,
   nextAssigneeInRotation,
 } from "@/lib/task-rotation";
+import { invalidateHome } from "@/lib/household-cache";
 
 // GAP-84: up to a year. 366 rather than 365 leaves room for a leap year,
 // though the dialog's longest preset is 365 (recurrence-label.ts).
@@ -248,6 +249,7 @@ export async function createTaskAction(
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath("/dashboard/tasks");
   return {};
 }
@@ -312,6 +314,7 @@ export async function updateTaskAction(
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath("/dashboard/tasks");
   return {};
 }
@@ -478,6 +481,7 @@ export async function toggleTaskCompletedAction(taskId: string): Promise<ActionS
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath("/dashboard/tasks");
   if (stockMoved) {
     revalidatePath("/dashboard/inventory");
@@ -527,6 +531,7 @@ export async function skipTaskAction(taskId: string): Promise<ActionState> {
     }
   }
 
+  invalidateHome(household.id);
   revalidatePath("/dashboard/tasks");
   return {};
 }
@@ -557,6 +562,7 @@ export async function unskipTaskAction(taskId: string, previousSkippedUntil: Dat
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath("/dashboard/tasks");
   return {};
 }
@@ -572,6 +578,7 @@ export async function deleteTaskAction(taskId: string): Promise<ActionState> {
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath("/dashboard/tasks");
   return {};
 }

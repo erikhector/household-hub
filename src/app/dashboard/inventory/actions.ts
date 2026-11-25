@@ -26,6 +26,7 @@ import { estimatedExpiryUpdate, sameCalendarDay } from "@/lib/inventory/shelf-li
 import { frozenExpiryUpdate, openedExpiryUpdate } from "@/lib/inventory/expiry";
 import { recordStockEvent, recordStockEvents, reasonForDelta } from "@/lib/inventory/stock-history";
 import { canonicalUnit } from "@/lib/units";
+import { invalidateHome } from "@/lib/household-cache";
 
 const itemSchema = z.object({
   name: z.string().trim().min(1, v("nameRequired")).max(120, v("nameTooLong")),
@@ -148,6 +149,7 @@ export async function createInventoryItemAction(
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath("/dashboard/inventory");
   revalidatePath("/dashboard");
   return {};
@@ -251,6 +253,7 @@ export async function updateInventoryItemAction(
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath("/dashboard/inventory");
   revalidatePath("/dashboard/inventory/items/[id]", "page");
   revalidatePath("/dashboard");
@@ -307,6 +310,7 @@ export async function quickAddInventoryItemAction(input: {
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath("/dashboard/inventory");
   revalidatePath("/dashboard");
   return { name: parsed.data.name };
@@ -442,6 +446,7 @@ export async function bulkCreateInventoryItemsAction(
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath("/dashboard/inventory");
   revalidatePath("/dashboard");
   return { added, skipped };
@@ -541,6 +546,7 @@ export async function bulkSetInventoryQuantitiesAction(
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath("/dashboard/inventory");
   revalidatePath("/dashboard");
   revalidateAutoAdded(autoAdded);
@@ -592,6 +598,7 @@ export async function addStarterKitItemsAction(
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath("/dashboard/inventory");
   revalidatePath("/dashboard");
   return { added };
@@ -638,6 +645,7 @@ export async function adjustQuantityAction(
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath("/dashboard/inventory");
   revalidatePath("/dashboard/inventory/items/[id]", "page");
   revalidatePath("/dashboard");
@@ -706,6 +714,7 @@ export async function markItemEmptyAction(
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath("/dashboard/inventory");
   revalidatePath("/dashboard/inventory/items/[id]", "page");
   revalidatePath("/dashboard");
@@ -821,6 +830,7 @@ export async function undoMarkItemEmptyAction(itemId: string, snapshot: EmptyUnd
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath("/dashboard/inventory");
   revalidatePath("/dashboard/inventory/items/[id]", "page");
   revalidatePath("/dashboard");
@@ -855,6 +865,7 @@ export async function addInventoryItemsToShoppingListAction(
 
   try {
     const { list, added } = await addItemsToDefaultList(prisma, household.id, items, false);
+invalidateHome(household.id);
 
     revalidatePath(`/dashboard/shopping-list/${list.id}`);
     revalidatePath("/dashboard/shopping-list");
@@ -909,6 +920,7 @@ export async function markItemOpenedAction(itemId: string): Promise<{
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath("/dashboard/inventory");
   revalidatePath("/dashboard/inventory/items/[id]", "page");
   revalidatePath("/dashboard");
@@ -958,6 +970,7 @@ export async function undoMarkItemOpenedAction(
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath("/dashboard/inventory");
   revalidatePath("/dashboard/inventory/items/[id]", "page");
   revalidatePath("/dashboard");
@@ -1010,6 +1023,7 @@ export async function freezeItemAction(itemId: string): Promise<{
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath("/dashboard/inventory");
   revalidatePath("/dashboard/inventory/items/[id]", "page");
   revalidatePath("/dashboard");
@@ -1054,6 +1068,7 @@ export async function undoFreezeItemAction(
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath("/dashboard/inventory");
   revalidatePath("/dashboard/inventory/items/[id]", "page");
   revalidatePath("/dashboard");
@@ -1174,6 +1189,7 @@ export async function bulkUpdateFieldAction(
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath("/dashboard/inventory");
   revalidatePath("/dashboard");
   revalidateAutoAdded(autoAdded);
@@ -1191,6 +1207,7 @@ export async function deleteInventoryItemAction(itemId: string): Promise<ActionS
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath("/dashboard/inventory");
   revalidatePath("/dashboard");
   return {};

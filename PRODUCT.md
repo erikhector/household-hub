@@ -41,8 +41,6 @@ Decisions only the owner can make, each with a recommended answer.
 - `GAP-68`: recommended no (sensitive per-member card data; a wallet app does it better).
 - `UX-43`: make screenshot baselines on the CI runner? Recommended yes,
   ~30 screens, owner adds the workflow (#1703).
-- `PERF-32`: recommended split behind an off-by-default flag, owner
-  measures in Vercel (#1704).
 - `UX-66`: owner wants the "who we are" sentence; reply on #736 with the accurate wording.
 - `GAP-35`, `GAP-36`, `GAP-37`, `GAP-38`, `GAP-41`: recommended no for now
   (new data model or money-math, no evidence of demand); `GAP-20`/`GAP-26`
@@ -52,6 +50,7 @@ Decisions only the owner can make, each with a recommended answer.
 
 | Date | ID | Decision | Why | Reversible? |
 |---|---|---|---|---|
+| 2026-11-25 | PERF-32 | Chose (b): split into PERF-32a (tag helper, Redis handler and Home cached, behind `HOME_CACHE`, off by default) and PERF-32b (owner turns it on in Vercel and measures) | A build session can't take the production measurement; the flag keeps it dormant and reversible (#1704) | Yes |
 | 2026-11-23 | UX-36b | Offline adds only, replayed through smart add's existing "already on the list" dedupe; offline price edits not planned | In-store need is remembering an item; no client ids or new merge rules; money stays online (UX-36) | Yes |
 | 2026-11-23 | MAINT-38 | Dropped the item-page heading flake | No sighting since 2026-10-20 across dozens of gates; the wait is client hydration, so neither offered fix fits. Re-file on the next sighting | Yes |
 | 2026-11-09 | UX-176 | Define the shadow and type tokens in `@theme`, migrate the call sites | Item's own recommended option | Yes |

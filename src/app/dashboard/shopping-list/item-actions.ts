@@ -20,6 +20,7 @@ import { createInventoryLinker } from "@/lib/shopping/inventory-link";
 import { defaultLineEstimate } from "@/lib/shopping/unit-price";
 import { findExactInventoryItem, findFuzzyInventoryItem } from "./inventory-lookup";
 import { updateItemPriceSchema } from "./price-schema";
+import { invalidateHome } from "@/lib/household-cache";
 
 const addItemSchema = z.object({
   listId: z.string().min(1),
@@ -134,6 +135,7 @@ export async function addAdHocItemAction(
       parsed.data.unit ?? "",
     );
     if ("error" in result) return { error: result.error };
+    invalidateHome(household.id);
     revalidatePath(`/dashboard/shopping-list/${result.list.id}`);
     // Lets the add form surface the "needs mapping" explanation the moment
     // the item lands, instead of only via the persistent row badge — this
@@ -190,6 +192,7 @@ export async function quickAddShoppingListItemAction(
       newItemDetails ? { category: parsed.data.category ?? "", unit: parsed.data.unit ?? "" } : undefined,
     );
     if ("error" in result) return { error: result.error };
+    invalidateHome(household.id);
     revalidatePath(`/dashboard/shopping-list/${result.list.id}`);
     return { item: { id: result.item.id, name: result.item.name } };
   } catch (error) {
@@ -264,6 +267,7 @@ export async function updateShoppingListItemAction(
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath(`/dashboard/shopping-list/${item.shoppingListId}`);
   return {};
 }
@@ -379,6 +383,7 @@ export async function linkShoppingListItemAction(
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath(`/dashboard/shopping-list/${item.shoppingListId}`);
   return {};
 }
@@ -426,6 +431,7 @@ export async function createInventoryItemFromShoppingListItemAction(
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath(`/dashboard/shopping-list/${item.shoppingListId}`);
   revalidatePath("/dashboard/inventory");
   return {};
@@ -455,6 +461,7 @@ export async function unlinkShoppingListItemAction(itemId: string): Promise<Acti
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath(`/dashboard/shopping-list/${item.shoppingListId}`);
   return {};
 }
@@ -506,6 +513,7 @@ export async function setShoppingListItemCategoryAction(
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath(`/dashboard/shopping-list/${item.shoppingListId}`);
   revalidatePath("/dashboard/inventory");
   return {};
@@ -587,6 +595,7 @@ export async function importShoppingListItemsAction(
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath(`/dashboard/shopping-list/${list.id}`);
   return { added };
 }
@@ -648,6 +657,7 @@ export async function deleteShoppingListItemAction(itemId: string): Promise<Acti
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath(`/dashboard/shopping-list/${item.shoppingListId}`);
   revalidatePath("/dashboard/inventory");
   revalidatePath("/dashboard");
@@ -695,6 +705,7 @@ export async function undoAutoAddedItemsAction(
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   for (const listId of listIds) revalidatePath(`/dashboard/shopping-list/${listId}`);
   if (listIds.length > 0) revalidatePath("/dashboard/shopping-list");
   return { removed };
@@ -840,6 +851,7 @@ export async function moveShoppingListItemAction(
   if (outcome === "gone") return await fail("itemNotFound");
   if (outcome === "unitMismatch") return await fail("moveUnitMismatch", { name: item.name, list: target.name });
 
+  invalidateHome(household.id);
   revalidatePath(`/dashboard/shopping-list/${item.shoppingListId}`);
   revalidatePath(`/dashboard/shopping-list/${target.id}`);
   revalidatePath("/dashboard/shopping-list");
@@ -951,6 +963,7 @@ export async function undoMergedShoppingListMoveAction(
   }
   if (!undone) return await fail("moveUndoStale");
 
+  invalidateHome(household.id);
   revalidatePath(`/dashboard/shopping-list/${source.id}`);
   revalidatePath(`/dashboard/shopping-list/${targetRow.shoppingListId}`);
   revalidatePath("/dashboard/shopping-list");
