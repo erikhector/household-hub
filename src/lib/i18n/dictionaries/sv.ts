@@ -211,6 +211,15 @@ export const sv = {
     transactionNotFound: "Transaktionen hittades inte",
     recurringItemNotFound: "Den återkommande posten hittades inte",
     recurringItemAlreadyLogged: "Det finns redan en transaktion för den här återkommande posten under perioden",
+    // MAINT-7: the household budget's actions (budget/*-actions.ts).
+    splitPaidNegative: "Varje betalt belopp måste vara noll eller mer",
+    splitSumMismatch: "De delade beloppen måste summera till transaktionens totalbelopp",
+    splitPaidOverTotal: "De betalda beloppen kan inte bli mer än transaktionens totalbelopp",
+    chooseSplit: "Välj hur utgiften ska delas",
+    chooseOwnHousehold: "Välj ett hushåll som du tillhör",
+    chooseWhoPaid: "Välj vem som betalade",
+    chooseWhoWasPaid: "Välj vem som fick betalt",
+    chooseTwoDifferentMembers: "Välj två olika medlemmar",
   },
   nav: {
     skipToContent: "Hoppa till innehållet",

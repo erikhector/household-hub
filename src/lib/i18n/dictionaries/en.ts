@@ -220,6 +220,15 @@ export const en = {
     transactionNotFound: "Transaction not found",
     recurringItemNotFound: "Recurring item not found",
     recurringItemAlreadyLogged: "A transaction for this recurring item already exists for this period",
+    // MAINT-7: the household budget's actions (budget/*-actions.ts).
+    splitPaidNegative: "Each paid amount must be zero or more",
+    splitSumMismatch: "The split amounts must add up to the transaction total",
+    splitPaidOverTotal: "The paid amounts can't add up to more than the transaction total",
+    chooseSplit: "Choose how to split this expense",
+    chooseOwnHousehold: "Choose a household you belong to",
+    chooseWhoPaid: "Choose who paid",
+    chooseWhoWasPaid: "Choose who was paid",
+    chooseTwoDifferentMembers: "Choose two different members",
   },
   nav: {
     // UX-164: the keyboard skip link that opens the dashboard.

@@ -29,7 +29,6 @@ actually being wrong.
 Builder picks these, in order, right after `UX-` items.
 
 1. `UX-36b` Offline adds on the shopping list
-2. `MAINT-7` Translate the remaining server-returned error messages
 
 ## Owner inbox
 
@@ -53,6 +52,7 @@ Decisions only the owner can make, each with a recommended answer.
 | Date | ID | Decision | Why | Reversible? |
 |---|---|---|---|---|
 | 2026-11-25 | GAP-35 | Build the household calendar: a `HouseholdEvent` (title, date, optional times, notes, who it's for, weekly/monthly/yearly repeat), an agenda page behind More, a light "Coming up" card on Home, and events in the `.ics` feed with RRULEs; everyone sees every event; reminders later (GAP-88) | owner | Hard (migration) |
+| 2026-11-25 | MAINT-7 | Convert the household budget's errors now; BUDGET-6 no longer blocks it | owner; the conversion doesn't depend on BUDGET-6's answer, which stays open as its own question | Yes |
 | 2026-11-23 | UX-36b | Offline adds only, replayed through smart add's existing "already on the list" dedupe; offline price edits not planned | In-store need is remembering an item; no client ids or new merge rules; money stays online (UX-36) | Yes |
 | 2026-11-23 | MAINT-38 | Dropped the item-page heading flake | No sighting since 2026-10-20 across dozens of gates; the wait is client hydration, so neither offered fix fits. Re-file on the next sighting | Yes |
 | 2026-11-09 | UX-176 | Define the shadow and type tokens in `@theme`, migrate the call sites | Item's own recommended option | Yes |
