@@ -8120,7 +8120,7 @@ URL and re-fetch on their own; nothing is ever written back.
 GAP-35. A shared calendar for what isn't a meal or a bill: appointments,
 birthdays, school events (Cozi's core feature). Everyone in the household
 sees every event; there is no per-member visibility. Reminders and push
-for events are not built yet (BACKLOG.md, GAP-88).
+for events are not built yet (BACKLOG.md, GAP-88a and GAP-88b).
 
 - **Model**: `HouseholdEvent` (migration `20261125173334_household_event`):
   `householdId` (`onDelete: Cascade`), `title`, `date` (`@db.Date`, a UTC

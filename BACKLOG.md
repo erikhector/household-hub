@@ -516,19 +516,30 @@ Each item adds a migration (`npx prisma migrate dev --name <name>`, local
 only — production only ever runs `migrate deploy`). Land sequentially; the
 order below is a suggestion, not a dependency, unless noted.
 
-- [ ] **GAP-88. Reminders for household calendar events** — follow-up to
-      GAP-35, which shipped the calendar without any notification. A
-      member should be able to ask for a reminder on an event ("the
-      dentist, an hour before"; "Zoe's birthday, the morning of"), sent
-      as a push (`web-push`, `src/lib/notifications.ts`) to whoever opted
-      in. Needs a per-event reminder offset on `HouseholdEvent` (a
-      migration), a per-user opt-in like the task-due nudge (GAP-74,
-      `syncTaskDueNudge`), and a cron pass that expands repeats with
+- [ ] **GAP-88a. Day-ahead reminders for household calendar events** —
+      follow-up to GAP-35, which shipped the calendar without any
+      notification. Split from GAP-88 (2026-11-25), keeping only the
+      reminders today's once-a-day cron can deliver on time. A member can
+      set a reminder on an event, "The morning of" or "The day before"
+      ("Zoe's birthday, the morning of"), sent as a push (`web-push`,
+      `src/lib/notifications.ts`) to members who opted in. Needs a
+      reminder choice on `HouseholdEvent` (a nullable enum, a migration),
+      a per-user opt-in like the task-due nudge (GAP-74,
+      `syncTaskDueNudge`, a Profile toggle beside it), and a pass in the
+      existing `/api/cron/sync-notifications` run (plus
+      `findHouseholdIdsWithSyncCandidates`) that expands repeats with
       `expandEventOccurrences` (`src/lib/household-events.ts`) and sends
-      each reminder once (an idempotency row, as `WeeklyDigestSend`). Times
-      are floating wall-clock times, so the send time is the event's time
-      in the recipient's own zone. Guardrails: opt-in and off by default,
-      since a bell badge must mean something's wrong.
+      each reminder once per recipient and occurrence (an idempotency row,
+      as `WeeklyDigestSend`). Times are floating wall-clock dates, so
+      "the morning of" means the run on that day in the recipient's own
+      zone (their push devices' `PushSubscription.timeZone`, UTC when
+      unknown), "the day before" the run on the day before; a run that
+      finds the day already past sends nothing late. Push only, no bell
+      entry: a bell badge must mean something's wrong. Opt-in and off by
+      default. Acceptance: a member picks "The morning of" in the event
+      sheet, it saves and shows on reopen; the Profile toggle saves; the
+      sync sends each due reminder once and never for another
+      household's events.
 
 ## Phase 3 — larger items, own PR each
 
@@ -913,6 +924,25 @@ out to be a product-scope question rather than a scoped task should move to
       against merging the underlying Prisma models, but left this smaller
       question open. Revisit only after BUDGET-2 → BUDGET-5 land and the
       real prop surface each merged component needs is known.
+
+- [ ] **GAP-88b. Hour-scale reminders for calendar events** `[!]` —
+      the rest of GAP-88 (split 2026-11-25): "the dentist, an hour
+      before". `/api/cron/sync-notifications` runs once a day (`0 6 * * *`
+      in `vercel.json`), because Vercel Hobby caps Cron Jobs at once a
+      day and fails the deployment on a tighter schedule (DEPLOYMENT.md,
+      "Scheduled jobs"). A reminder an hour or two before a timed event
+      can't arrive on time from a daily run, so this needs a scheduler
+      that runs every 15 minutes or so. Options:
+      - **Recommended:** a Vercel Pro plan (or Railway/Render's own
+        cron), with the existing sync route on `*/15 * * * *`; GAP-88a's
+        sender then only gains offsets of minutes and hours.
+      - An outside pinger (a scheduled GitHub Actions workflow or a free
+        cron service) calling the route with `CRON_SECRET`. Free, but
+        GitHub's schedules run late under load and it puts the secret
+        in another place.
+      - Keep reminders day-scale only (GAP-88a) and don't build this.
+      Hosting plan and secrets are the owner's call (AUTOPILOT.md,
+      `never_decide`). Build GAP-88a first.
 
 ### Infrastructure (moved from REQUIREMENTS.md's "Deferred" list)
 
