@@ -6,6 +6,7 @@ import { requireHousehold } from "@/lib/session";
 import type { ActionState } from "@/lib/actions/auth";
 import { toFriendlyError } from "@/lib/actions/errors";
 import { revalidateBudgetPages } from "./action-helpers";
+import { normalizeDecimal } from "@/lib/decimal-input";
 
 // --- Settling up between members ---------------------------------------------
 // See MemberSettlement's doc comment in schema.prisma and HouseholdBalances
@@ -37,7 +38,7 @@ export async function recordSettlementAction(
   const parsed = settlementSchema.safeParse({
     fromMemberId: formData.get("fromMemberId"),
     toMemberId: formData.get("toMemberId"),
-    amount: formData.get("amount"),
+    amount: normalizeDecimal(formData.get("amount")),
     date: formData.get("date"),
   });
   if (!parsed.success) {

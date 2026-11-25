@@ -96,7 +96,7 @@ test("a failed scan lets you type the price, and it's recorded like a scanned on
 
   // The review step: one row for the list item, its price empty.
   await expect(dialog.getByText(name)).toBeVisible();
-  const price = dialog.getByRole("spinbutton", { name: "Price" });
+  const price = dialog.getByRole("textbox", { name: "Price" });
   await expect(price).toHaveValue("");
   await price.fill("45");
   // BUG-3: the row says "3" and the unit price, so a misread count or price
@@ -146,7 +146,7 @@ test("Register receipt can be typed in line by line when the scan fails", async 
   await expect(dialog.getByText(/Type each item with what you paid/)).toBeVisible();
   await dialog.locator("#register-receipt-name").fill(name);
   await dialog.getByRole("button", { name: "Add line" }).click();
-  await expect(dialog.getByRole("spinbutton", { name: "Price" })).toHaveCount(2);
+  await expect(dialog.getByRole("textbox", { name: "Price" })).toHaveCount(2);
   // The new line's name field takes focus, so on a phone it scrolls into
   // view and the tap visibly did something.
   await expect(dialog.locator('input[name="name"]').nth(1)).toBeFocused();
@@ -156,7 +156,7 @@ test("Register receipt can be typed in line by line when the scan fails", async 
     [`Typed bread ${t}`, "30"],
     [`Typed jam ${t}`, "12.5"],
   ].entries()) {
-    await dialog.getByRole("spinbutton", { name: "Price" }).nth(i).fill(amount);
+    await dialog.getByRole("textbox", { name: "Price" }).nth(i).fill(amount);
     await dialog.getByRole("button", { name: "Create new" }).nth(i).click();
     // Last, and left with Tab: an open suggestion list hides the rest.
     await dialog.locator('input[name="name"]').nth(i).fill(line);

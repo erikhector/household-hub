@@ -52,6 +52,7 @@ Decisions only the owner can make, each with a recommended answer.
 
 | Date | ID | Decision | Why | Reversible? |
 |---|---|---|---|---|
+| 2026-11-25 | UX-30 | Fix without the device check: money and quantity fields become decimal text fields that take "," | owner; the fix is safe on every browser, so the iPhone check would only decide timing | Yes |
 | 2026-11-23 | UX-36b | Offline adds only, replayed through smart add's existing "already on the list" dedupe; offline price edits not planned | In-store need is remembering an item; no client ids or new merge rules; money stays online (UX-36) | Yes |
 | 2026-11-23 | MAINT-38 | Dropped the item-page heading flake | No sighting since 2026-10-20 across dozens of gates; the wait is client hydration, so neither offered fix fits. Re-file on the next sighting | Yes |
 | 2026-11-09 | UX-176 | Define the shadow and type tokens in `@theme`, migrate the call sites | Item's own recommended option | Yes |

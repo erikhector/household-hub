@@ -345,7 +345,7 @@ test("remembering 1 pcs = 2000 g for an item skips the unit question next time, 
   await page.goto("/dashboard/meal-planning");
   await (await openRowSheet(page, recipeName)).getByRole("button", { name: "Mark as cooked" }).click();
   const cooked = page.getByRole("dialog", { name: "Mark as cooked" });
-  await expect(cooked.getByRole("spinbutton", { name: `Quantity to use for ${itemName}` })).toHaveValue("0.15");
+  await expect(cooked.getByRole("textbox", { name: `Quantity to use for ${itemName}` })).toHaveValue("0.15");
   await expect(cooked.getByText(/enter the amount manually/)).toHaveCount(0);
 });
 

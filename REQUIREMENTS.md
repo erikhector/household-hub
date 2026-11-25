@@ -387,7 +387,34 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
   `datedName(prefix, locale)` (`src/lib/i18n/format.ts`), e.g.
   "Inköpslista — 5 okt. 2026"; the shopping-list and receipt dialogs'
   name placeholders use the same helper so they match what gets saved.
-  Number *inputs* stay `type="number"` with dot-decimal values.
+- **Money and quantity fields take a decimal comma (UX-30)**: a
+  Swedish-region iPhone's decimal keypad offers only ",", and WebKit
+  submitted `""` for "12,5" in a `type="number"` field, losing the
+  amount. So every money and quantity field (budget amounts, split
+  shares and payments, limits and goals, settlements, shopping
+  quantities and prices, receipt lines, inventory quantities and
+  thresholds, recipe ingredient, component and nutrition amounts, a
+  task's "Amount each time", cooked quantities) is a `DecimalInput`
+  (`src/components/shared/decimal-input.tsx`): `type="text"
+  inputMode="decimal"` with `DECIMAL_PATTERN`, still the decimal keypad
+  and still 16 px. One parser reads them, `src/lib/decimal-input.ts`:
+  - `normalizeDecimal` runs on the server before Zod (on the FormData
+    value, or in the limit/goal preprocess), and `parseDecimal` in the
+    client's previews (split remainders, the "Added 12,50 kr" toast,
+    live totals) and in the JSON the bulk and scan dialogs send, so a
+    preview never disagrees with what saves.
+  - Whitespace is dropped, including sv-SE's no-break thousands spaces
+    ("1 234,5" is 1234.5). One "," with no "." is the decimal separator.
+    Both separators together, or two commas ("1,234.5", "1.234,5",
+    "1,2,3"), are not a number rather than a guessed thousands
+    separator, so "1,234" is 1.234. Anything else that isn't a plain
+    decimal ("abc", "0x10", "1e3") is not a number either; "" stays ""
+    so each schema's own empty rule still applies.
+  - A text field has no `min`/`max`/`step`, so every range rule is the
+    action's Zod schema (all of them already checked it).
+  - Whole-number fields (portions, servings, leftover portions,
+    calories, day of month, "use within N days") stay `type="number"
+    inputMode="numeric"`: the digit pad has no separator to get wrong.
 - **Units are shown in the viewer's language (UX-44)**: stored units are
   free text ("pcs", "tbsp"), but every place that displays one goes
   through `unitLabel(unit, labels)` (`src/lib/units.ts`), which looks the

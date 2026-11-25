@@ -1,7 +1,7 @@
 "use client";
 
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
+import { DecimalInput } from "@/components/shared/decimal-input";
 import { format } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import type { CookedIngredientData } from "@/components/meal-planning/types";
@@ -47,11 +47,7 @@ export function CookedIngredientsChecklist({
             </span>
           </label>
           <div className="flex items-center gap-2 pl-6">
-            <Input
-              type="number"
-              inputMode="decimal"
-              min={0}
-              step="0.01"
+            <DecimalInput
               className="w-24"
               value={item.quantity}
               disabled={!item.included}

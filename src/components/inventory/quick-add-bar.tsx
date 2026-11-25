@@ -5,11 +5,13 @@ import { Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DecimalInput } from "@/components/shared/decimal-input";
 import { Label } from "@/components/ui/label";
 import { ComboField } from "@/components/inventory/combo-field";
 import { quickAddInventoryItemAction } from "@/app/dashboard/inventory/actions";
 import { format } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
+import { parseDecimal } from "@/lib/decimal-input";
 
 /**
  * Rapid entry for stocking a shelf at a time: name + quantity + unit +
@@ -44,7 +46,7 @@ function QuickAddBar({
     startTransition(async () => {
       const result = await quickAddInventoryItemAction({
         name: trimmedName,
-        quantity: Number(quantity) || 1,
+        quantity: parseDecimal(quantity) || 1,
         unit: unit.trim() || "pcs",
         category: category.trim() || undefined,
       });
@@ -102,13 +104,9 @@ function QuickAddBar({
           <Label htmlFor="quick-add-quantity" className="text-xs font-normal text-muted-foreground">
             {dict.quantityLabel}
           </Label>
-          <Input
+          <DecimalInput
             enterKeyHint="next"
             id="quick-add-quantity"
-            type="number"
-            inputMode="decimal"
-            min={0}
-            step="any"
             value={quantity}
             onChange={(e) => setQuantity(e.target.value)}
             onKeyDown={handleEnterTo("quick-add-unit")}

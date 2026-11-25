@@ -596,6 +596,67 @@ describe("createTransactionAction", () => {
   });
 });
 
+describe("decimal comma (UX-30)", () => {
+  // A Swedish-region iPhone's decimal keypad has only ",", so the amount
+  // and the split's shares arrive as "12,5".
+  it("saves an amount typed with a decimal comma", async () => {
+    categoryFindFirstMock.mockResolvedValue({ id: "cat-1", type: "EXPENSE" });
+    transactionCreateMock.mockResolvedValue({ id: "new-tx" });
+
+    const result = await createTransactionAction(
+      {},
+      formData({ categoryId: "cat-1", amount: "1 234,5", date: "2026-01-15", isRecurring: "" }),
+    );
+
+    expect(result).toEqual(expect.not.objectContaining({ error: expect.anything() }));
+    expect(transactionCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ amount: 1234.5 }) }),
+    );
+  });
+
+  it("reads split shares and payments typed with a decimal comma", async () => {
+    categoryFindFirstMock.mockResolvedValue({ id: "cat-1", type: "EXPENSE" });
+    householdMemberFindManyMock.mockResolvedValue([{ id: "member-1" }, { id: "member-2" }]);
+    transactionCreateMock.mockResolvedValue({});
+    const fd = formData({ categoryId: "cat-1", amount: "12,5", date: "2026-01-15", isRecurring: "", splitEnabled: "on" });
+    fd.append("splitMemberId", "member-1");
+    fd.append("splitMemberId", "member-2");
+    fd.append("splitAmount", "6,25");
+    fd.append("splitAmount", "6,25");
+    fd.append("splitPaid", "12,5");
+    fd.append("splitPaid", "");
+
+    const result = await createTransactionAction({}, fd);
+
+    expect(result).toEqual({});
+    expect(transactionCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          amount: 12.5,
+          splits: {
+            create: [
+              { householdMemberId: "member-1", amountOwed: 6.25, amountPaid: 12.5 },
+              { householdMemberId: "member-2", amountOwed: 6.25, amountPaid: 0 },
+            ],
+          },
+        }),
+      }),
+    );
+  });
+
+  it("turns down an amount with both separators rather than guessing", async () => {
+    categoryFindFirstMock.mockResolvedValue({ id: "cat-1", type: "EXPENSE" });
+
+    const result = await createTransactionAction(
+      {},
+      formData({ categoryId: "cat-1", amount: "1.234,5", date: "2026-01-15", isRecurring: "" }),
+    );
+
+    expect(result.error).toBeTruthy();
+    expect(transactionCreateMock).not.toHaveBeenCalled();
+  });
+});
+
 describe("createSharedExpenseFromPersonalBudgetAction", () => {
   function sharedFormData(overrides: Record<string, string> = {}) {
     const fd = formData({

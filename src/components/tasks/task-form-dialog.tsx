@@ -31,6 +31,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ArrowDown, ArrowUp, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DecimalInput } from "@/components/shared/decimal-input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -53,6 +54,7 @@ import { MIN_ROTATION_MEMBERS } from "@/lib/task-rotation";
 import { format } from "@/lib/i18n/format";
 import { RECURRENCE_OPTION_DAYS, recurrenceText } from "@/app/dashboard/tasks/recurrence-label";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
+import { normalizeDecimal, parseDecimal } from "@/lib/decimal-input";
 
 type MemberOption = { id: string; displayName: string };
 /** GAP-87: a pantry item the "Uses up" picker offers. */
@@ -232,7 +234,7 @@ export function TaskFormDialog({
             rotationMemberIds: formData.getAll("rotationMemberIds").map(String),
             // GAP-87: both sent only while an item is picked; none unlinks it.
             consumesItemId: (formData.get("consumesItemId") as string | null) || null,
-            consumesQuantity: formData.has("consumesQuantity") ? Number(formData.get("consumesQuantity")) : null,
+            consumesQuantity: formData.has("consumesQuantity") ? Number(normalizeDecimal(formData.get("consumesQuantity"))) : null,
           });
         };
 
@@ -502,13 +504,8 @@ export function TaskFormDialog({
               />
               {usesItem && (
                 <div className="flex items-center gap-2">
-                  <Input
+                  <DecimalInput
                     id="task-uses-up-quantity"
-                    type="number"
-                    inputMode="decimal"
-                    min={0}
-                    step="any"
-                    autoComplete="off"
                     name="consumesQuantity"
                     value={usesQuantity}
                     onChange={(e) => setUsesQuantity(e.target.value)}
@@ -516,7 +513,7 @@ export function TaskFormDialog({
                     className="w-24 shrink-0 max-sm:min-h-11"
                   />
                   <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
-                    {unitLabel(usesItem.unit, Number(usesQuantity) || 0)}
+                    {unitLabel(usesItem.unit, parseDecimal(usesQuantity) || 0)}
                   </span>
                   <Button
                     type="button"

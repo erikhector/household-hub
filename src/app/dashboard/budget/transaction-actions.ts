@@ -12,6 +12,7 @@ import { plannedItemType } from "@/lib/planned-expense-calc";
 import { SPLIT_SUM_TOLERANCE } from "@/lib/share-split-form";
 import { repeatTemplateFields } from "@/lib/repeat-template";
 import { assertNoDuplicateTemplatePeriod, revalidateBudgetPages, type ParsedSplit } from "./action-helpers";
+import { normalizeDecimal } from "@/lib/decimal-input";
 
 // --- Transactions --------------------------------------------------------
 
@@ -42,7 +43,7 @@ const transactionSchema = z.object({
 function parseTransactionFormData(formData: FormData) {
   return transactionSchema.safeParse({
     categoryId: formData.get("categoryId"),
-    amount: formData.get("amount"),
+    amount: normalizeDecimal(formData.get("amount")),
     description: formData.get("description") || undefined,
     date: formData.get("date"),
     isRecurring: formData.get("isRecurring") === "on",
@@ -121,9 +122,9 @@ async function parseSplitFormData(
   if (formData.get("splitEnabled") !== "on") return null;
 
   const memberIds = formData.getAll("splitMemberId").map((v) => String(v));
-  const amounts = formData.getAll("splitAmount").map((v) => Number(v));
+  const amounts = formData.getAll("splitAmount").map((v) => Number(normalizeDecimal(v)));
   // An empty "paid" input means nothing paid yet, not an invalid number.
-  const paid = formData.getAll("splitPaid").map((v) => (String(v).trim() === "" ? 0 : Number(v)));
+  const paid = formData.getAll("splitPaid").map((v) => (String(v).trim() === "" ? 0 : Number(normalizeDecimal(v))));
   if (memberIds.length === 0 || memberIds.length !== amounts.length || memberIds.length !== paid.length) {
     return { error: "Invalid split" };
   }
@@ -388,7 +389,7 @@ export async function updateTransactionAction(
   const parsed = updateTransactionSchema.safeParse({
     id: formData.get("id"),
     categoryId: formData.get("categoryId"),
-    amount: formData.get("amount"),
+    amount: normalizeDecimal(formData.get("amount")),
     description: formData.get("description") || undefined,
     date: formData.get("date"),
     isRecurring: formData.get("isRecurring") === "on",

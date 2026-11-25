@@ -11,6 +11,7 @@
 import { z } from "zod";
 import { computeCategoryRollover } from "@/lib/budget-rollover-calc";
 import type { CategoryEnvelope } from "@/lib/safe-to-spend-calc";
+import { parseDecimal } from "@/lib/decimal-input";
 
 /**
  * The CategoryManager form's optional "Monthly limit" input. An empty (or
@@ -30,7 +31,7 @@ export function monthlyLimitFieldWith(messages: { number: string; positive: stri
     (value) => {
       if (value === null || value === undefined) return null;
       const trimmed = String(value).trim();
-      return trimmed === "" ? null : Number(trimmed);
+      return trimmed === "" ? null : parseDecimal(trimmed);
     },
     z.number({ error: messages.number }).positive(messages.positive).nullable(),
   );

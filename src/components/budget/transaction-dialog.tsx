@@ -6,6 +6,7 @@ import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { DecimalInput } from "@/components/shared/decimal-input";
 import { Label } from "@/components/ui/label";
 import {
   Dialog,
@@ -40,6 +41,7 @@ import type { CategoryRow } from "@/components/budget/category-manager";
 import { PendingLabel } from "@/components/ui/pending-label";
 import { FieldError, fieldErrorId } from "@/components/auth/field-error";
 import { useRequiredFields } from "@/components/shared/use-required-fields";
+import { parseDecimal } from "@/lib/decimal-input";
 
 type RecurrenceFrequency = "WEEKLY" | "MONTHLY" | "YEARLY";
 
@@ -348,7 +350,7 @@ export function TransactionDialog({
         const savedId = result.createdId;
         toast.success(
           format(dict.addedToast, {
-            amount: numberFormat.format(Number(formData.get("amount"))),
+            amount: numberFormat.format(parseDecimal(String(formData.get("amount")))),
             category: savedCategory?.name ?? "",
           }),
           // Undo removes only the row, which would leave the repeating item
@@ -406,7 +408,7 @@ export function TransactionDialog({
   }
 
   function resetToEvenSplit(total: string) {
-    const even = evenSplitAmounts(Number(total) || 0, members.length);
+    const even = evenSplitAmounts(parseDecimal(total) || 0, members.length);
     setSplitAmounts(Object.fromEntries(members.map((m, i) => [m.id, (even[i] ?? 0).toFixed(2)])));
   }
 
@@ -464,16 +466,11 @@ export function TransactionDialog({
           )}
           <div className="flex flex-col gap-2">
             <Label htmlFor="tx-amount">{dict.amountLabel}</Label>
-            <Input
+            <DecimalInput
               id="tx-amount"
               ref={amountRef}
               name="amount"
-              type="number"
-              inputMode="decimal"
-              autoComplete="off"
               enterKeyHint="next"
-              min={0.01}
-              step="any"
               value={amount}
               onChange={(e) => handleAmountChange(e.target.value)}
               aria-invalid={req.messageFor("amount") ? true : undefined}

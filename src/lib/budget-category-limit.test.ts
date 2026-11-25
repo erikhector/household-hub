@@ -45,6 +45,11 @@ describe("monthlyLimitField", () => {
     expect(monthlyLimitField.parse(" 49.50 ")).toBe(49.5);
   });
 
+  it("reads a decimal comma (UX-30)", () => {
+    expect(monthlyLimitField.parse("49,50")).toBe(49.5);
+    expect(monthlyLimitField.parse("3 000,5")).toBe(3000.5);
+  });
+
   it("rejects zero and negative amounts", () => {
     expect(monthlyLimitField.safeParse("0").error?.issues[0]?.message).toBe(
       "Monthly limit must be greater than 0",

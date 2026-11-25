@@ -14,6 +14,7 @@ import { useActionState, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DecimalInput } from "@/components/shared/decimal-input";
 import { Label } from "@/components/ui/label";
 import {
   Dialog,
@@ -50,6 +51,7 @@ import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import { PendingLabel } from "@/components/ui/pending-label";
 import { FieldError, fieldErrorId } from "@/components/auth/field-error";
 import { useRequiredFields } from "@/components/shared/use-required-fields";
+import { parseDecimal } from "@/lib/decimal-input";
 
 type ShareableHouseholdMember = { id: string; displayName: string };
 export type ShareableHouseholdCategory = { id: string; name: string; type: "INCOME" | "EXPENSE" | "SAVINGS" };
@@ -101,7 +103,7 @@ function defaultPaidAmounts(household: ShareableHousehold | undefined, amount: s
 
 function evenShares(household: ShareableHousehold | undefined, total: string) {
   const members = household?.members ?? [];
-  const even = evenSplitAmounts(Number(total) || 0, members.length);
+  const even = evenSplitAmounts(parseDecimal(total) || 0, members.length);
   return Object.fromEntries(members.map((m, i) => [m.id, (even[i] ?? 0).toFixed(2)]));
 }
 
@@ -313,13 +315,9 @@ export function LogSharedExpenseDialog({
                     doesn't read as this user's own share. */}
                 {prefill ? dict.logShared.amountLabelFull : dict.logShared.amountLabel}
               </Label>
-              <Input
+              <DecimalInput
                 id="shared-expense-amount"
                 name="amount"
-                type="number"
-                inputMode="decimal"
-                min={0.01}
-                step="any"
                 value={amount}
                 onChange={(e) => handleAmountChange(e.target.value)}
                 aria-invalid={req.messageFor("amount") ? true : undefined}

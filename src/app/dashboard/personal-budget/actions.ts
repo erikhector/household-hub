@@ -19,6 +19,7 @@ import {
 import { goalAmountFieldWith, goalDateFieldWith, goalForType } from "@/lib/savings-goal-calc";
 import { MAX_BUDGET_MONTH_START_DAY, MIN_BUDGET_MONTH_START_DAY } from "@/lib/budget-date-utils";
 import { getPersonalBudgetStartDay } from "@/lib/personal-budget-period";
+import { normalizeDecimal } from "@/lib/decimal-input";
 
 // MAINT-7: every `{ error }` here is in the request's language (`fail()` /
 // `zodFail()`), so the shared limit and goal fields get `errors` keys as
@@ -278,7 +279,7 @@ const transactionSchema = z.object({
 function parseTransactionFormData(formData: FormData) {
   return transactionSchema.safeParse({
     categoryId: formData.get("categoryId"),
-    amount: formData.get("amount"),
+    amount: normalizeDecimal(formData.get("amount")),
     description: formData.get("description") || undefined,
     date: formData.get("date"),
     isRecurring: formData.get("isRecurring") === "on",
@@ -466,7 +467,7 @@ export async function updatePersonalTransactionAction(
   const parsed = updateTransactionSchema.safeParse({
     id: formData.get("id"),
     categoryId: formData.get("categoryId"),
-    amount: formData.get("amount"),
+    amount: normalizeDecimal(formData.get("amount")),
     description: formData.get("description") || undefined,
     date: formData.get("date"),
     isRecurring: formData.get("isRecurring") === "on",
@@ -551,7 +552,7 @@ function parseRecurringTemplateFormData(formData: FormData) {
   return recurringTemplateSchema.safeParse({
     name: formData.get("name"),
     categoryId: formData.get("categoryId"),
-    amount: formData.get("amount"),
+    amount: normalizeDecimal(formData.get("amount")),
     frequency: formData.get("frequency"),
     dayOfMonth: formData.get("dayOfMonth") || undefined,
   });
@@ -607,7 +608,7 @@ export async function updatePersonalRecurringTemplateAction(
     id: formData.get("id"),
     name: formData.get("name"),
     categoryId: formData.get("categoryId"),
-    amount: formData.get("amount"),
+    amount: normalizeDecimal(formData.get("amount")),
     frequency: formData.get("frequency"),
     dayOfMonth: formData.get("dayOfMonth") || undefined,
   });

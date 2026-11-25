@@ -29,10 +29,11 @@ import { SplitEditor } from "@/components/budget/split-editor";
 import { format } from "@/lib/i18n/format";
 import type { ShareableHousehold } from "@/components/personal-budget/log-shared-expense-dialog";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
+import { parseDecimal } from "@/lib/decimal-input";
 
 function evenShares(household: ShareableHousehold | undefined, total: string) {
   const members = household?.members ?? [];
-  const even = evenSplitAmounts(Number(total) || 0, members.length);
+  const even = evenSplitAmounts(parseDecimal(total) || 0, members.length);
   return Object.fromEntries(members.map((m, i) => [m.id, (even[i] ?? 0).toFixed(2)]));
 }
 
@@ -191,7 +192,7 @@ export function SharedSplitFields({
                   <p key={m.id}>
                     {format(dict.splitShare, {
                       name: m.displayName,
-                      amount: numberFormat.format(Number(split.shares[m.id]) || 0),
+                      amount: numberFormat.format(parseDecimal(split.shares[m.id]) || 0),
                     })}
                   </p>
                 ))}

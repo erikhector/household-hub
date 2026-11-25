@@ -38,6 +38,11 @@ describe("checkSplitForm", () => {
     });
   });
 
+  it("reads amounts typed with a decimal comma (UX-30)", () => {
+    const check = checkSplitForm("12,5", { a: "6,25", b: "6,25" }, { a: "12,5", b: "" });
+    expect(check).toMatchObject({ shareTotal: 12.5, paidTotal: 12.5, shareRemainder: 0, shareMismatch: false });
+  });
+
   it("reports what's left due on a partly paid bill", () => {
     const check = checkSplitForm("6000", { a: "3000", b: "3000" }, { a: "3000", b: "" });
     expect(check.leftDue).toBe(3000);

@@ -17,6 +17,7 @@
 // has passed just says so, neutrally, and keeps showing what's left.
 
 import { z } from "zod";
+import { parseDecimal } from "@/lib/decimal-input";
 
 /**
  * The CategoryManager form's optional "Savings goal" amount. Same rules as
@@ -34,7 +35,7 @@ export function goalAmountFieldWith(messages: { number: string; positive: string
     (value) => {
       if (value === null || value === undefined) return null;
       const trimmed = String(value).trim();
-      return trimmed === "" ? null : Number(trimmed);
+      return trimmed === "" ? null : parseDecimal(trimmed);
     },
     z.number({ error: messages.number }).positive(messages.positive).nullable(),
   );

@@ -4,6 +4,7 @@ import { useActionState, useMemo, useState, type FormEvent, type RefObject } fro
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { DecimalInput } from "@/components/shared/decimal-input";
 import { Label } from "@/components/ui/label";
 import {
   Dialog,
@@ -40,6 +41,7 @@ import { PendingLabel } from "@/components/ui/pending-label";
 import { FieldError, fieldErrorId } from "@/components/auth/field-error";
 import { useRequiredFields } from "@/components/shared/use-required-fields";
 import { useKeptFormValues } from "@/components/shared/use-kept-form-values";
+import { parseDecimal } from "@/lib/decimal-input";
 
 // Shared by both createRecurringTemplateAction/updateRecurringTemplateAction
 // (household) and createPersonalRecurringTemplateAction/
@@ -165,7 +167,7 @@ export function RecurringTemplateDialog({
   }, initialState);
 
   function resetToEvenSplit(total: string) {
-    const even = evenSplitAmounts(Number(total) || 0, memberOptions.length);
+    const even = evenSplitAmounts(parseDecimal(total) || 0, memberOptions.length);
     setSplitAmounts(Object.fromEntries(memberOptions.map((m, i) => [m.id, (even[i] ?? 0).toFixed(2)])));
   }
 
@@ -250,15 +252,10 @@ export function RecurringTemplateDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-2">
               <Label htmlFor="rt-amount">{dict.recurring.amountLabel}</Label>
-              <Input
+              <DecimalInput
                 id="rt-amount"
                 name="amount"
-                type="number"
-                inputMode="decimal"
-                autoComplete="off"
                 enterKeyHint="next"
-                min={0.01}
-                step="any"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 aria-invalid={req.messageFor("amount") ? true : undefined}
@@ -333,14 +330,9 @@ export function RecurringTemplateDialog({
                       <div key={m.id} className="flex items-center gap-2">
                         <input type="hidden" name="splitMemberId" value={m.id} />
                         <span className="min-w-0 flex-1 truncate text-sm">{m.displayName}</span>
-                        <Input
+                        <DecimalInput
                           name="splitAmount"
-                          type="number"
-                          inputMode="decimal"
-                          autoComplete="off"
                           enterKeyHint={i === memberOptions.length - 1 ? "done" : "next"}
-                          min={0}
-                          step="any"
                           className="w-24 shrink-0"
                           value={splitAmounts[m.id] ?? "0"}
                           onChange={(e) =>

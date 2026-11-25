@@ -14,10 +14,11 @@
 // `splitAmount` and `splitPaid`, aligned by index.
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { DecimalInput } from "@/components/shared/decimal-input";
 import { Label } from "@/components/ui/label";
 import { checkSplitForm } from "@/components/budget/split-amounts";
 import { format } from "@/lib/i18n/format";
+import { parseDecimal } from "@/lib/decimal-input";
 
 export type SplitEditorDict = {
   sharesLabel: string;
@@ -53,8 +54,8 @@ export function SplitEditor({
   onSplitEvenly: () => void;
   /** UX-15: the caller's createMoneyFormat(locale, currencyCode), so the
    * warnings read "12,50 kr" to a Swedish household rather than a bare
-   * `toFixed(2)` "12.50". The inputs themselves stay `type="number"`, whose
-   * value is always dot-decimal whatever the locale. */
+   * `toFixed(2)` "12.50". The inputs take "12,50" or "12.50" alike (UX-30,
+   * DecimalInput), so totals are read with `parseDecimal`. */
   numberFormat: Intl.NumberFormat;
   dict: SplitEditorDict;
 }) {
@@ -77,23 +78,15 @@ export function SplitEditor({
         <div key={m.id} className="flex items-center gap-2">
           <input type="hidden" name="splitMemberId" value={m.id} />
           <span className="min-w-0 flex-1 truncate text-sm">{m.displayName}</span>
-          <Input
+          <DecimalInput
             name="splitAmount"
-            type="number"
-            inputMode="decimal"
-            min={0}
-            step="any"
             className="w-24 shrink-0"
             value={shares[m.id] ?? "0"}
             onChange={(e) => onSharesChange({ ...shares, [m.id]: e.target.value })}
             aria-label={format(dict.amountAriaLabel, { name: m.displayName })}
           />
-          <Input
+          <DecimalInput
             name="splitPaid"
-            type="number"
-            inputMode="decimal"
-            min={0}
-            step="any"
             className="w-24 shrink-0"
             value={paid[m.id] ?? "0"}
             onChange={(e) => onPaidChange({ ...paid, [m.id]: e.target.value })}
@@ -112,7 +105,7 @@ export function SplitEditor({
         <p className="text-xs text-destructive">
           {format(dict.overpaidWarning, {
             paid: numberFormat.format(check.paidTotal),
-            amount: numberFormat.format(Number(amount) || 0),
+            amount: numberFormat.format(parseDecimal(amount) || 0),
           })}
         </p>
       )}
@@ -154,7 +147,7 @@ export function ShareRemainderNote({
   /** "The shares are {amount} more than the {total} total." */
   overWarning: string;
 }) {
-  const total = numberFormat.format(Number(amount) || 0);
+  const total = numberFormat.format(parseDecimal(amount) || 0);
   return (
     <div aria-live="polite">
       {remainder > 0 && (

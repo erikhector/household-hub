@@ -33,6 +33,7 @@ import { Camera, ImageUp, Loader2, Plus } from "lucide-react";
 import { DiscardReviewDialog } from "@/components/ui/discard-review-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DecimalInput } from "@/components/shared/decimal-input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
@@ -55,6 +56,7 @@ import { fileToResizedDataUrl } from "@/lib/image-resize";
 import { HOUSEHOLD_BASE_CURRENCY, SUPPORTED_CURRENCIES } from "@/lib/currency";
 import { format, plural } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
+import { parseDecimal } from "@/lib/decimal-input";
 
 /** `barcode` is the linked inventory item's (AUTO-6), for exact matching,
  * and `inventoryItemId` the item itself, for the household's learned
@@ -318,7 +320,7 @@ export function ReceiptScanDialog({
 
   async function handleConfirmNewItem(row: ReviewRow) {
     const name = newItemDraft.name.trim();
-    const quantity = Number(newItemDraft.quantity);
+    const quantity = parseDecimal(newItemDraft.quantity);
     if (!name || !Number.isFinite(quantity) || quantity <= 0) return;
 
     setAddingKey(row.key);
@@ -344,7 +346,7 @@ export function ReceiptScanDialog({
       // BUG-3: the receipt line's own count rides along, since the list row it
       // matches may be for a different number ("Milk x1" vs "3 x Milk 45,00")
       // and the server divides the price by it for the unit price.
-      .map((row) => ({ shoppingListItemId: row.matchId, price: Number(row.price), quantity: row.quantity }))
+      .map((row) => ({ shoppingListItemId: row.matchId, price: parseDecimal(row.price), quantity: row.quantity }))
       .filter((m) => Number.isFinite(m.price) && m.price > 0);
 
     if (matches.length === 0) {
@@ -396,10 +398,10 @@ export function ReceiptScanDialog({
             </p>
             {row.quantity !== 1 && (
               <p className="text-xs text-muted-foreground">
-                {Number(row.price) > 0
+                {parseDecimal(row.price) > 0
                   ? format(dict.qtyAtUnitPrice, {
                       qty: row.quantity,
-                      unitPrice: unitPriceFormat.format(Number(row.price) / row.quantity),
+                      unitPrice: unitPriceFormat.format(parseDecimal(row.price) / row.quantity),
                     })
                   : format(dict.qtyLabel, { qty: row.quantity })}
               </p>
@@ -407,11 +409,7 @@ export function ReceiptScanDialog({
             {row.byBarcode && <p className="text-xs text-muted-foreground">{dict.matchedByBarcode}</p>}
             {isUnmatched && !isDraftOpen && <p className="text-xs text-muted-foreground">{dict.noMatchHint}</p>}
           </div>
-          <Input
-            type="number"
-            inputMode="decimal"
-            min={0}
-            step="any"
+          <DecimalInput
             value={row.price}
             onChange={(e) => updateRow(row.key, { price: e.target.value })}
             className="w-24 shrink-0"
@@ -466,12 +464,8 @@ export function ReceiptScanDialog({
                 <Label htmlFor={`${row.key}-new-quantity`} className="text-xs">
                   {dict.newItemQuantityLabel}
                 </Label>
-                <Input
+                <DecimalInput
                   id={`${row.key}-new-quantity`}
-                  type="number"
-                  inputMode="decimal"
-                  min={0.01}
-                  step="any"
                   value={newItemDraft.quantity}
                   onChange={(e) => updateNewItemDraft({ quantity: e.target.value })}
                 />

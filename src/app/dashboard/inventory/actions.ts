@@ -26,6 +26,7 @@ import { estimatedExpiryUpdate, sameCalendarDay } from "@/lib/inventory/shelf-li
 import { frozenExpiryUpdate, openedExpiryUpdate } from "@/lib/inventory/expiry";
 import { recordStockEvent, recordStockEvents, reasonForDelta } from "@/lib/inventory/stock-history";
 import { canonicalUnit } from "@/lib/units";
+import { normalizeDecimal } from "@/lib/decimal-input";
 
 const itemSchema = z.object({
   name: z.string().trim().min(1, v("nameRequired")).max(120, v("nameTooLong")),
@@ -91,9 +92,9 @@ export async function createInventoryItemAction(
   const parsed = itemSchema.safeParse({
     name: formData.get("name"),
     category: formData.get("category"),
-    quantity: formData.get("quantity"),
+    quantity: normalizeDecimal(formData.get("quantity")),
     unit: formData.get("unit") || "pcs",
-    lowStockThreshold: formData.get("lowStockThreshold"),
+    lowStockThreshold: normalizeDecimal(formData.get("lowStockThreshold")),
     location: formData.get("location") || undefined,
     expiresAt: formData.get("expiresAt") || undefined,
     neverExpires: formData.get("neverExpires") || undefined,
@@ -163,9 +164,9 @@ export async function updateInventoryItemAction(
   const parsed = itemSchema.safeParse({
     name: formData.get("name"),
     category: formData.get("category"),
-    quantity: formData.get("quantity"),
+    quantity: normalizeDecimal(formData.get("quantity")),
     unit: formData.get("unit") || "pcs",
-    lowStockThreshold: formData.get("lowStockThreshold"),
+    lowStockThreshold: normalizeDecimal(formData.get("lowStockThreshold")),
     location: formData.get("location") || undefined,
     expiresAt: formData.get("expiresAt") || undefined,
     neverExpires: formData.get("neverExpires") || undefined,
@@ -1097,7 +1098,9 @@ export async function bulkUpdateFieldAction(
     return await fail("invalidField");
   }
 
-  const parsed = bulkFieldSchemas[field].safeParse(rawValue);
+  // UX-30: the two number fields take a decimal comma ("1,5").
+  const numeric = field === "quantity" || field === "lowStockThreshold";
+  const parsed = bulkFieldSchemas[field].safeParse(numeric ? normalizeDecimal(rawValue) : rawValue);
   if (!parsed.success) {
     return await zodFail(parsed.error, "invalidValue");
   }

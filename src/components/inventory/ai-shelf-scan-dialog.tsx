@@ -27,6 +27,7 @@ import { Camera, ImageUp, Loader2, Sparkles, X } from "lucide-react";
 import { DiscardReviewDialog } from "@/components/ui/discard-review-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DecimalInput } from "@/components/shared/decimal-input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -50,6 +51,7 @@ import { scanShelfPhotoAction, type ScanShelfMode } from "@/lib/actions/inventor
 import { fileToResizedDataUrl } from "@/lib/image-resize";
 import { format, plural } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
+import { parseDecimal } from "@/lib/decimal-input";
 
 type Phase = "idle" | "analyzing" | "review" | "applying" | "error";
 type Row = {
@@ -210,7 +212,7 @@ export function AiShelfScanDialog({
     setSubmitting(true);
     setErrorMessage(null);
     const result = await bulkCreateInventoryItemsAction(
-      rows.map((row) => ({ name: row.name.trim(), quantity: Number(row.quantity) || 0, unit: "pcs" })),
+      rows.map((row) => ({ name: row.name.trim(), quantity: parseDecimal(row.quantity) || 0, unit: "pcs" })),
       { category: category.trim() || undefined, location: location.trim() || undefined },
     );
     setSubmitting(false);
@@ -241,12 +243,12 @@ export function AiShelfScanDialog({
     const [updateResult, createResult] = await Promise.all([
       matched.length > 0
         ? bulkSetInventoryQuantitiesAction(
-            matched.map((row) => ({ itemId: row.matchedItemId, quantity: Number(row.quantity) || 0 })),
+            matched.map((row) => ({ itemId: row.matchedItemId, quantity: parseDecimal(row.quantity) || 0 })),
           )
         : Promise.resolve<Awaited<ReturnType<typeof bulkSetInventoryQuantitiesAction>>>({ updated: 0 }),
       unmatched.length > 0
         ? bulkCreateInventoryItemsAction(
-            unmatched.map((row) => ({ name: row.name.trim(), quantity: Number(row.quantity) || 0, unit: "pcs" })),
+            unmatched.map((row) => ({ name: row.name.trim(), quantity: parseDecimal(row.quantity) || 0, unit: "pcs" })),
             { category: category.trim() || undefined, location: location.trim() || undefined },
           )
         : Promise.resolve<Awaited<ReturnType<typeof bulkCreateInventoryItemsAction>>>({ added: 0 }),
@@ -419,11 +421,7 @@ export function AiShelfScanDialog({
                         aria-invalid={!row.name.trim()}
                         aria-label={dict.nameLabel}
                       />
-                      <Input
-                        type="number"
-                        inputMode="decimal"
-                        min={0}
-                        step="any"
+                      <DecimalInput
                         value={row.quantity}
                         onChange={(e) => updateRow(row.key, { quantity: e.target.value })}
                         className="w-16"

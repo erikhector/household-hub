@@ -5,6 +5,7 @@ import { ArrowLeft, Camera, Link2, Plus, Trash2, TriangleAlert } from "lucide-re
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DecimalInput } from "@/components/shared/decimal-input";
 import { Label } from "@/components/ui/label";
 import { FieldError, fieldErrorId } from "@/components/auth/field-error";
 import { useRequiredFields } from "@/components/shared/use-required-fields";
@@ -59,6 +60,7 @@ import { cn } from "@/lib/utils";
 import type { ActionState } from "@/lib/actions/auth";
 import type { FileRecipe } from "@/lib/recipe-import/parse-file";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
+import { parseDecimal } from "@/lib/decimal-input";
 
 type MealPlanningDict = Dictionary["mealPlanning"];
 
@@ -148,7 +150,7 @@ function buildReview(
     const name = row.name.trim();
     const unit = row.unit.trim() || "pcs";
     const label = [row.quantity.trim(), unit, name].filter(Boolean).join(" ");
-    const quantity = Number(row.quantity) > 0 ? Number(row.quantity) : 1;
+    const quantity = parseDecimal(row.quantity) > 0 ? parseDecimal(row.quantity) : 1;
     const earlier = previous?.rows.find((r) => r.uid === row.uid && r.name === name && r.unit === unit);
     // The quantity may have changed while the decision still stands.
     if (earlier) return { ...earlier, label, quantity };
@@ -863,14 +865,9 @@ export function RecipeFormDialog({
                         onEnter={() => document.getElementById(`ingredient-quantity-${row.uid}`)?.focus()}
                       />
                     </div>
-                    <Input
+                    <DecimalInput
                       id={`ingredient-quantity-${row.uid}`}
                       name="ingredientQuantity"
-                      type="number"
-                      inputMode="decimal"
-                      min={0.01}
-                      max={1000000}
-                      step="any"
                       value={row.quantity}
                       onChange={(e) => updateRow(row.uid, "quantity", e.target.value)}
                       placeholder={dict.ingredientQuantityPlaceholder}
@@ -945,13 +942,8 @@ export function RecipeFormDialog({
                       </SelectContent>
                     </Select>
                     <input type="hidden" name="componentRecipeId" value={row.componentRecipeId} />
-                    <Input
+                    <DecimalInput
                       name="componentQuantity"
-                      type="number"
-                      inputMode="decimal"
-                      min={0.01}
-                      max={1000}
-                      step="any"
                       value={row.quantity}
                       onChange={(e) => updateComponentRow(row.uid, "quantity", e.target.value)}
                       placeholder={dict.componentQuantityPlaceholder}
@@ -1150,13 +1142,9 @@ export function RecipeFormDialog({
                     <Label htmlFor="recipe-protein" className="text-xs font-normal text-muted-foreground">
                       {dict.proteinGramsPerServingLabel}
                     </Label>
-                    <Input
+                    <DecimalInput
                       id="recipe-protein"
                       name="proteinGramsPerServing"
-                      type="number"
-                      inputMode="decimal"
-                      min={0}
-                      step="any"
                       value={proteinGramsPerServing}
                       onChange={(e) => setProteinGramsPerServing(e.target.value)}
                     />
@@ -1165,13 +1153,9 @@ export function RecipeFormDialog({
                     <Label htmlFor="recipe-carbs" className="text-xs font-normal text-muted-foreground">
                       {dict.carbsGramsPerServingLabel}
                     </Label>
-                    <Input
+                    <DecimalInput
                       id="recipe-carbs"
                       name="carbsGramsPerServing"
-                      type="number"
-                      inputMode="decimal"
-                      min={0}
-                      step="any"
                       value={carbsGramsPerServing}
                       onChange={(e) => setCarbsGramsPerServing(e.target.value)}
                     />
@@ -1180,13 +1164,9 @@ export function RecipeFormDialog({
                     <Label htmlFor="recipe-fat" className="text-xs font-normal text-muted-foreground">
                       {dict.fatGramsPerServingLabel}
                     </Label>
-                    <Input
+                    <DecimalInput
                       id="recipe-fat"
                       name="fatGramsPerServing"
-                      type="number"
-                      inputMode="decimal"
-                      min={0}
-                      step="any"
                       value={fatGramsPerServing}
                       onChange={(e) => setFatGramsPerServing(e.target.value)}
                     />

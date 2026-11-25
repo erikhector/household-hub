@@ -25,6 +25,7 @@ import {
   isRotating,
   nextAssigneeInRotation,
 } from "@/lib/task-rotation";
+import { normalizeDecimal } from "@/lib/decimal-input";
 
 // GAP-84: up to a year. 366 rather than 365 leaves room for a leap year,
 // though the dialog's longest preset is 365 (recurrence-label.ts).
@@ -212,7 +213,7 @@ export async function createTaskAction(
     rotationMemberIds: formData.getAll("rotationMemberIds"),
     // GAP-87: both only sent while an item is picked.
     consumesItemId: formData.get("consumesItemId") || null,
-    consumesQuantity: formData.get("consumesQuantity") || null,
+    consumesQuantity: normalizeDecimal(formData.get("consumesQuantity") || null),
   });
   if (!parsed.success) {
     return await zodFail(parsed.error);

@@ -10,6 +10,7 @@ import type { ActionState } from "@/lib/actions/auth";
 import { toFriendlyError } from "@/lib/actions/errors";
 import { parseShareSplitFormData } from "@/lib/share-split-form";
 import { assertNoDuplicateTemplatePeriod, revalidateBudgetPages, type ParsedSplit } from "./action-helpers";
+import { normalizeDecimal } from "@/lib/decimal-input";
 
 // --- Recurring templates --------------------------------------------------
 // See prisma/schema.prisma's RecurringTemplate/RecurringTemplateAck doc
@@ -27,7 +28,7 @@ function parseRecurringTemplateFormData(formData: FormData) {
   return recurringTemplateSchema.safeParse({
     name: formData.get("name"),
     categoryId: formData.get("categoryId"),
-    amount: formData.get("amount"),
+    amount: normalizeDecimal(formData.get("amount")),
     frequency: formData.get("frequency"),
     dayOfMonth: formData.get("dayOfMonth") || undefined,
   });
@@ -99,7 +100,7 @@ export async function updateRecurringTemplateAction(
     id: formData.get("id"),
     name: formData.get("name"),
     categoryId: formData.get("categoryId"),
-    amount: formData.get("amount"),
+    amount: normalizeDecimal(formData.get("amount")),
     frequency: formData.get("frequency"),
     dayOfMonth: formData.get("dayOfMonth") || undefined,
   });

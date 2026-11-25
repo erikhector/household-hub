@@ -11,9 +11,10 @@ import {
   DialogTitle,
   type DialogHandle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+import { DecimalInput } from "@/components/shared/decimal-input";
 import { format, plural } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
+import { parseDecimal } from "@/lib/decimal-input";
 
 /**
  * UX-87: the step between "Done shopping" and the budget when only some of
@@ -78,7 +79,7 @@ function PartialPriceForm({
 }) {
   // Rounded so a float sum like 24.900000000000002 doesn't land in the field.
   const [value, setValue] = useState(String(Math.round(suggested * 100) / 100));
-  const amount = Number(value);
+  const amount = parseDecimal(value);
   const valid = value.trim() !== "" && Number.isFinite(amount) && amount >= 0 && amount <= 1_000_000;
 
   return (
@@ -91,11 +92,7 @@ function PartialPriceForm({
     >
       <label className="flex flex-col gap-1 text-sm">
         {dict.amountLabel}
-        <Input
-          type="number"
-          inputMode="decimal"
-          min={0}
-          step="any"
+        <DecimalInput
           value={value}
           onChange={(event) => setValue(event.target.value)}
           aria-invalid={!valid}

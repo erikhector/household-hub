@@ -7,6 +7,7 @@ import { requireUserId } from "@/lib/session";
 import type { ActionState } from "@/lib/actions/auth";
 import { fail, toFriendlyError, v, zodFail } from "@/lib/actions/errors";
 import { parseDueDate } from "@/lib/planned-expense-calc";
+import { normalizeDecimal } from "@/lib/decimal-input";
 
 // Personal planned bills: the personal budget's mirror of the household's
 // (src/app/dashboard/budget/planned-expense-actions.ts), scoped by the
@@ -44,7 +45,7 @@ async function parsePlannedExpense(
 > {
   const parsed = plannedExpenseSchema.safeParse({
     name: formData.get("name"),
-    amount: formData.get("amount"),
+    amount: normalizeDecimal(formData.get("amount")),
     categoryId: formData.get("categoryId"),
     dueDate: formData.get("dueDate"),
   });

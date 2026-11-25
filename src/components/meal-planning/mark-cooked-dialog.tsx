@@ -30,6 +30,7 @@ import {
   type ReviewItem,
 } from "@/components/meal-planning/cooked-ingredients-checklist";
 import { PendingLabel } from "@/components/ui/pending-label";
+import { normalizeDecimal } from "@/lib/decimal-input";
 
 type MealPlanningDict = Dictionary["mealPlanning"];
 
@@ -104,7 +105,7 @@ export function MarkCookedDialog({
       // may have moved on by the time the toast's action fires) so Undo can
       // credit inventory back by the exact amounts that were decremented.
       const itemIds = formData.getAll("itemId").map((v) => String(v));
-      const quantities = formData.getAll("itemQuantity").map((v) => Number(v));
+      const quantities = formData.getAll("itemQuantity").map((v) => Number(normalizeDecimal(v)));
       const rows = itemIds.map((itemId, i) => ({ itemId, quantity: quantities[i] }));
 
       // AUTO-8: anything this cook pushed into low stock was auto-added to
