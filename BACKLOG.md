@@ -154,39 +154,6 @@ Baseline at audit time: lint clean, `tsc` clean, 104 test files / 1,860
 tests passing, no `any`/`@ts-ignore` in app code. Item 7 does the
 shopping-list actions per feature, in the files MAINT-3 split them into.
 
-- [ ] **MAINT-7. Translate the remaining server-returned error messages**
-      (medium, M, one PR per feature) — UX-16 added `dict.errors`, `fail()`,
-      `zodFail()` and `v()` (`src/lib/actions/errors.ts`, see
-      REQUIREMENTS.md "Internationalization") and converted shopping list,
-      inventory, meal planning, tasks, the shared list link, household,
-      auth and profile, the invite email, and checked the receipt and shelf
-      scans and `parse-import-csv.ts` (codes their clients already
-      translate), all done, and the shared share-split parser
-      (`share-split-form.ts`), and the personal budget
-      (`personal-budget/actions.ts`). Recipe import needs nothing: since
-      MAINT-65 the `lib/recipe-import/` modules return only codes
-      (`FetchRecipeError`, `RecipeFileError`), which `recipe-actions.ts`
-      and `recipe-file-actions.ts` map to `dict.mealPlanning` strings, and
-      the photo import answers with `dict` strings too. Still English: the
-      string-literal `error:` values and Zod messages in the files left
-      on `PENDING` in `src/lib/actions/error-strings.test.ts`, the
-      household budget's action files (`budget/category-actions.ts`,
-      `transaction-actions.ts`, `recurring-actions.ts`,
-      `settlement-actions.ts`, split from `actions.ts` by MAINT-110), plus
-      the one `error:` literal in their shared `budget/action-helpers.ts`,
-      which the guard does not scan (35 between them). The Zod messages of the limit and goal fields in
-      `savings-goal-calc.ts` and `budget-category-limit.ts` are a parameter
-      for now (`monthlyLimitFieldWith`, `goalAmountFieldWith`,
-      `goalDateFieldWith`): the personal budget passes `v()` keys, the
-      household budget still gets the English constants. When converting
-      the household budget, switch its actions to `zodFail()`, put the keys
-      (`monthlyLimitNumber`, `monthlyLimitPositive`, `savingsGoalNumber`,
-      `savingsGoalPositive`, `goalDateInvalid`, already in `dict.errors`)
-      straight into the constants and delete the `…With` functions and the
-      personal budget's local copies. Add any new keys to `dict.errors` (or
-      a feature namespace, as `template-actions.ts` does), and delete the
-      file from `PENDING`: the test fails if a clean file stays listed.
-      Leave budget until BUDGET-6 is decided.
 - [ ] **MAINT-12. ESLint 10** (low, S, own PR — touches `package.json`/lockfile) `[!]` —
       the rest of MAINT-12 is done (REQUIREMENTS.md, "Migration drift and
       tooling pins"). Waiting on `eslint-config-next`'s plugins:

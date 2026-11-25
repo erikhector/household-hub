@@ -6,7 +6,7 @@ import { requireHousehold, requireUserId } from "@/lib/session";
 import type { TemplateFrequency } from "@/lib/recurring-template-calc";
 import { normalizeStartDay } from "@/lib/budget-date-utils";
 import type { ActionState } from "@/lib/actions/auth";
-import { fail, toFriendlyError } from "@/lib/actions/errors";
+import { fail, toFriendlyError, v, zodFail } from "@/lib/actions/errors";
 import { isPlannedExpenseTarget, isUniqueViolation } from "@/lib/prisma-errors";
 import { plannedItemType } from "@/lib/planned-expense-calc";
 import { SPLIT_SUM_TOLERANCE } from "@/lib/share-split-form";
@@ -17,10 +17,10 @@ import { invalidateHome } from "@/lib/household-cache";
 // --- Transactions --------------------------------------------------------
 
 const transactionSchema = z.object({
-  categoryId: z.string().min(1, "Category is required"),
-  amount: z.coerce.number().positive("Amount must be greater than 0"),
+  categoryId: z.string().min(1, v("categoryRequired")),
+  amount: z.coerce.number().positive(v("amountPositive")),
   description: z.string().trim().max(200).optional(),
-  date: z.string().min(1, "Date is required"),
+  date: z.string().min(1, v("dateRequired")),
   isRecurring: z.boolean(),
   recurrenceFrequency: z.enum(["WEEKLY", "MONTHLY", "YEARLY"]).optional(),
   // Set when this transaction is being logged from a recurring template's
@@ -95,7 +95,7 @@ async function resolveRecurringTemplateId(
     where: { id: recurringTemplateId, householdId },
     select: { id: true, frequency: true },
   });
-  if (!template) return { error: "Recurring template not found" };
+  if (!template) return fail("recurringItemNotFound");
   return { id: template.id, frequency: template.frequency };
 }
 
@@ -126,16 +126,16 @@ async function parseSplitFormData(
   // An empty "paid" input means nothing paid yet, not an invalid number.
   const paid = formData.getAll("splitPaid").map((v) => (String(v).trim() === "" ? 0 : Number(v)));
   if (memberIds.length === 0 || memberIds.length !== amounts.length || memberIds.length !== paid.length) {
-    return { error: "Invalid split" };
+    return fail("splitInvalid");
   }
   if (new Set(memberIds).size !== memberIds.length) {
-    return { error: "Invalid split" };
+    return fail("splitInvalid");
   }
   if (amounts.some((a) => Number.isNaN(a) || a < 0)) {
-    return { error: "Each split amount must be zero or more" };
+    return fail("splitAmountNegative");
   }
   if (paid.some((a) => Number.isNaN(a) || a < 0)) {
-    return { error: "Each paid amount must be zero or more" };
+    return fail("splitPaidNegative");
   }
 
   const validMembers = await prisma.householdMember.findMany({
@@ -143,16 +143,16 @@ async function parseSplitFormData(
     select: { id: true },
   });
   if (validMembers.length !== memberIds.length) {
-    return { error: "One of the selected members no longer belongs to this household" };
+    return fail("splitMemberGone");
   }
 
   const splitTotal = amounts.reduce((sum, a) => sum + a, 0);
   if (Math.abs(splitTotal - amount) > SPLIT_SUM_TOLERANCE) {
-    return { error: "The split amounts must add up to the transaction total" };
+    return fail("splitSumMismatch");
   }
   const paidTotal = paid.reduce((sum, a) => sum + a, 0);
   if (paidTotal - amount > SPLIT_SUM_TOLERANCE) {
-    return { error: "The paid amounts can't add up to more than the transaction total" };
+    return fail("splitPaidOverTotal");
   }
 
   return {
@@ -172,16 +172,16 @@ export async function createTransactionAction(
 
   const parsed = parseTransactionFormData(formData);
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return zodFail(parsed.error);
   }
   if (parsed.data.isRecurring && !parsed.data.recurrenceFrequency) {
-    return { error: "Choose how often this repeats" };
+    return fail("chooseRepeatFrequency");
   }
 
   const category = await prisma.budgetCategory.findFirst({
     where: { id: parsed.data.categoryId, householdId: household.id },
   });
-  if (!category) return { error: "Category not found" };
+  if (!category) return fail("categoryNotFound");
 
   const split = await parseSplitFormData(formData, household.id, parsed.data.amount);
   if (split && "error" in split) return { error: split.error };
@@ -319,20 +319,20 @@ export async function createSharedExpenseFromPersonalBudgetAction(
         include: { household: { select: { budgetMonthStartDay: true } } },
       })
     : null;
-  if (!member) return { error: "Choose a household you belong to" };
+  if (!member) return fail("chooseOwnHousehold");
 
   const parsed = parseTransactionFormData(formData);
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return zodFail(parsed.error);
   }
 
   const category = await prisma.budgetCategory.findFirst({
     where: { id: parsed.data.categoryId, householdId },
   });
-  if (!category) return { error: "Category not found" };
+  if (!category) return fail("categoryNotFound");
 
   const split = await parseSplitFormData(formData, householdId, parsed.data.amount);
-  if (!split) return { error: "Choose how to split this expense" };
+  if (!split) return fail("chooseSplit");
   if ("error" in split) return { error: split.error };
 
   // Set when this is "Log payment" on a shared bill's due row: links the
@@ -398,22 +398,22 @@ export async function updateTransactionAction(
     recurrenceFrequency: formData.get("recurrenceFrequency") || undefined,
   });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return zodFail(parsed.error);
   }
   if (parsed.data.isRecurring && !parsed.data.recurrenceFrequency) {
-    return { error: "Choose how often this repeats" };
+    return fail("chooseRepeatFrequency");
   }
 
   const category = await prisma.budgetCategory.findFirst({
     where: { id: parsed.data.categoryId, householdId: household.id },
   });
-  if (!category) return { error: "Category not found" };
+  if (!category) return fail("categoryNotFound");
 
   const existing = await prisma.transaction.findFirst({
     where: { id: parsed.data.id, householdId: household.id },
     select: { id: true, plannedExpense: { select: { category: { select: { type: true } } } } },
   });
-  if (!existing) return { error: "Transaction not found" };
+  if (!existing) return fail("transactionNotFound");
   // Same rule createTransactionAction enforces when the payment is logged:
   // a planned bill's payment stays an expense, received planned income stays
   // income. Moving it to another type would keep the item settled (so it

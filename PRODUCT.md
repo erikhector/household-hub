@@ -29,7 +29,6 @@ actually being wrong.
 Builder picks these, in order, right after `UX-` items.
 
 1. `UX-36b` Offline adds on the shopping list
-2. `MAINT-7` Translate the remaining server-returned error messages
 
 ## Owner inbox
 
@@ -51,6 +50,7 @@ Decisions only the owner can make, each with a recommended answer.
 | Date | ID | Decision | Why | Reversible? |
 |---|---|---|---|---|
 | 2026-11-25 | PERF-32 | Chose (b): split into PERF-32a (tag helper, Redis handler and Home cached, behind `HOME_CACHE`, off by default) and PERF-32b (owner turns it on in Vercel and measures) | A build session can't take the production measurement; the flag keeps it dormant and reversible (#1704) | Yes |
+| 2026-11-25 | MAINT-7 | Convert the household budget's errors now; BUDGET-6 no longer blocks it | owner; the conversion doesn't depend on BUDGET-6's answer, which stays open as its own question | Yes |
 | 2026-11-23 | UX-36b | Offline adds only, replayed through smart add's existing "already on the list" dedupe; offline price edits not planned | In-store need is remembering an item; no client ids or new merge rules; money stays online (UX-36) | Yes |
 | 2026-11-23 | MAINT-38 | Dropped the item-page heading flake | No sighting since 2026-10-20 across dozens of gates; the wait is client hydration, so neither offered fix fits. Re-file on the next sighting | Yes |
 | 2026-11-09 | UX-176 | Define the shadow and type tokens in `@theme`, migrate the call sites | Item's own recommended option | Yes |

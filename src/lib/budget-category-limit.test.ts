@@ -46,16 +46,12 @@ describe("monthlyLimitField", () => {
   });
 
   it("rejects zero and negative amounts", () => {
-    expect(monthlyLimitField.safeParse("0").error?.issues[0]?.message).toBe(
-      "Monthly limit must be greater than 0",
-    );
+    expect(monthlyLimitField.safeParse("0").error?.issues[0]?.message).toBe("monthlyLimitPositive");
     expect(monthlyLimitField.safeParse("-10").success).toBe(false);
   });
 
   it("rejects something that isn't a number", () => {
-    expect(monthlyLimitField.safeParse("lots").error?.issues[0]?.message).toBe(
-      "Monthly limit must be a number",
-    );
+    expect(monthlyLimitField.safeParse("lots").error?.issues[0]?.message).toBe("monthlyLimitNumber");
   });
 });
 

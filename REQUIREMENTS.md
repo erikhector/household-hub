@@ -338,11 +338,13 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
   `commonCopy[getDocumentLocale()]` (the page's `<html lang>`, which also
   covers an account locale that has no cookie on this device yet). `global-error.tsx` follows the cookie
   locale and the OS colour scheme, using the globals.css tokens instead of
-  hex. Guarded by `src/lib/actions/error-strings.test.ts`, which fails on a
-  string-literal `error:` in any action file that isn't on its `PENDING`
-  list (the files MAINT-7 still has to convert; a file that becomes clean
-  must be removed from the list), and by `e2e/localised-errors.spec.ts`.
-  MAINT-7 (in progress, one feature per PR) has converted the household
+  hex. **Every Server Action now returns its errors translated** (MAINT-7
+  finished the conversion). Guarded by
+  `src/lib/actions/error-strings.test.ts`, which fails on a string-literal
+  `error:` in any action file (`actions.ts`, `*-actions.ts`,
+  `action-helpers.ts` and everything in `src/lib/actions/`), and by
+  `e2e/localised-errors.spec.ts`.
+  MAINT-7 (one feature per PR) converted the household
   actions (`lib/actions/household.ts`): invites, joining by invite, members,
   ownership transfer, leaving or deleting a household, and the owner-only
   settings, including the "can't delete your only household" reason the
@@ -369,20 +371,20 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
   the account exists) and the profile actions
   (`dashboard/profile/actions.ts`: name, email, password, delete account).
   The personal budget's actions (`dashboard/personal-budget/actions.ts`:
-  categories, transactions, recurring items and the month start day) are
-  converted as well, which leaves the household budget's action files
-  (`category-actions.ts`, `transaction-actions.ts`, `recurring-actions.ts`,
-  `settlement-actions.ts`, split from one `actions.ts` by MAINT-110) as the
-  only files on `PENDING` (they wait for BUDGET-6). The guard scans only
-  action files, so the one English `error:` in their shared
-  `budget/action-helpers.ts` (the duplicate-period check) isn't on it. The monthly-limit and
-  savings-goal fields both budgets share take their messages as a parameter
-  meanwhile (`monthlyLimitFieldWith` in `budget-category-limit.ts`,
-  `goalAmountFieldWith` and `goalDateFieldWith` in `savings-goal-calc.ts`):
-  the personal budget passes `v()` keys, the household budget keeps the
-  English constants, because its actions still return a Zod message as it
-  is and a key would show as text. Converting the household budget turns
-  them back into one constant each.
+  categories, transactions, recurring items and the month start day) and,
+  last, the household budget's (`budget/category-actions.ts`,
+  `transaction-actions.ts`, `recurring-actions.ts`, `settlement-actions.ts`,
+  split from one `actions.ts` by MAINT-110, plus the duplicate-period check
+  in their shared `action-helpers.ts`) are converted as well. The owner
+  decided the household budget shouldn't wait for BUDGET-6 (PRODUCT.md,
+  2026-11-25). The two budgets now share the same keys, so a household
+  category's "Name must be 60 characters or fewer" and "Recurring item not
+  found" read the same as the personal budget's. The monthly-limit and
+  savings-goal fields both budgets share (`monthlyLimitField` in
+  `budget-category-limit.ts`, `goalAmountField` and `goalDateField` in
+  `savings-goal-calc.ts`) carry `errors` keys as their messages, written
+  out with `satisfies ErrorKey` instead of `v()` so those pure modules
+  don't import `errors.ts`.
 - **Database failures in actions (MAINT-6)**: a Server Action that writes
   wraps the risky `prisma.*` call in `try`/`catch` and returns
   `toFriendlyError(error)` (a translated `{ error }`, logged and sent to

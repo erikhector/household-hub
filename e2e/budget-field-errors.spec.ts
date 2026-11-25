@@ -284,10 +284,8 @@ for (const locale of LOCALES) {
       await limit.fill("250");
       await dialog.getByRole("button", { name: t.addCategory }).click();
 
-      // The household category actions still return this error in English
-      // whatever the locale (only the personal budget's are localised), so
-      // either wording counts as the turned-down save landing.
-      await expect(dialog.getByText(new RegExp(`${T.en.nameTaken}|${t.nameTaken}`))).toBeVisible();
+      // MAINT-7: the household category actions answer in the user's language.
+      await expect(dialog.getByText(t.nameTaken)).toBeVisible();
       await expect(name).toHaveValue(existing);
       await expect(limit).toHaveValue("250");
     });

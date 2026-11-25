@@ -5,7 +5,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import type { ActionState } from "@/lib/actions/auth";
-import { fail, toFriendlyError } from "@/lib/actions/errors";
+import { fail, toFriendlyError, v, zodFail } from "@/lib/actions/errors";
 import {
   limitForType,
   monthlyLimitField,
@@ -18,7 +18,7 @@ import { invalidateHome } from "@/lib/household-cache";
 // --- Categories --------------------------------------------------------
 
 const categorySchema = z.object({
-  name: z.string().trim().min(1, "Name is required").max(60, "Name is too long"),
+  name: z.string().trim().min(1, v("nameRequired")).max(60, v("categoryNameTooLong")),
   type: z.enum(["INCOME", "EXPENSE", "SAVINGS"]),
   // GAP-12 — see src/lib/budget-category-limit.ts. Empty = no limit.
   monthlyLimit: monthlyLimitField,
@@ -44,13 +44,13 @@ export async function createCategoryAction(
     goalDate: formData.get("goalDate"),
   });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return zodFail(parsed.error);
   }
 
   const existing = await prisma.budgetCategory.findFirst({
     where: { householdId: household.id, name: { equals: parsed.data.name, mode: "insensitive" } },
   });
-  if (existing) return { error: "A category with that name already exists" };
+  if (existing) return fail("categoryNameTaken");
 
   const monthlyLimit = limitForType(parsed.data.type, parsed.data.monthlyLimit);
   const goal = goalForType(parsed.data.type, parsed.data.goalAmount, parsed.data.goalDate);
@@ -76,7 +76,7 @@ export async function createCategoryAction(
 
 const updateCategorySchema = z.object({
   id: z.string().min(1),
-  name: z.string().trim().min(1, "Name is required").max(60, "Name is too long"),
+  name: z.string().trim().min(1, v("nameRequired")).max(60, v("categoryNameTooLong")),
   // A category's type can't be edited, so whether this is kept is decided
   // by the stored type below, not by anything the form sends.
   monthlyLimit: monthlyLimitField,
@@ -101,13 +101,13 @@ export async function updateCategoryAction(
     goalDate: formData.get("goalDate"),
   });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return zodFail(parsed.error);
   }
 
   const category = await prisma.budgetCategory.findFirst({
     where: { id: parsed.data.id, householdId: household.id },
   });
-  if (!category) return { error: "Category not found" };
+  if (!category) return fail("categoryNotFound");
 
   const existing = await prisma.budgetCategory.findFirst({
     where: {
@@ -116,7 +116,7 @@ export async function updateCategoryAction(
       NOT: { id: category.id },
     },
   });
-  if (existing) return { error: "A category with that name already exists" };
+  if (existing) return fail("categoryNameTaken");
 
   const monthlyLimit = limitForType(category.type, parsed.data.monthlyLimit);
   // Decided from the stored type like the limit above: a category's type
@@ -172,7 +172,7 @@ export async function createStarterCategoriesAction(
 
   const parsed = starterCategorySchema.safeParse({ items });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return zodFail(parsed.error);
   }
 
   let added = 0;
@@ -232,15 +232,13 @@ export async function deleteCategoryAction(categoryId: string): Promise<ActionSt
       plannedExpenses: { select: { name: true }, take: 1 },
     },
   });
-  if (!category) return { error: "Category not found" };
+  if (!category) return fail("categoryNotFound");
   if (category._count.transactions > 0) {
-    return { error: "This category has transactions and can't be deleted" };
+    return fail("categoryHasTransactions");
   }
   const blockingTemplate = category.recurringTemplates[0];
   if (blockingTemplate) {
-    return {
-      error: `This category is used by the recurring item "${blockingTemplate.name}" — remove or reassign it first`,
-    };
+    return fail("categoryUsedByRecurringItem", { name: blockingTemplate.name });
   }
   const blockingPlanned = category.plannedExpenses[0];
   if (blockingPlanned) {

@@ -150,6 +150,34 @@ describe("createCategoryAction", () => {
     expect(categoryCreateMock).not.toHaveBeenCalled();
   });
 
+  // MAINT-7: the errors, the shared limit and goal fields' included, are in
+  // the request's language.
+  it("answers in Swedish for a Swedish user", async () => {
+    getDictionaryMock.mockResolvedValueOnce(sv);
+    const blank = await createCategoryAction({}, formData({ name: " ", type: "EXPENSE" }));
+    expect(blank.error).toBe(sv.errors.nameRequired);
+
+    getDictionaryMock.mockResolvedValueOnce(sv);
+    const zeroLimit = await createCategoryAction(
+      {},
+      formData({ name: "Dining out", type: "EXPENSE", monthlyLimit: "0" }),
+    );
+    expect(zeroLimit.error).toBe(sv.errors.monthlyLimitPositive);
+
+    getDictionaryMock.mockResolvedValueOnce(sv);
+    const badDate = await createCategoryAction(
+      {},
+      formData({ name: "Trip", type: "SAVINGS", goalAmount: "1000", goalDate: "soon" }),
+    );
+    expect(badDate.error).toBe(sv.errors.goalDateInvalid);
+
+    categoryFindFirstMock.mockResolvedValue({ id: "existing" });
+    getDictionaryMock.mockResolvedValueOnce(sv);
+    const taken = await createCategoryAction({}, formData({ name: "groceries", type: "EXPENSE" }));
+    expect(taken.error).toBe(sv.errors.categoryNameTaken);
+    expect(taken.error).not.toBe("A category with that name already exists");
+  });
+
   it("creates the category scoped to the caller's household", async () => {
     categoryFindFirstMock.mockResolvedValue(null);
     categoryCreateMock.mockResolvedValue({});
@@ -559,6 +587,15 @@ describe("deleteCategoryAction", () => {
 
     expect(result.error).toBe("This category has transactions and can't be deleted");
     expect(categoryDeleteMock).not.toHaveBeenCalled();
+  });
+
+  it("says a category isn't found in the user's language", async () => {
+    getDictionaryMock.mockResolvedValueOnce(sv);
+    categoryFindFirstMock.mockResolvedValue(null);
+
+    const result = await deleteCategoryAction("someone-elses-category");
+
+    expect(result.error).toBe(sv.errors.categoryNotFound);
   });
 
   it("names the planned bill that still uses the category instead of failing generically", async () => {

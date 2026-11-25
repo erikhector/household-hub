@@ -12,27 +12,13 @@ import { repeatTemplateFields } from "@/lib/repeat-template";
 import { plannedItemType } from "@/lib/planned-expense-calc";
 import {
   limitForType,
-  monthlyLimitFieldWith,
+  monthlyLimitField,
   rolloverEnabledField,
   rolloverForLimit,
 } from "@/lib/budget-category-limit";
-import { goalAmountFieldWith, goalDateFieldWith, goalForType } from "@/lib/savings-goal-calc";
+import { goalAmountField, goalDateField, goalForType } from "@/lib/savings-goal-calc";
 import { MAX_BUDGET_MONTH_START_DAY, MIN_BUDGET_MONTH_START_DAY } from "@/lib/budget-date-utils";
 import { getPersonalBudgetStartDay } from "@/lib/personal-budget-period";
-
-// MAINT-7: every `{ error }` here is in the request's language (`fail()` /
-// `zodFail()`), so the shared limit and goal fields get `errors` keys as
-// their messages. The household budget's actions still use the English
-// constants (monthlyLimitField and friends) until they're converted.
-const monthlyLimitField = monthlyLimitFieldWith({
-  number: v("monthlyLimitNumber"),
-  positive: v("monthlyLimitPositive"),
-});
-const goalAmountField = goalAmountFieldWith({
-  number: v("savingsGoalNumber"),
-  positive: v("savingsGoalPositive"),
-});
-const goalDateField = goalDateFieldWith(v("goalDateInvalid"));
 
 // --- Categories --------------------------------------------------------
 
