@@ -7,7 +7,7 @@
 // Prisma, no request) so the tests are plain fixtures, same convention as
 // recurring-template-calc.ts.
 
-export type IcalAllDayEvent = {
+type IcalAllDayEvent = {
   // Must be globally unique and stable across fetches: calendar apps use it
   // to update an event in place instead of duplicating it on every refresh.
   uid: string;
@@ -18,10 +18,24 @@ export type IcalAllDayEvent = {
   description?: string;
 };
 
+// GAP-35: a household calendar event can have a time and a repeat. Both are
+// optional, so an IcalEvent with neither is exactly an all-day event.
+export type IcalEvent = IcalAllDayEvent & {
+  // Wall-clock "HH:MM" on `date`, written as a floating local time (no Z, no
+  // TZID): "dentist at 14:30" is 14:30 wherever the calendar is read, which
+  // is what a household that typed it means. No start time = all day.
+  startTime?: string;
+  // Only with startTime; no end time leaves DTEND out rather than invent a
+  // length.
+  endTime?: string;
+  // An RFC 5545 RRULE value (without the "RRULE:" name), from eventRrule.
+  rrule?: string;
+};
+
 export type IcalCalendar = {
   // Shown by Apple/Google/Outlook as the subscribed calendar's name.
   name: string;
-  events: IcalAllDayEvent[];
+  events: IcalEvent[];
   // DTSTAMP for every event. Passed in rather than read from the clock so the
   // output is deterministic in tests.
   now: Date;
@@ -110,21 +124,32 @@ function nextUtcDay(date: Date): Date {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + 1));
 }
 
-function eventLines(event: IcalAllDayEvent, dtstamp: string): string[] {
-  const lines = [
-    "BEGIN:VEVENT",
-    `UID:${event.uid}`,
-    `DTSTAMP:${dtstamp}`,
-    `DTSTART;VALUE=DATE:${formatIcalDate(event.date)}`,
-    // DTEND is exclusive, so a one-day all-day event ends the next day.
-    // Spelled out rather than left implicit because Outlook has been known to
-    // treat a DATE DTSTART with no DTEND as zero-length.
-    `DTEND;VALUE=DATE:${formatIcalDate(nextUtcDay(event.date))}`,
-    `SUMMARY:${escapeIcalText(event.summary)}`,
-  ];
+/** A floating local DATE-TIME (YYYYMMDDTHHMMSS, no Z) for a day and "HH:MM". */
+function formatIcalLocalDateTime(date: Date, time: string): string {
+  return `${formatIcalDate(date)}T${time.replace(":", "")}00`;
+}
+
+function eventLines(event: IcalEvent, dtstamp: string): string[] {
+  const lines = ["BEGIN:VEVENT", `UID:${event.uid}`, `DTSTAMP:${dtstamp}`];
+  if (event.startTime) {
+    lines.push(`DTSTART:${formatIcalLocalDateTime(event.date, event.startTime)}`);
+    if (event.endTime) lines.push(`DTEND:${formatIcalLocalDateTime(event.date, event.endTime)}`);
+  } else {
+    lines.push(
+      `DTSTART;VALUE=DATE:${formatIcalDate(event.date)}`,
+      // DTEND is exclusive, so a one-day all-day event ends the next day.
+      // Spelled out rather than left implicit because Outlook has been known to
+      // treat a DATE DTSTART with no DTEND as zero-length.
+      `DTEND;VALUE=DATE:${formatIcalDate(nextUtcDay(event.date))}`,
+    );
+  }
+  if (event.rrule) lines.push(`RRULE:${event.rrule}`);
+  lines.push(`SUMMARY:${escapeIcalText(event.summary)}`);
   if (event.description) lines.push(`DESCRIPTION:${escapeIcalText(event.description)}`);
   // A planned dinner or a bill's due date shouldn't make anyone show as busy
-  // for the whole day in their work calendar's free/busy view.
+  // for the whole day in their work calendar's free/busy view. Nor should a
+  // household event (GAP-35): the feed is everyone's, so one member's
+  // dentist appointment mustn't block the others' calendars.
   lines.push("TRANSP:TRANSPARENT", "END:VEVENT");
   return lines;
 }

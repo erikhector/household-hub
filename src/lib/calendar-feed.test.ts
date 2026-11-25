@@ -7,6 +7,7 @@ import {
   isWellFormedCalendarFeedToken,
   type CalendarFeedStrings,
   type FeedBill,
+  type FeedHouseholdEvent,
   type FeedMealEntry,
 } from "@/lib/calendar-feed";
 
@@ -237,5 +238,87 @@ describe("buildCalendarFeedEvents", () => {
       "Dinner: Stew",
       "Due: Rent",
     ]);
+  });
+});
+
+// GAP-35: the household calendar's events are the feed's third source.
+describe("buildCalendarFeedEvents household events", () => {
+  const from = utc(2026, 9, 1);
+  const to = utc(2026, 11, 30);
+
+  function event(overrides: Partial<FeedHouseholdEvent> & { id: string }): FeedHouseholdEvent {
+    return {
+      title: "Dentist",
+      date: utc(2026, 10, 5),
+      startTime: null,
+      endTime: null,
+      notes: null,
+      recurrence: null,
+      ...overrides,
+    };
+  }
+  const build = (events: FeedHouseholdEvent[]) =>
+    buildCalendarFeedEvents({ meals: [], bills: [], events, from, to, strings });
+
+  it("titles an event with its own name and puts its notes in the description", () => {
+    expect(build([event({ id: "e1", notes: "  Bring the card  " })])).toEqual([
+      {
+        uid: "event-e1@squirrel-calendar-feed",
+        date: utc(2026, 10, 5),
+        summary: "Dentist",
+        description: "Bring the card",
+      },
+    ]);
+  });
+
+  it("carries the start and end time, and drops an end without a start", () => {
+    const [timed, untimed] = build([
+      event({ id: "timed", startTime: "14:30", endTime: "15:00" }),
+      event({ id: "untimed", date: utc(2026, 10, 6), endTime: "15:00" }),
+    ]);
+    expect(timed).toMatchObject({ startTime: "14:30", endTime: "15:00" });
+    expect(untimed).not.toHaveProperty("startTime");
+    expect(untimed).not.toHaveProperty("endTime");
+  });
+
+  it("drops one-offs outside the window, keeping both edges", () => {
+    const ids = build([
+      event({ id: "before", date: utc(2026, 8, 31) }),
+      event({ id: "first", date: from }),
+      event({ id: "last", date: to }),
+      event({ id: "after", date: utc(2026, 12, 1) }),
+    ]).map((e) => e.uid);
+    expect(ids).toEqual(["event-first@squirrel-calendar-feed", "event-last@squirrel-calendar-feed"]);
+  });
+
+  it("keeps a repeat that started before the window as one event with its RRULE", () => {
+    expect(build([event({ id: "bday", date: utc(2019, 2, 28), recurrence: "YEARLY" })])).toEqual([
+      expect.objectContaining({ uid: "event-bday@squirrel-calendar-feed", date: utc(2019, 2, 28), rrule: "FREQ=YEARLY" }),
+    ]);
+  });
+
+  it("leaves out a repeat that only starts after the window", () => {
+    expect(build([event({ id: "later", date: utc(2026, 12, 1), recurrence: "WEEKLY" })])).toEqual([]);
+  });
+
+  it("clamps a monthly event on the 31st in its RRULE", () => {
+    const [monthly] = build([event({ id: "m", date: utc(2026, 10, 31), recurrence: "MONTHLY" })]);
+    expect(monthly.rrule).toBe("FREQ=MONTHLY;BYMONTHDAY=28,29,30,31;BYSETPOS=-1");
+  });
+
+  it("sorts events after a day's meals and bills, by start time", () => {
+    const day = utc(2026, 10, 25);
+    const events = buildCalendarFeedEvents({
+      meals: [meal({ id: "d", date: day, recipeName: "Stew" })],
+      bills: [bill({ id: "rent", name: "Rent", dayOfMonth: 25 })],
+      events: [
+        event({ id: "late", title: "Piano", date: day, startTime: "16:00" }),
+        event({ id: "allday", title: "Bake sale", date: day }),
+      ],
+      from: day,
+      to: day,
+      strings,
+    });
+    expect(events.map((e) => e.summary)).toEqual(["Dinner: Stew", "Due: Rent", "Bake sale", "Piano"]);
   });
 });
