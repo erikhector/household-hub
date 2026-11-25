@@ -11,6 +11,7 @@ import { fail, toFriendlyError, v, zodFail } from "@/lib/actions/errors";
 import { BatchChangedError, returnEntryPortionsInTx } from "@/app/dashboard/meal-planning/prep-assign";
 import { canMarkEaten, canRePortion, mapBulkMove, splitCooked } from "@/app/dashboard/meal-planning/bulk-meal-calc";
 import { clearCookSoon } from "@/app/dashboard/meal-planning/cook-soon";
+import { invalidateHome } from "@/lib/household-cache";
 
 const MEAL_PLANNING_PATH = "/dashboard/meal-planning";
 
@@ -144,6 +145,7 @@ export async function bulkEditMealEntriesAction(input: BulkMealEdit): Promise<Bu
       if (error instanceof BatchChangedError) return await fail("generic");
       return toFriendlyError(error);
     }
+    invalidateHome(household.id);
     revalidatePath(MEAL_PLANNING_PATH);
     const before = new Map(editable.map((e) => [e.id, e]));
     return {
@@ -168,6 +170,7 @@ export async function bulkEditMealEntriesAction(input: BulkMealEdit): Promise<Bu
     } catch (error) {
       return toFriendlyError(error);
     }
+    invalidateHome(household.id);
     revalidatePath(MEAL_PLANNING_PATH);
     return {
       changed: targets.length,
@@ -198,6 +201,7 @@ export async function bulkEditMealEntriesAction(input: BulkMealEdit): Promise<Bu
       if (error instanceof BatchChangedError) return await fail("generic");
       return toFriendlyError(error);
     }
+    invalidateHome(household.id);
     revalidatePath(MEAL_PLANNING_PATH);
     revalidatePath("/dashboard");
     return {
@@ -232,6 +236,7 @@ export async function bulkEditMealEntriesAction(input: BulkMealEdit): Promise<Bu
     if (error instanceof BatchChangedError) return await fail("generic");
     return toFriendlyError(error);
   }
+  invalidateHome(household.id);
   revalidatePath(MEAL_PLANNING_PATH);
   revalidatePath("/dashboard");
   return { changed: editable.length, skipped: cooked };
@@ -301,6 +306,7 @@ export async function undoBulkMealEditAction(restore: BulkMealRestore[]): Promis
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath(MEAL_PLANNING_PATH);
   return {};
 }
@@ -331,6 +337,7 @@ export async function undoBulkMarkEatenAction(entryIds: string[]): Promise<Actio
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath(MEAL_PLANNING_PATH);
   revalidatePath("/dashboard");
   return {};

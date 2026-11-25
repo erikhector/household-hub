@@ -11,6 +11,7 @@ import { fail, toFriendlyError, v, zodFail } from "@/lib/actions/errors";
 import { parseShareSplitFormData } from "@/lib/share-split-form";
 import { assertNoDuplicateTemplatePeriod, revalidateBudgetPages, type ParsedSplit } from "./action-helpers";
 import { normalizeMoney } from "@/lib/decimal-input";
+import { invalidateHome } from "@/lib/household-cache";
 
 // --- Recurring templates --------------------------------------------------
 // See prisma/schema.prisma's RecurringTemplate/RecurringTemplateAck doc
@@ -82,6 +83,7 @@ export async function createRecurringTemplateAction(
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath("/dashboard/budget");
   return {};
 }
@@ -155,6 +157,7 @@ export async function updateRecurringTemplateAction(
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath("/dashboard/budget");
   return {};
 }
@@ -174,6 +177,7 @@ export async function setRecurringTemplateActiveAction(
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath("/dashboard/budget");
   return {};
 }
@@ -189,6 +193,7 @@ export async function deleteRecurringTemplateAction(templateId: string): Promise
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath("/dashboard/budget");
   return {};
 }
@@ -220,6 +225,7 @@ export async function acknowledgeTemplatePeriodAction(templateId: string): Promi
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath("/dashboard/budget");
   return {};
 }
@@ -312,6 +318,7 @@ export async function logRecurringTemplateAction(templateId: string): Promise<Ac
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidateBudgetPages();
   return {};
 }
@@ -334,6 +341,7 @@ export async function unacknowledgeTemplatePeriodAction(templateId: string): Pro
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath("/dashboard/budget");
   return {};
 }

@@ -14,6 +14,7 @@ import { recordListClearedTransition, recordPriceSpikes, type RecordedPrice } fr
 import { revalidateAutoAdded, type AutoAddedItem } from "@/lib/shopping/default-list";
 import { applyStockArrival, reverseStockArrival } from "@/lib/shopping/put-away";
 import { defersToPutAway } from "@/lib/shopping/put-away-calc";
+import { invalidateHome } from "@/lib/household-cache";
 
 /**
  * Ticks a row off (or back on). What a tick *means* for inventory depends on
@@ -127,6 +128,7 @@ export async function togglePurchasedAction(
   }
   recordPriceSpikes(household.id, recordedPrices, userId);
 
+  invalidateHome(household.id);
   revalidatePath(`/dashboard/shopping-list/${item.shoppingListId}`);
   revalidatePath("/dashboard/inventory");
   revalidatePath("/dashboard");
@@ -349,6 +351,7 @@ export async function putAwayItemsAction(
   }
   recordPriceSpikes(household.id, recordedPrices, userId);
 
+  invalidateHome(household.id);
   revalidatePath(`/dashboard/shopping-list/${list.id}`);
   revalidatePath("/dashboard/shopping-list");
   revalidatePath("/dashboard/inventory");

@@ -10,6 +10,7 @@ import { MEAL_TYPES, type MealType } from "@/app/dashboard/meal-planning/meal-ty
 import { getWeekStart, parseDateKey, toDateKey } from "@/app/dashboard/meal-planning/date-utils";
 import { weekKeySchema } from "@/app/dashboard/meal-planning/prepared-batch-calc";
 import { clearCookSoon } from "@/app/dashboard/meal-planning/cook-soon";
+import { invalidateHome } from "@/lib/household-cache";
 
 // Week picks (REQUIREMENTS.md, "Week picks"): meals chosen for a week before
 // they're put on a day. A pick lives in MealPlanPick (see its doc comment in
@@ -223,6 +224,7 @@ export async function placePickAction(
     if (error instanceof PickGoneError) return await fail("pickNotFound");
     return toFriendlyError(error);
   }
+  invalidateHome(household.id);
   revalidatePath(MEAL_PLANNING_PATH);
   return { entryId };
 }
@@ -275,6 +277,7 @@ export async function placePicksAction(
     if (error instanceof PickGoneError) return await fail("pickNotFound");
     return toFriendlyError(error);
   }
+  invalidateHome(household.id);
   revalidatePath(MEAL_PLANNING_PATH);
   return { placed, skipped: parsed.data.length - placed.length };
 }
@@ -420,6 +423,7 @@ export async function unplaceEntriesAction(
     return toFriendlyError(error);
   }
   if (pickIds.length === 0) return await fail("cantUnplaceMeal");
+  invalidateHome(household.id);
   revalidatePath(MEAL_PLANNING_PATH);
   return { pickIds };
 }

@@ -14,6 +14,7 @@ import {
   type FetchRecipeError,
   type RecipeImportSource,
 } from "@/lib/recipe-import";
+import { invalidateHome } from "@/lib/household-cache";
 // GAP-29: the `tags` checkboxes arrive as repeated FormData values and are
 // run through the closed-set parser on every create/update — unknown keys
 // are dropped, so nothing outside RECIPE_TAGS can reach Recipe.tags no
@@ -822,6 +823,7 @@ export async function updateRecipeAction(
   }
   if (ingredients.aiCandidates.length > 0) scheduleAiCategoryFallback(household.id, ingredients.aiCandidates);
 
+  invalidateHome(household.id);
   revalidatePath(MEAL_PLANNING_PATH);
   return {};
 }
@@ -868,6 +870,7 @@ export async function deleteRecipeAction(recipeId: string): Promise<ActionState>
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath(MEAL_PLANNING_PATH);
   // The dashboard's meal-prep card lists active batches, which may just
   // have gone with the recipe.

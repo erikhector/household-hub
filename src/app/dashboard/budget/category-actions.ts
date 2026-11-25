@@ -13,6 +13,7 @@ import {
   rolloverForLimit,
 } from "@/lib/budget-category-limit";
 import { goalAmountField, goalDateField, goalForType } from "@/lib/savings-goal-calc";
+import { invalidateHome } from "@/lib/household-cache";
 
 // --- Categories --------------------------------------------------------
 
@@ -68,6 +69,7 @@ export async function createCategoryAction(
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath("/dashboard/budget");
   return {};
 }
@@ -135,6 +137,7 @@ export async function updateCategoryAction(
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath("/dashboard/budget");
   return {};
 }
@@ -202,6 +205,7 @@ export async function createStarterCategoriesAction(
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath("/dashboard/budget");
   return { added };
 }
@@ -249,6 +253,7 @@ export async function deleteCategoryAction(categoryId: string): Promise<ActionSt
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath("/dashboard/budget");
   return {};
 }

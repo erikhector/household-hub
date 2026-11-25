@@ -661,52 +661,39 @@ Rules every follow-up keeps (from the original item):
   members tick it live). Anything reading `cookies()` stays outside a cached
   function.
 
-- [ ] **PERF-32. Household cache helper, remote handler and Home summary**
-      (M) `[!]` — `householdTag(id, area)` in one module, a Redis-backed
-      `cacheHandlers` entry on Upstash (check `refreshTags()` and a GET
-      timeout) used through `"use cache: remote"`, and Home's batch cached
-      behind it with the three cookie-backed helpers kept outside. Takes
-      `householdId`/`userId`/a day key; every action that changes Home's data
-      calls `updateTag(householdTag(id, "home"))`. Acceptance: a production
-      before/after of the Home batch, stopping here if the saving is under
-      ~50 ms, and an e2e spec that
-      edits a task or an item and sees Home change without a reload delay.
-      Depends on PERF-31 (shipped).
-      **Blocked, question for the owner:** the acceptance needs a
-      production before/after of the Home batch behind the Redis remote
-      handler, and a build session has no production access or Upstash
-      credentials, so it can't take that measurement and the stop-if-under-50 ms
-      gate can't be applied. Either (a) the owner supplies a way to measure
-      (a preview deploy with `UPSTASH_REDIS_REST_URL`/`TOKEN` and timings
-      from Vercel logs), or (b) split into PERF-32a (helper module plus
-      handler plus Home cached, behind an env flag that defaults to off)
-      and PERF-32b (measure in production, then flip the flag or revert).
-      Say which.
-      Recommendation (2026-11-23): (b). The flag keeps it dormant and
-      reversible; the owner flips it in Vercel and reads the Home timings,
-      and PERF-33 to PERF-36 wait on that number. See #1704.
+- [ ] **PERF-32b. Measure the Home cache in production** (S, owner) —
+      PERF-32a shipped the tag helper, the Redis handler and Home's batch
+      behind `HOME_CACHE`, off by default (REQUIREMENTS.md, "Home's
+      household data can be cached"). The owner sets `HOME_CACHE=1` in
+      Vercel (Upstash is already configured for the rate limiter),
+      redeploys, and compares the Home batch's server time before and
+      after, as DEPLOYMENT.md "Home cache (PERF-32)" describes. Stop if the
+      saving is under ~50 ms: unset the flag and close PERF-33 to PERF-36.
+      Otherwise keep it on and proceed to PERF-33..36. Owner-only: a build
+      session has no production access or Upstash credentials (#1704).
 - [ ] **PERF-33. Cache inventory and closed shopping lists** (M) — cached
       reads for the inventory list and item pages (tags
       `householdTag(id, "inventory")`) and for completed shopping lists. The
       open list stays uncached. Every inventory, stock and list write in
       `inventory/actions.ts` and `shopping-list/actions.ts` calls `updateTag`.
-      Depends on PERF-32.
+      Depends on PERF-32b.
 - [ ] **PERF-34. Cache tasks and meal planning** (M) — the same for
       `dashboard/tasks` and `dashboard/meal-planning` (recipes, planner,
       prepared batches), with day-keyed arguments so "today" never goes
-      stale across midnight. Depends on PERF-32.
+      stale across midnight. Depends on PERF-32b.
 - [ ] **PERF-35. Cache the household and personal budgets** (M) — budget
       pages and `loadHouseholdSafeToSpend`/`loadPersonalBudgetPosition`,
       tagged by household and (personal) by `userId`, invalidated by every
       transaction, template, planned-expense and split write, including the
-      recurring-template acks. Depends on PERF-32.
+      recurring-template acks. Depends on PERF-32b.
 - [ ] **PERF-36. Invalidate from the writers outside a session, and guard it**
-      (M) — `revalidateTag` in `api/cron/sync-notifications`,
-      `api/cron/weekly-digest` and `share/shopping-list/actions.ts` (no
-      `updateTag` there: it is Server Actions only), plus a unit test that
+      (M) — `revalidateTag` in `api/cron/sync-notifications` and
+      `api/cron/weekly-digest` (no `updateTag` there: it is Server Actions
+      only; the share-link tick is a Server Action and already clears Home,
+      PERF-32a), plus a unit test that
       fails when a Server Action calls a Prisma write on a cached model
       without a matching tag call. Ship together with the first area that
-      lands after PERF-32.
+      lands after PERF-32b.
 
 ## Competitive gap scan
 

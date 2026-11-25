@@ -25,6 +25,7 @@ import { unitPriceOf } from "@/lib/shopping/unit-price";
 import { findExactInventoryItem, findFuzzyInventoryItem } from "./inventory-lookup";
 import { LoggedExpense, logGroceriesExpense, formatExpenseLogged } from "./expense-log";
 import { recordStockEvents } from "@/lib/inventory/stock-history";
+import { invalidateHome } from "@/lib/household-cache";
 
 export type ReceiptScanMatch = {
   shoppingListItemId: string;
@@ -234,6 +235,7 @@ export async function applyReceiptScanAction(
   }
   recordPriceSpikes(household.id, recordedPrices, userId);
 
+  invalidateHome(household.id);
   revalidatePath(`/dashboard/shopping-list/${list.id}`);
   revalidatePath("/dashboard/inventory");
   revalidatePath("/dashboard");
@@ -557,6 +559,7 @@ export async function registerReceiptAction(
       ? format(plural(unresolvedCount, dict.shoppingList.unresolvedNotice), { count: unresolvedCount })
       : undefined;
 
+  invalidateHome(household.id);
   revalidatePath("/dashboard/shopping-list");
   revalidatePath(`/dashboard/shopping-list/${listId}`);
   revalidatePath("/dashboard/inventory");

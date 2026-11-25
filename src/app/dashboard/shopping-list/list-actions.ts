@@ -24,6 +24,7 @@ import { lowStockToAdd } from "@/lib/shopping/low-stock-to-add";
 import { defaultLineEstimate } from "@/lib/shopping/unit-price";
 import { LoggedExpense, logGroceriesExpense, formatExpenseLogged } from "./expense-log";
 import { updateItemPriceSchema } from "./price-schema";
+import { invalidateHome } from "@/lib/household-cache";
 
 const createListSchema = z.object({
   name: z.string().trim().max(120, v("listNameTooLong")).optional(),
@@ -133,6 +134,7 @@ export async function createShoppingListAction(
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath("/dashboard/shopping-list");
   redirect(`/dashboard/shopping-list/${list.id}`);
 }
@@ -165,6 +167,7 @@ export async function renameShoppingListAction(
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath("/dashboard/shopping-list");
   revalidatePath(`/dashboard/shopping-list/${parsed.data.listId}`);
   return {};
@@ -186,6 +189,7 @@ export async function archiveShoppingListAction(listId: string): Promise<ActionS
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath("/dashboard/shopping-list");
   revalidatePath(`/dashboard/shopping-list/${listId}`);
   return {};
@@ -203,6 +207,7 @@ export async function unarchiveShoppingListAction(listId: string): Promise<Actio
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath("/dashboard/shopping-list");
   revalidatePath(`/dashboard/shopping-list/${listId}`);
   return {};
@@ -219,6 +224,7 @@ export async function deleteShoppingListAction(listId: string): Promise<ActionSt
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath("/dashboard/shopping-list");
   redirect("/dashboard/shopping-list");
 }
@@ -270,6 +276,7 @@ export async function generateFromLowStockAction(
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath(`/dashboard/shopping-list/${list.id}`);
   return { added };
 }
@@ -452,6 +459,7 @@ export async function completeShoppingListAction(
       ? format(plural(unresolvedCount, dict.shoppingList.unresolvedNotice), { count: unresolvedCount })
       : undefined;
 
+  invalidateHome(household.id);
   revalidatePath(`/dashboard/shopping-list/${list.id}`);
   revalidatePath("/dashboard/shopping-list");
   revalidatePath("/dashboard/inventory");
@@ -519,6 +527,7 @@ export async function uncompleteShoppingListAction(
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath(`/dashboard/shopping-list/${list.id}`);
   revalidatePath("/dashboard/shopping-list");
   revalidatePath("/dashboard/budget");
