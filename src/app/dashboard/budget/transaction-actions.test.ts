@@ -238,7 +238,7 @@ describe("createTransactionAction", () => {
 
   it("rejects a non-positive amount", async () => {
     const result = await createTransactionAction({}, formData({ ...base, amount: "0" }));
-    expect(result.error).toBe("Amount must be greater than 0");
+    expect(result.error).toBe("Amount must be greater than zero");
   });
 
   it("requires a frequency when isRecurring is checked", async () => {
@@ -247,6 +247,19 @@ describe("createTransactionAction", () => {
     const result = await createTransactionAction({}, formData({ ...base, isRecurring: "on" }));
 
     expect(result.error).toBe("Choose how often this repeats");
+  });
+
+  // MAINT-7: the errors are in the request's language.
+  it("answers in Swedish for a Swedish user", async () => {
+    getDictionaryMock.mockResolvedValueOnce(sv);
+    const zero = await createTransactionAction({}, formData({ ...base, amount: "0" }));
+    expect(zero.error).toBe(sv.errors.amountPositive);
+
+    categoryFindFirstMock.mockResolvedValue(null);
+    getDictionaryMock.mockResolvedValueOnce(sv);
+    const missing = await createTransactionAction({}, formData(base));
+    expect(missing.error).toBe(sv.errors.categoryNotFound);
+    expect(missing.error).not.toBe("Category not found");
   });
 
   it("returns 'Category not found' for a category outside the caller's household (IDOR guard)", async () => {
@@ -287,7 +300,7 @@ describe("createTransactionAction", () => {
       formData({ ...base, recurringTemplateId: "someone-elses-template" }),
     );
 
-    expect(result.error).toBe("Recurring template not found");
+    expect(result.error).toBe("Recurring item not found");
     expect(transactionCreateMock).not.toHaveBeenCalled();
   });
 
@@ -792,7 +805,7 @@ describe("createSharedExpenseFromPersonalBudgetAction", () => {
         sharedFormData({ recurringTemplateId: "someone-elses-template" }),
       );
 
-      expect(result.error).toBe("Recurring template not found");
+      expect(result.error).toBe("Recurring item not found");
       expect(transactionCreateMock).not.toHaveBeenCalled();
     });
   });
