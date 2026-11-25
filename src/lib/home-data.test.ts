@@ -112,13 +112,24 @@ describe("loadHomeData", () => {
     expect(m.logInfo).toHaveBeenCalledExactlyOnceWith("home batch", { cache: "off", ms: expect.any(Number) });
   });
 
-  it("asks for safe to spend in the budget period now falls in", async () => {
-    m.budgetCategory.count.mockResolvedValue(1);
-    await loadHomeData({ id: "hh-1", budgetMonthStartDay: 25 }, "user-1", NOW);
-    const [, date, startDay] = m.loadHouseholdSafeToSpend.mock.calls[0] as unknown as [string, Date, number];
-    expect(startDay).toBe(25);
-    // Whatever date stands in for "now", it must name now's period.
+  // The date safe to spend gets stands in for "now" (so the cache key holds
+  // the period, not the moment); it must name now's period for every start
+  // day, across a year end, and on both sides of the start day.
+  it("asks for safe to spend in the budget period now falls in, for every start day", async () => {
     const { periodKeyOf } = await import("@/lib/budget-date-utils");
-    expect(periodKeyOf(date, 25)).toBe(periodKeyOf(NOW, 25));
+    m.budgetCategory.count.mockResolvedValue(1);
+    const nows = [NOW, new Date(2026, 11, 20, 23, 30), new Date(2026, 11, 31, 22, 0), new Date(2027, 0, 1, 0, 30)];
+    for (let startDay = 1; startDay <= 28; startDay++) {
+      const around = [new Date(2026, 11, startDay, 12), new Date(2026, 11, startDay - 1, 23, 59)];
+      for (const now of [...nows, ...around]) {
+        m.loadHouseholdSafeToSpend.mockClear();
+        await loadHomeData({ id: "hh-1", budgetMonthStartDay: startDay }, "user-1", now);
+        const [, date, passedStartDay] = m.loadHouseholdSafeToSpend.mock.calls[0] as unknown as [string, Date, number];
+        expect(passedStartDay).toBe(startDay);
+        expect(periodKeyOf(date, startDay), `start day ${startDay}, now ${now.toString()}`).toBe(
+          periodKeyOf(now, startDay),
+        );
+      }
+    }
   });
 });

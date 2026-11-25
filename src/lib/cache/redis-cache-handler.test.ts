@@ -5,6 +5,7 @@ import {
   MAX_ENTRY_AGE_SECONDS,
   READ_TIMEOUT_MS,
   createRedisCacheHandler,
+  redisOptions,
 } from "@/lib/cache/redis-cache-handler.mjs";
 
 type Handler = ReturnType<typeof createRedisCacheHandler>;
@@ -191,6 +192,47 @@ describe("createRedisCacheHandler", () => {
   it("prunes invalidations older than any entry can be", async () => {
     await handler.updateTags([TAG]);
     expect(redis.zremrangebyscore).toHaveBeenCalledWith(expect.any(String), 0, now - MAX_ENTRY_AGE_SECONDS * 1000);
+  });
+
+  it("times out within a short wait, so a degraded Redis costs little", () => {
+    expect(READ_TIMEOUT_MS).toBeLessThanOrEqual(75);
+  });
+
+  it("builds the Upstash client with retries off, so a failing read isn't retried with backoff", () => {
+    expect(redisOptions("https://redis.example", "token")).toEqual({
+      url: "https://redis.example",
+      token: "token",
+      retry: { retries: 0 },
+    });
+  });
+
+  it("logs each read's outcome with running counts when asked, and never the key", async () => {
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    const logged = createRedisCacheHandler({ redis: redis as never, now: () => now, logOutcomes: true });
+    await logged.get("household-key", []);
+    await logged.set("household-key", Promise.resolve(entry("x", [TAG], now)));
+    await logged.refreshTags();
+    await logged.get("household-key", []);
+    await logged.get("nothing-here", []);
+    now += 1000;
+    await logged.updateTags([TAG]);
+    await logged.get("household-key", []);
+
+    const lines = info.mock.calls.map(([line]) => String(line));
+    expect(lines).toEqual([
+      expect.stringContaining('get unsynced {"hit":0,"miss":0,"invalidated":0,"unsynced":1,"error":0}'),
+      expect.stringContaining('get hit {"hit":1,"miss":0,"invalidated":0,"unsynced":1,"error":0}'),
+      expect.stringContaining('get miss {"hit":1,"miss":1,"invalidated":0,"unsynced":1,"error":0}'),
+      expect.stringContaining('get invalidated {"hit":1,"miss":1,"invalidated":1,"unsynced":1,"error":0}'),
+    ]);
+    expect(lines.join("\n")).not.toMatch(/household-key|nothing-here|hh-1/);
+  });
+
+  it("logs nothing about reads by default", async () => {
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    await handler.refreshTags();
+    await handler.get("k", []);
+    expect(info).not.toHaveBeenCalled();
   });
 
   it("without a Redis client, misses and never throws", async () => {

@@ -865,8 +865,8 @@ export async function addInventoryItemsToShoppingListAction(
 
   try {
     const { list, added } = await addItemsToDefaultList(prisma, household.id, items, false);
-invalidateHome(household.id);
 
+    invalidateHome(household.id);
     revalidatePath(`/dashboard/shopping-list/${list.id}`);
     revalidatePath("/dashboard/shopping-list");
     revalidatePath("/dashboard/inventory");

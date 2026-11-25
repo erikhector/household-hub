@@ -34,8 +34,10 @@ const TAGS_KEY = "squirrel:cache:tags";
 // A hit pays refreshTags plus get, two Upstash REST round trips; from a
 // nearby region each is a few to a few tens of milliseconds. Past this, the
 // lookup costs more than the uncached Home batch (about 30 ms median in the
-// PERF-22 spike), so give up and run the queries.
-export const READ_TIMEOUT_MS = 200;
+// PERF-22 spike), so give up and run the queries. Kept short because a
+// degraded Redis costs every Home render this wait once: refreshTags times
+// out, and get() then misses without asking Redis.
+export const READ_TIMEOUT_MS = 60;
 // Writes run after the response has started streaming (set) or at the end of
 // a Server Action (updateTags), so they can wait longer; the bound only keeps
 // a hung request from holding the function open.
@@ -81,9 +83,12 @@ function streamOf(bytes) {
  * a no-op: the flag never registers the handler like that, but a
  * misconfigured deploy should degrade to uncached, not crash.
  *
- * @param {{ redis: Pick<Redis, "get" | "set" | "zadd" | "zrange" | "zremrangebyscore"> | null, now?: () => number }} options
+ * `logOutcomes` (HOME_CACHE_TIMING=1) logs each read's outcome with running
+ * counts, for PERF-32b's hit-rate check. Never a key or an id.
+ *
+ * @param {{ redis: Pick<Redis, "get" | "set" | "zadd" | "zrange" | "zremrangebyscore"> | null, now?: () => number, logOutcomes?: boolean }} options
  */
-export function createRedisCacheHandler({ redis, now = Date.now }) {
+export function createRedisCacheHandler({ redis, now = Date.now, logOutcomes = false }) {
   // tag -> the time (ms) it was last invalidated, as far as this instance knows.
   const tagTimes = new Map();
   // False until the first successful refreshTags(), and again after a failed
@@ -94,12 +99,23 @@ export function createRedisCacheHandler({ redis, now = Date.now }) {
     return tags.some((tag) => (tagTimes.get(tag) ?? 0) > timestamp);
   }
 
+  // hit; miss (nothing stored); invalidated (stored, but a tag cleared it);
+  // unsynced (refreshTags failed, so nothing is trusted); error (Redis
+  // failed or timed out). Per instance, since the process started.
+  const outcomes = { hit: 0, miss: 0, invalidated: 0, unsynced: 0, error: 0 };
+  function record(outcome, result) {
+    outcomes[outcome] += 1;
+    if (logOutcomes) console.info(`[remote-cache] get ${outcome} ${JSON.stringify(outcomes)}`);
+    return result;
+  }
+
   return {
     async get(cacheKey, softTags) {
-      if (!redis || !tagsInSync) return undefined;
+      if (!redis) return undefined;
+      if (!tagsInSync) return record("unsynced", undefined);
       try {
         const stored = await withTimeout(redis.get(KEY_PREFIX + cacheKey), READ_TIMEOUT_MS);
-        if (!stored) return undefined;
+        if (!stored) return record("miss", undefined);
         // The client parses JSON on the way out; a string means it didn't.
         const data = typeof stored === "string" ? JSON.parse(stored) : stored;
         // An explicit tag (householdTag) or a soft tag (a revalidatePath'd
@@ -108,20 +124,20 @@ export function createRedisCacheHandler({ redis, now = Date.now }) {
         // serving it while it refreshes; nothing here uses that, so every
         // invalidation is treated as immediate.
         if (invalidatedAfter(data.tags, data.timestamp) || invalidatedAfter(softTags, data.timestamp)) {
-          return undefined;
+          return record("invalidated", undefined);
         }
         // No age check: Next compares timestamp with expire itself.
-        return {
+        return record("hit", {
           value: streamOf(Buffer.from(data.value, "base64")),
           tags: data.tags,
           stale: data.stale,
           timestamp: data.timestamp,
           expire: data.expire,
           revalidate: data.revalidate,
-        };
+        });
       } catch (error) {
         logError("get", error);
-        return undefined;
+        return record("error", undefined);
       }
     },
 
@@ -211,4 +227,16 @@ export function createRedisCacheHandler({ redis, now = Date.now }) {
 const url = process.env.UPSTASH_REDIS_REST_URL;
 const token = process.env.UPSTASH_REDIS_REST_TOKEN;
 
-export default createRedisCacheHandler({ redis: url && token ? new Redis({ url, token }) : null });
+/**
+ * The Upstash client's options. Retries off: by default the client retries a
+ * failed request several times with backoff, which would turn one failing
+ * read into seconds of waiting, where a miss is the right answer.
+ */
+export function redisOptions(url, token) {
+  return { url, token, retry: { retries: 0 } };
+}
+
+export default createRedisCacheHandler({
+  redis: url && token ? new Redis(redisOptions(url, token)) : null,
+  logOutcomes: process.env.HOME_CACHE_TIMING === "1",
+});

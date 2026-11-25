@@ -138,12 +138,15 @@ easy for AI coding agents to work in correctly:
     `revalidatePath` calls. A no-op while the flag is off.
   - `next.config.ts` registers `src/lib/cache/redis-cache-handler.mjs` as
     `cacheHandlers.remote`, on the rate limiter's Upstash Redis. Reads
-    (`get`, `refreshTags`) time out after 200 ms and any error is a miss,
-    never a slow or broken page. Invalidations go to a Redis sorted set,
-    which `refreshTags` reads once per request, so one instance's
-    `updateTag` reaches the others; while that read is failing, every read
-    misses. It checks soft (path) tags itself, so `revalidatePath` clears
-    entries too. Entries live at most 7 days, as long as an invalidation is
+    (`get`, `refreshTags`) time out after 60 ms, the client never retries,
+    and any error is a miss, never a slow or broken page. Invalidations go
+    to a Redis sorted set, which `refreshTags` reads once per request, so
+    one instance's `updateTag` reaches the others; while that read is
+    failing, every read misses without asking Redis. It checks soft (path)
+    tags itself, so `revalidatePath` clears entries too, for every
+    household (a path tag isn't scoped). With `HOME_CACHE_TIMING=1` each
+    read logs its outcome (hit, miss, invalidated, unsynced, error) with
+    running counts, no keys or ids. Entries live at most 7 days, as long as an invalidation is
     remembered.
   - Writes outside a Server Action don't clear it: the crons, the
     background AI category fallback and anything run straight against
