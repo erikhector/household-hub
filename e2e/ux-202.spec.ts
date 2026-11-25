@@ -91,7 +91,7 @@ for (const locale of LOCALES) {
         await add.click();
       }
 
-      const input = page.getByRole("spinbutton", { name: label(t.input, name) });
+      const input = page.getByRole("textbox", { name: label(t.input, name) });
       await expect(input).toBeFocused();
       await input.fill("-1");
       await input.press("Enter");

@@ -78,7 +78,7 @@ test("completing with some bought items unpriced lets you correct the amount bef
   expect(await transactionsFor(name)).toHaveLength(0);
   await expectNoHorizontalOverflow(page);
 
-  const amount = page.getByRole("spinbutton", { name: "Amount to log in your budget" });
+  const amount = page.getByRole("textbox", { name: "Amount to log in your budget" });
   await expect(amount).toHaveValue("20");
   await amount.fill("55");
   await page.getByRole("button", { name: "Log amount" }).click();

@@ -184,6 +184,32 @@ describe("settling up", () => {
     expect(settlementCreateMock).not.toHaveBeenCalled();
   });
 
+  // UX-30: the amount field is free text. "1,200" is twelve hundred to an
+  // English-locale user, so money with more than two decimals is turned
+  // down rather than saved as 1.2.
+  it.each(["0,00", "-12,5", "abc", "1.234,5", "1e3", "1,200"])("turns down the amount %j", async (amount) => {
+    householdMemberFindManyMock.mockResolvedValue([{ id: "member-1" }, { id: "member-2" }]);
+
+    const result = await recordSettlementAction({}, settlementFormData({ amount }));
+
+    expect(result.error).toBeTruthy();
+    expect(settlementCreateMock).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["12,5", 12.5],
+    ["12,50", 12.5],
+    ["1 200,50", 1200.5],
+  ])("saves the amount %j as %d", async (amount, expected) => {
+    householdMemberFindManyMock.mockResolvedValue([{ id: "member-1" }, { id: "member-2" }]);
+    settlementCreateMock.mockResolvedValue({});
+
+    const result = await recordSettlementAction({}, settlementFormData({ amount }));
+
+    expect(result).toEqual({});
+    expect(settlementCreateMock).toHaveBeenCalledWith({ data: expect.objectContaining({ amount: expected }) });
+  });
+
   it("rejects a zero amount", async () => {
     const result = await recordSettlementAction({}, settlementFormData({ amount: "0" }));
 

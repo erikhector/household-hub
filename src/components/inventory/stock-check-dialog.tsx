@@ -12,7 +12,7 @@
 
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { DecimalInput } from "@/components/shared/decimal-input";
 import { Label } from "@/components/ui/label";
 import {
   Dialog,
@@ -178,14 +178,10 @@ export function StockCheckDialog({
                 <Label htmlFor="stock-check-amount">
                   {format(t.countedLabel, { unit: unitLabel(current.unit, 2) })}
                 </Label>
-                <Input
+                <DecimalInput
                   key={current.id}
                   id="stock-check-amount"
-                  type="number"
                   inputMode={inputModeForUnit(current.unit, current.quantity)}
-                  min={0}
-                  step="any"
-                  autoComplete="off"
                   value={typed}
                   onChange={(e) => {
                     setTyped(e.target.value);

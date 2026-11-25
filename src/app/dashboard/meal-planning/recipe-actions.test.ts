@@ -331,6 +331,24 @@ describe("createRecipeAction", () => {
     expect(itemAliasUpsertMock).toHaveBeenCalledWith(aliasUpsert("vatten", null));
   });
 
+  it("reads ingredient quantities and nutrition typed with a decimal comma (UX-30)", async () => {
+    recipeCreateMock.mockResolvedValue({});
+    const fd = formData({ name: "Bread", proteinGramsPerServing: "12,5" });
+    appendIngredient(fd, { name: "Vatten", quantity: "2,5", unit: "dl", decision: "untracked" });
+
+    const result = await createRecipeAction({}, fd);
+
+    expect(result).toEqual({});
+    expect(recipeCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        proteinGramsPerServing: 12.5,
+        ingredients: {
+          create: [expect.objectContaining({ name: "Vatten", quantity: 2.5 })],
+        },
+      }),
+    });
+  });
+
   it("writes an alias only when the linked item's normalized name differs (MATCH-2)", async () => {
     inventoryItemFindManyMock.mockResolvedValue([
       { id: "inv-egg", name: "Egg", unit: "pcs" },

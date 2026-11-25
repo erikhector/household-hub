@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
+import { DecimalInput } from "@/components/shared/decimal-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -31,6 +31,7 @@ import {
 } from "@/app/dashboard/shopping-list/item-actions";
 import type { ActionState } from "@/lib/actions/auth";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
+import { normalizeDecimal } from "@/lib/decimal-input";
 
 type InventoryItemOption = { id: string; name: string; category: string; unit?: string };
 
@@ -222,7 +223,7 @@ export function ShoppingItemFormDialog({
     startTransition(async () => {
       const fieldsResult = await updateShoppingListItemAction(item.id, {
         name,
-        quantity: Number(quantity),
+        quantity: Number(normalizeDecimal(quantity)),
         unit,
         // Always sent (possibly as ""), since this dialog is the one place
         // a note is edited — "" is what clears it server-side.
@@ -302,12 +303,8 @@ export function ShoppingItemFormDialog({
                     dict={dict}
                   />
                 </div>
-                <Input
+                <DecimalInput
                   name="quantity"
-                  type="number"
-                  inputMode="decimal"
-                  min={0.01}
-                  step="any"
                   defaultValue={1}
                   className="w-20"
                   aria-label={dict.addItemQuantityAriaLabel}
@@ -369,12 +366,8 @@ export function ShoppingItemFormDialog({
                 <div className="grid grid-cols-[6rem_minmax(0,1fr)] gap-3 sm:grid-cols-2">
                   <div className="flex flex-col gap-2">
                     <Label htmlFor="edit-item-quantity">{dict.editItem.quantityLabel}</Label>
-                    <Input
+                    <DecimalInput
                       id="edit-item-quantity"
-                      type="number"
-                      inputMode="decimal"
-                      min={0.01}
-                      step="any"
                       value={quantity}
                       onChange={(e) => setQuantity(e.target.value)}
                     />

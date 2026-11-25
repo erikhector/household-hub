@@ -136,6 +136,7 @@ export const en = {
     invalidDueDate: "Invalid due date",
     billNameTooLong: "Name must be 100 characters or fewer",
     amountPositive: "Amount must be greater than zero",
+    amountFormat: "Write the amount with at most two decimals and no thousands separator, like 1200 or 1200.50",
     categoryRequired: "Category is required",
     splitInvalid: "Invalid split",
     splitAmountNegative: "Each split amount must be zero or more",
@@ -1321,6 +1322,7 @@ export const en = {
       ocrError: "Couldn't read this image. Try a clearer photo of the receipt.",
       rateError: "Couldn't convert {currency} right now — try again in a moment.",
       noMatchesError: "Match at least one line to a list item before applying.",
+      lineValueInvalid: "Check the price on \"{name}\": write it like 45 or 45.50, or clear it to leave the line out.",
       // AUTO-11: the collapsed block of lines matched with enough
       // confidence (exact name or barcode) that they don't need a look.
       autoMatchedSummary: { one: "{count} item matched", other: "{count} items matched" },
@@ -1383,6 +1385,7 @@ export const en = {
       appliedToast: "Registered {count} items ({amount}) as a completed list.",
       ocrError: "Couldn't read this image. Try a clearer photo of the receipt.",
       noItemsError: "Add at least one item before registering.",
+      lineValueInvalid: "Check the price and quantity on \"{name}\": write them like 45 or 45.50, or clear the price to leave the line out.",
       existingSelectionRequired: 'Choose an item, or switch to "Create new".',
       // AUTO-11: the collapsed block of lines matched with enough
       // confidence (exact name or barcode) that they don't need a look.

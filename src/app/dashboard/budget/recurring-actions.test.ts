@@ -81,6 +81,7 @@ vi.mock("@/lib/prisma", () => ({
       update: vi.fn(),
     },
     transactionSplit: { deleteMany: vi.fn() },
+    recurringTemplateSplit: { deleteMany: vi.fn() },
     memberSettlement: { create: settlementCreateMock, deleteMany: settlementDeleteManyMock },
     householdMember: { findMany: householdMemberFindManyMock, findFirst: householdMemberFindFirstMock },
     plannedExpense: { findFirst: plannedExpenseFindFirstMock },
@@ -410,5 +411,53 @@ describe("recurring templates", () => {
         }
       });
     });
+  });
+});
+
+// UX-30: the amount field is free text. Money with more than two decimals
+// ("1,200", twelve hundred to an English-locale user) is turned down rather
+// than saved as 1.2; a decimal comma and thousands spaces are read.
+describe("recurring template amounts (UX-30)", () => {
+  const base = { name: "Rent", categoryId: "cat-1", frequency: "MONTHLY" };
+  const rejected = ["0,00", "-12,5", "abc", "1.234,5", "1e3", "1,200"];
+  const accepted: [string, number][] = [
+    ["12,5", 12.5],
+    ["12,50", 12.5],
+    ["1 200,50", 1200.5],
+  ];
+
+  beforeEach(() => {
+    categoryFindFirstMock.mockResolvedValue({ id: "cat-1", type: "EXPENSE" });
+    recurringTemplateFindFirstMock.mockResolvedValue({ id: "template-1" });
+    recurringTemplateCreateMock.mockResolvedValue({});
+    recurringTemplateUpdateMock.mockResolvedValue({});
+  });
+
+  it.each(rejected)("create turns down %j", async (amount) => {
+    const result = await createRecurringTemplateAction({}, formData({ ...base, amount }));
+    expect(result.error).toBeTruthy();
+    expect(recurringTemplateCreateMock).not.toHaveBeenCalled();
+  });
+
+  it.each(rejected)("update turns down %j", async (amount) => {
+    const result = await updateRecurringTemplateAction({}, formData({ ...base, id: "template-1", amount }));
+    expect(result.error).toBeTruthy();
+    expect(recurringTemplateUpdateMock).not.toHaveBeenCalled();
+  });
+
+  it.each(accepted)("create saves %j as %d", async (amount, expected) => {
+    const result = await createRecurringTemplateAction({}, formData({ ...base, amount }));
+    expect(result).toEqual({});
+    expect(recurringTemplateCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ amount: expected }) }),
+    );
+  });
+
+  it.each(accepted)("update saves %j as %d", async (amount, expected) => {
+    const result = await updateRecurringTemplateAction({}, formData({ ...base, id: "template-1", amount }));
+    expect(result).toEqual({});
+    expect(recurringTemplateUpdateMock).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ amount: expected }) }),
+    );
   });
 });

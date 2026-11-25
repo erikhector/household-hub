@@ -49,6 +49,7 @@ Decisions only the owner can make, each with a recommended answer.
 
 | Date | ID | Decision | Why | Reversible? |
 |---|---|---|---|---|
+| 2026-11-25 | UX-30 | Fix without the device check: money and quantity fields become decimal text fields that take "," | owner; the fix is safe on every browser, so the iPhone check would only decide timing | Yes |
 | 2026-11-25 | PERF-32 | Chose (b): split into PERF-32a (tag helper, Redis handler and Home cached, behind `HOME_CACHE`, off by default) and PERF-32b (owner turns it on in Vercel and measures) | A build session can't take the production measurement; the flag keeps it dormant and reversible (#1704) | Yes |
 | 2026-11-25 | GAP-35 | Build the household calendar: a `HouseholdEvent` (title, date, optional times, notes, who it's for, weekly/monthly/yearly repeat), an agenda page behind More, a light "Coming up" card on Home, and events in the `.ics` feed with RRULEs; everyone sees every event; reminders later (GAP-88) | owner | Hard (migration) |
 | 2026-11-25 | MAINT-7 | Convert the household budget's errors now; BUDGET-6 no longer blocks it | owner; the conversion doesn't depend on BUDGET-6's answer, which stays open as its own question | Yes |

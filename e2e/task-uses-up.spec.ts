@@ -73,7 +73,7 @@ test("a task linked to a pantry item uses it up on a tick and puts it back on an
   await sheet.getByRole("combobox", { name: "Uses up" }).fill(itemName);
   await page.getByRole("option", { name: itemName, exact: true }).click();
   // Picking an item starts the amount at 1, in the item's unit.
-  await expect(sheet.getByRole("spinbutton", { name: "Amount each time" })).toHaveValue("1");
+  await expect(sheet.getByRole("textbox", { name: "Amount each time" })).toHaveValue("1");
   await expect(sheet.getByText("pcs", { exact: true })).toBeVisible();
   await sheet.getByRole("button", { name: "Add", exact: true }).click();
   const tick = page.getByRole("checkbox", { name: `Mark ${taskTitle} as done`, exact: true });

@@ -18,6 +18,7 @@
 
 import { z } from "zod";
 import type { ErrorKey } from "@/lib/actions/errors";
+import { parseMoney } from "@/lib/decimal-input";
 
 /**
  * The CategoryManager form's optional "Savings goal" amount. Same rules as
@@ -33,7 +34,7 @@ export const goalAmountField = z.preprocess(
   (value) => {
     if (value === null || value === undefined) return null;
     const trimmed = String(value).trim();
-    return trimmed === "" ? null : Number(trimmed);
+    return trimmed === "" ? null : parseMoney(trimmed);
   },
   z
     .number({ error: "savingsGoalNumber" satisfies ErrorKey })

@@ -1,4 +1,5 @@
 import { unitKind } from "@/lib/units";
+import { parseDecimal } from "@/lib/decimal-input";
 
 // "Check stock" (GAP-69): the manual counterpart of the AI shelf scan's
 // restock mode. These are the pure parts of the walk-through (which items,
@@ -22,9 +23,8 @@ export function buildStockCheckQueue<T extends StockCheckItem>(items: readonly T
 export type CountedAmount = { kind: "kept" } | { kind: "changed"; quantity: number } | { kind: "invalid" };
 
 export function readCountedAmount(current: number, typed: string): CountedAmount {
-  const text = typed.trim().replace(",", ".");
-  if (text === "") return { kind: "kept" };
-  const quantity = Number(text);
+  if (typed.trim() === "") return { kind: "kept" };
+  const quantity = parseDecimal(typed);
   if (!Number.isFinite(quantity) || quantity < 0) return { kind: "invalid" };
   return quantity === current ? { kind: "kept" } : { kind: "changed", quantity };
 }
