@@ -4,7 +4,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import type { ActionState } from "@/lib/actions/auth";
-import { toFriendlyError } from "@/lib/actions/errors";
+import { fail, toFriendlyError, v, zodFail } from "@/lib/actions/errors";
 import { revalidateBudgetPages } from "./action-helpers";
 
 // --- Settling up between members ---------------------------------------------
@@ -13,10 +13,10 @@ import { revalidateBudgetPages } from "./action-helpers";
 // clears them.
 
 const settlementSchema = z.object({
-  fromMemberId: z.string().min(1, "Choose who paid"),
-  toMemberId: z.string().min(1, "Choose who was paid"),
-  amount: z.coerce.number().positive("Amount must be greater than 0"),
-  date: z.string().min(1, "Date is required"),
+  fromMemberId: z.string().min(1, v("chooseWhoPaid")),
+  toMemberId: z.string().min(1, v("chooseWhoWasPaid")),
+  amount: z.coerce.number().positive(v("amountPositive")),
+  date: z.string().min(1, v("dateRequired")),
 });
 
 /**
@@ -41,10 +41,10 @@ export async function recordSettlementAction(
     date: formData.get("date"),
   });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return zodFail(parsed.error);
   }
   if (parsed.data.fromMemberId === parsed.data.toMemberId) {
-    return { error: "Choose two different members" };
+    return fail("chooseTwoDifferentMembers");
   }
 
   const members = await prisma.householdMember.findMany({
@@ -55,7 +55,7 @@ export async function recordSettlementAction(
     select: { id: true },
   });
   if (members.length !== 2) {
-    return { error: "One of the selected members no longer belongs to this household" };
+    return fail("splitMemberGone");
   }
 
   try {
