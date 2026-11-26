@@ -497,6 +497,75 @@ offline, and once with signup reloaded half-filled. WebKit was not run
 (no browser installed here). The audit config still needs an
 uncommitted `executablePath` copy to launch Chromium.
 
+### UX (2026-11-25 scout)
+
+Wednesday area: meal planning and recipes. Swept `desktop`, `mobile`,
+`landscape`, `tablet`, `small-phone`, `light`, `text-200` and both dialog
+sweeps. All 290 + 132 tests pass, and the only audit hits on the planner
+are the known sheet grabber and the `text-200` bottom-bar ellipsis
+(UX-150). The deep dive drove add meal (empty and 75-character Swedish
+names), the keyboard-open Save, the new-recipe form's error path and the
+Cook now and Meal prep tabs on Pixel 7 and at 320 px. All of those pass
+DESIGN.md: errors sit beside the field, input is kept, and every target
+is at least 44 px. It also timed Copy last week with the server action
+held for 4 s. WebKit was not run (no browser installed here).
+
+- [ ] **UX-213. Show progress on the planner's whole-week actions** (impact: med, effort: S) —
+      Copy last week (⋯ menu), Fill empty days and a plan template's
+      "Use" each write up to a week of meals and show nothing while they
+      run. Copy last week runs from a menu item that closes on tap, so
+      its `disabled={copyPending}` (`week-planner.tsx:211`) is never
+      seen. With the action held for 4 s on Pixel 7, the ⋯ trigger
+      stayed enabled and no spinner or toast appeared until the result.
+      Fill empty days (`fill-empty-days-dialog.tsx:160`) and "Use"
+      (`plan-template-dialogs.tsx:193`, which shares one `pending` with
+      the row's Delete) only grey out. None of the three
+      (`week-planner-helpers.ts:54`, `fill-empty-days-dialog.tsx:73`,
+      `plan-template-dialogs.tsx:131`) catches a rejected call, so a
+      dropped connection hits the error boundary. This breaks M5
+      (pending, then result) and M8 (say "you're offline"). Fix: show
+      `Loader2` on the ⋯ trigger and disable it while copying, use
+      `PendingLabel` with a busy string (en + sv) on Fill empty days and
+      Use, give Use and Delete their own transitions, and wrap each call
+      in try/catch with `unstable_rethrow` and
+      `toast.error(dict.prepConnectionError)`, as `meal-entry-row.tsx:121`
+      does.
+      Acceptance: an `e2e/` spec (`mobile` and `desktop`) holds the
+      server action with `page.route`. After tapping Copy last week, the
+      "More planner actions" button is disabled and busy until the
+      "Copied … meals" toast appears. In the Fill empty days dialog the
+      submit button shows its busy label. With the route aborted, an
+      error toast shows and the page stays on the planner.
+- [ ] **UX-214. Let the full text in meal-planning lists be read on a phone** (impact: med, effort: S) —
+      Two lists cut off text whose rest can only be reached through a
+      `title` tooltip, which touch can't open.
+      - Cook now: each row's "N ingredients needed: a, b, c…" is
+        `line-clamp-2` on phones and `line-clamp-1` from `sm`, with the
+        full list only in `title` (`cook-now-list.tsx:80-90`). The row
+        isn't tappable (only "Add to plan" is), so for a recipe missing
+        several ingredients the list that decides whether to cook it
+        can't be read (Cook now tab on Pixel 7 and at 320 px, driven
+        in this run).
+      - The place-a-pick sheet `truncate`s the meals already in each
+        day's slot to one line (`place-pick-dialog.tsx:103`), the very
+        thing you check before doubling up. Its four slot buttons are
+        12 px (`text-xs`) and `truncate` too (`:83`), below the 14 px
+        floor M9 allows only the bottom bar.
+      This breaks M9 ("full value reachable") and the checklist's "no
+      hover-only affordance". Fix: let the missing list wrap (`break-words`, no
+      clamp) or put it behind a disclosure, and drop the redundant
+      `title`s (`cook-now-list.tsx:74`, `prep-tab.tsx:204`,
+      `plan-template-dialogs.tsx:185`). In place-pick, use
+      `line-clamp-2 break-words` for the slot contents and `text-sm`
+      with no truncation on the slot buttons (2×2 below `sm` if they
+      don't fit).
+      Acceptance: an `e2e/` spec on `mobile` (and `small-phone` in the
+      audit) seeds a recipe missing six long-named ingredients. On the
+      Cook now tab the last ingredient's name is visible, with no
+      `title` on the row. In the place-pick sheet, a slot holding two
+      long meal names shows both, and the slot buttons compute to at
+      least 14 px.
+
 
 ---
 
