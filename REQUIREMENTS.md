@@ -11434,7 +11434,12 @@ UX-14's rapid ticks and the rollback toast.
   in `ux-19.mobile.spec.ts`'s 2031-06-02, and ux-19 timed out waiting for
   "Add first dinner"). A new hand-picked week stays out of 2036-2093, and
   a new spec that needs a random far-off week adds its name to the list
-  there. The same goes for the seeded users themselves: a spec that
+  there. A spec that seeds a fixed week also clears that week's plan,
+  scoped to its worker's household, *before* the insert as well as after:
+  an attempt that times out can be torn down before its cleanup runs, and
+  the retry lands in the same household (MAINT-79:
+  `meal-plan-templates.spec.ts` hit the `(householdId, weekStartDate)` key
+  in its own seed insert). The same goes for the seeded users themselves: a spec that
   changes one (a display name saved through the profile, say) puts it
   back in an `afterEach`, so a failing run restores it too, and waits for
   any save it held before restoring, or the late save would rename the
