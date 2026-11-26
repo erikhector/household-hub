@@ -54,6 +54,7 @@ function formData(fields: Record<string, string>) {
     notes: "",
     forMemberId: "",
     recurrence: "",
+    reminder: "",
     ...fields,
   })) {
     fd.set(key, value);
@@ -92,6 +93,7 @@ describe("createEventAction", () => {
         notes: null,
         forMemberId: null,
         recurrence: null,
+        reminder: null,
       },
     });
     expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard/calendar");
@@ -178,6 +180,25 @@ describe("createEventAction", () => {
     const result = await createEventAction({}, formData({ startTime: "10:00", endTime: "10:00" }));
 
     expect(result.error).toBe(en.errors.eventEndBeforeStart);
+    expect(householdEventCreateMock).not.toHaveBeenCalled();
+  });
+
+  it("saves a reminder choice (GAP-88a)", async () => {
+    signedIn();
+    householdMemberFindFirstMock.mockResolvedValueOnce({ id: "member-me" });
+
+    expect(await createEventAction({}, formData({ reminder: "MORNING_OF" }))).toEqual({});
+    expect(householdEventCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({ reminder: "MORNING_OF" }),
+    });
+  });
+
+  it("rejects an unknown reminder", async () => {
+    signedIn();
+
+    const result = await createEventAction({}, formData({ reminder: "AN_HOUR_BEFORE" }));
+
+    expect(result.error).toBe(en.errors.invalidInput);
     expect(householdEventCreateMock).not.toHaveBeenCalled();
   });
 

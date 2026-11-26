@@ -5,8 +5,9 @@
 // session's household, and the one client-supplied member id (who the event
 // is "for") checked to belong to it. Every member may add, edit or delete any
 // event: the calendar is shared, like the notes board, and there is no
-// per-member visibility. Reminders are a later item (BACKLOG.md), so nothing
-// here notifies anyone.
+// per-member visibility. Nothing here notifies anyone: an event's reminder
+// (GAP-88a) is only stored, and the daily notification run sends it
+// (syncEventReminders, src/lib/event-reminders.ts).
 
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
@@ -50,6 +51,8 @@ const eventSchema = z
       .transform((value) => value || null),
     // "" is "doesn't repeat".
     recurrence: z.enum(["", "WEEKLY", "MONTHLY", "YEARLY"]).transform((value) => (value === "" ? null : value)),
+    // GAP-88a: "" is "no reminder".
+    reminder: z.enum(["", "MORNING_OF", "DAY_BEFORE"]).transform((value) => (value === "" ? null : value)),
   })
   .superRefine((data, ctx) => {
     // An end on its own has nothing to end; an end at or before the start
@@ -81,6 +84,7 @@ async function parseEventForm(
     notes: field("notes"),
     forMemberId: field("forMemberId"),
     recurrence: field("recurrence"),
+    reminder: field("reminder"),
   });
   if (!parsed.success) return await zodFail(parsed.error);
 

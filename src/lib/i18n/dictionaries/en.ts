@@ -2889,6 +2889,13 @@ export const en = {
     repeatWeekly: "Every week",
     repeatMonthly: "Every month",
     repeatYearly: "Every year",
+    // GAP-88a: the sheet's reminder choice and the push it sends.
+    reminderLabel: "Reminder",
+    reminderNone: "No reminder",
+    reminderMorningOf: "The morning of",
+    reminderDayBefore: "The day before",
+    reminderHint: "Sent as a push to everyone who turned on calendar reminders in Profile.",
+    reminderPushBody: "{day}, {time}",
     forLabel: "For",
     forEveryone: "Everyone",
     notesLabel: "Notes",
@@ -4319,6 +4326,15 @@ export const en = {
         "A push once a day naming your own tasks that are due today or overdue. Nothing is sent when none of them are yours.",
       enabledToast: "You'll get a morning task reminder",
       disabledToast: "Task reminder turned off",
+    },
+    // GAP-88a
+    eventReminders: {
+      title: "Calendar reminders",
+      label: "Remind me about calendar events",
+      description:
+        "A push on the morning of an event, or the day before, for events that have a reminder set. Anyone in the household can set one in the event's sheet.",
+      enabledToast: "You'll get calendar reminders",
+      disabledToast: "Calendar reminders turned off",
     },
     dangerZoneTitle: "Danger zone",
     dangerZoneDescription:

@@ -10,8 +10,8 @@ import { PrimaryAction } from "@/components/dashboard/primary-action";
 import { EventFormDialog, type MemberOption } from "@/components/calendar/event-form-dialog";
 import { CalendarAgenda, type AgendaDayView } from "@/components/calendar/calendar-agenda";
 import { todayDayNumber } from "@/app/dashboard/tasks/task-due";
-import { loadUpcomingEvents, describeEventTime, upcomingDayHeading } from "@/app/dashboard/calendar/upcoming";
-import { AGENDA_DAYS, dayNumberToDate, eventDateKey } from "@/lib/household-events";
+import { loadUpcomingEvents, upcomingDayHeading } from "@/app/dashboard/calendar/upcoming";
+import { AGENDA_DAYS, dayNumberToDate, describeEventTime, eventDateKey } from "@/lib/household-events";
 
 // GAP-35: the household calendar. An agenda of the next AGENDA_DAYS days,
 // grouped by day, repeats expanded (src/lib/household-events.ts). One query
@@ -83,6 +83,7 @@ async function AgendaSection({
         notes: event.notes,
         forMemberId: event.forMemberId,
         recurrence: event.recurrence,
+        reminder: event.reminder,
       },
       timeLabel: describeEventTime(event, locale, dict),
       repeatLabel: event.recurrence ? repeatLabels[event.recurrence] : null,

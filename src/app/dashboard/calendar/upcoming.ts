@@ -1,14 +1,13 @@
 import "server-only";
 
 // GAP-35: the next days' household events, for the calendar page's agenda
-// and Home's "Coming up" card, plus the two labels both of them show. The
-// recurrence maths is src/lib/household-events.ts; this is the query and
-// the words.
+// and Home's "Coming up" card, plus the day heading both of them show. The
+// recurrence maths and the time label (describeEventTime) are
+// src/lib/household-events.ts; this is the query and the heading.
 
 import { prisma } from "@/lib/prisma";
-import { buildAgenda, dayNumberToDate, type AgendaDay, type EventRecurrence } from "@/lib/household-events";
+import { buildAgenda, dayNumberToDate, type AgendaDay, type EventRecurrence, type EventReminder } from "@/lib/household-events";
 import type { Locale } from "@/lib/i18n/get-dictionary";
-import { format } from "@/lib/i18n/format";
 
 export type UpcomingEvent = {
   id: string;
@@ -22,6 +21,7 @@ export type UpcomingEvent = {
   notes: string | null;
   forMemberId: string | null;
   recurrence: EventRecurrence | null;
+  reminder: EventReminder | null;
 };
 
 /**
@@ -51,6 +51,7 @@ export async function loadUpcomingEvents(
       notes: true,
       forMemberId: true,
       recurrence: true,
+      reminder: true,
     },
   });
   const agenda = buildAgenda(
@@ -63,25 +64,6 @@ export async function loadUpcomingEvents(
     (checkAny &&
       (await prisma.householdEvent.findFirst({ where: { householdId }, select: { id: true } })) !== null);
   return { days: agenda, hasEvents };
-}
-
-/** An "HH:MM" in the locale's own clock (14:30, 2:30 PM). */
-function formatTime(time: string, locale: Locale): string {
-  const [hours, minutes] = time.split(":").map(Number);
-  return new Intl.DateTimeFormat(locale, { hour: "numeric", minute: "2-digit", timeZone: "UTC" }).format(
-    new Date(Date.UTC(1970, 0, 1, hours, minutes)),
-  );
-}
-
-/** "All day", "14:30" or "14:30–15:15". */
-export function describeEventTime(
-  event: { startTime: string | null; endTime: string | null },
-  locale: Locale,
-  dict: { allDay: string; timeRange: string },
-): string {
-  if (!event.startTime) return dict.allDay;
-  const start = formatTime(event.startTime, locale);
-  return event.endTime ? format(dict.timeRange, { start, end: formatTime(event.endTime, locale) }) : start;
 }
 
 /**

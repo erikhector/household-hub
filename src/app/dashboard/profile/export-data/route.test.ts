@@ -218,6 +218,7 @@ describe("GET /dashboard/profile/export-data", () => {
         weeklyDigestEnabled: true,
         tonightsDinnerNudge: true,
         taskDueNudge: true,
+        eventReminderNudge: true,
         inventoryViewPrefs: { groupBy: "location" },
         personalBudgetMonthStartDay: 25,
       });
@@ -305,6 +306,7 @@ describe("GET /dashboard/profile/export-data", () => {
           endTime: null,
           notes: null,
           recurrence: "YEARLY",
+          reminder: "MORNING_OF",
           createdAt: fixedNow,
           household: { name: "The Hectors" },
           forMember: { userId: "user-1" },
@@ -418,6 +420,7 @@ describe("GET /dashboard/profile/export-data", () => {
           "preferences.weeklyDigestEnabled",
           "preferences.tonightsDinnerNudge",
           "preferences.taskDueNudge",
+          "preferences.eventReminderNudge",
           "preferences.inventoryViewPrefs",
           "preferences.personalBudgetMonthStartDay",
           "householdMemberships",
@@ -486,6 +489,7 @@ describe("GET /dashboard/profile/export-data", () => {
           "householdEvents[].endTime",
           "householdEvents[].notes",
           "householdEvents[].recurrence",
+          "householdEvents[].reminder",
           "householdEvents[].forMe",
           "householdEvents[].addedByMe",
           "householdEvents[].createdAt",
@@ -558,6 +562,7 @@ describe("GET /dashboard/profile/export-data", () => {
         weeklyDigestEnabled: true,
         tonightsDinnerNudge: true,
         taskDueNudge: true,
+        eventReminderNudge: true,
         inventoryViewPrefs: { groupBy: "location" },
         personalBudgetMonthStartDay: 25,
       });
@@ -571,7 +576,7 @@ describe("GET /dashboard/profile/export-data", () => {
       const body = await (await GET()).json();
 
       expect(body.householdTasks[0]).toMatchObject({ assignedToMe: false, completedByMe: true });
-      expect(body.householdEvents[0]).toMatchObject({ forMe: true, addedByMe: false });
+      expect(body.householdEvents[0]).toMatchObject({ forMe: true, addedByMe: false, reminder: "MORNING_OF" });
       const settlements = body.memberSettlements as { direction: string; counterpartyName: string }[];
       expect(settlements.map((s) => [s.direction, s.counterpartyName])).toEqual([
         ["paid", "Anna"],

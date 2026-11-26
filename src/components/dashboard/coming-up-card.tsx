@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { CalendarClock, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { describeEventTime, loadUpcomingEvents, upcomingDayHeading } from "@/app/dashboard/calendar/upcoming";
+import { loadUpcomingEvents, upcomingDayHeading } from "@/app/dashboard/calendar/upcoming";
+import { describeEventTime } from "@/lib/household-events";
 import { HOME_EVENT_DAYS, HOME_EVENT_LIMIT } from "@/lib/household-events";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 

@@ -8157,8 +8157,9 @@ URL and re-fetch on their own; nothing is ever written back.
 
 GAP-35. A shared calendar for what isn't a meal or a bill: appointments,
 birthdays, school events (Cozi's core feature). Everyone in the household
-sees every event; there is no per-member visibility. Reminders and push
-for events are not built yet (BACKLOG.md, GAP-88a and GAP-88b).
+sees every event; there is no per-member visibility. An event can carry a
+day-ahead push reminder (GAP-88a, "Reminders" below); hour-scale ones are
+not built (BACKLOG.md, GAP-88b).
 
 - **Model**: `HouseholdEvent` (migration `20261125173334_household_event`):
   `householdId` (`onDelete: Cascade`), `title`, `date` (`@db.Date`, a UTC
@@ -8166,8 +8167,10 @@ for events are not built yet (BACKLOG.md, GAP-88a and GAP-88b).
   `endTime` as wall-clock `"HH:MM"` strings with no zone (no start time
   means all day), optional `notes`, optional `forMemberId` (who it's for)
   and `createdByMemberId`, both `onDelete: SetNull` so a member leaving
-  keeps the household's events, and `recurrence` (the existing
-  `RecurrenceFrequency` enum, null for a one-off; WEEKLY, MONTHLY, YEARLY).
+  keeps the household's events, `recurrence` (the existing
+  `RecurrenceFrequency` enum, null for a one-off; WEEKLY, MONTHLY, YEARLY),
+  and `reminder` (GAP-88a, migration `20261126055213_event_reminders`: the
+  `EventReminder` enum, `MORNING_OF` or `DAY_BEFORE`, null for none).
 - **Recurrence** (`src/lib/household-events.ts`, pure, unit-tested):
   `expandEventOccurrences` lists the days an event falls on in a window.
   A repeat starts on its own date, never before. MONTHLY keeps its day of
@@ -8187,7 +8190,9 @@ for events are not built yet (BACKLOG.md, GAP-88a and GAP-88b).
   characters, a real date (`eventDateInvalid`), times as 24-hour `HH:MM`
   (`eventTimeInvalid`), no end without a start (`eventEndNeedsStart`), an
   end after the start (`eventEndBeforeStart`), notes trimmed and cut at
-  500, and a "for" member that belongs to the household (`memberNotFound`).
+  500, a reminder of "", `MORNING_OF` or `DAY_BEFORE` (anything else is
+  `invalidInput`), and a "for" member that belongs to the household
+  (`memberNotFound`).
   Who added it is the caller's member id, from the session. Any member may
   edit or delete any event, as on the notes board. Each action revalidates
   the calendar and Home.
@@ -8212,8 +8217,10 @@ for events are not built yet (BACKLOG.md, GAP-88a and GAP-88b).
 - **Sheet** (`src/components/calendar/event-form-dialog.tsx`): name, date
   (today by default), Starts and Ends (`type="time"`, side by side; "Make
   all day" clears both), Repeats (doesn't repeat, every week, month or
-  year), For (Everyone or a member; only shown with more than one member)
-  and Notes. An empty name or date is worded under the field
+  year), Reminder (No reminder, The morning of, The day before; a hint under
+  it says the push goes to everyone who turned on calendar reminders in
+  Profile), For (Everyone or a member; only shown with more than one
+  member) and Notes. An empty name or date is worded under the field
   (`useRequiredFields`); a dropped request shows the save-failed line
   (`guardFormAction`) and keeps what was typed.
 - **Navigation**: "Calendar" (`CalendarClock`) after Tasks in the sidebar,
@@ -8227,11 +8234,44 @@ for events are not built yet (BACKLOG.md, GAP-88a and GAP-88b).
   the cards below don't jump.
 - **Calendar feed**: events are the feed's third source; see "Calendar
   feed".
+- **Reminders** (GAP-88a, `src/lib/event-reminders.ts`): push only, never a
+  bell entry (a bell badge means something needs fixing). Each member opts
+  in with `User.eventReminderNudge` (default `false`; Profile,
+  Notifications section, "Calendar reminders", beside "Tasks due today",
+  `setEventReminderNudgeAction`; included in the data export with each
+  event's `reminder`). `syncEventReminders` runs per household from the
+  daily `/api/cron/sync-notifications` job (06:00 UTC); the cron's
+  candidate filter (`eventReminderCandidateWhere`, kept beside the sync)
+  takes households with an opted-in member and an event with a reminder
+  that is a repeat or dated from the UTC date to two days on. Times are
+  floating, so each recipient's day is worked out in their own zone: the
+  one most of their push devices report (`PushSubscription.timeZone`,
+  newest device breaks a tie, unknown names skipped, UTC when none), and
+  "today" is the later of that local date and the UTC date, the rule
+  `syncTaskDueNudge` uses. At the 06:00 UTC run that is always the UTC
+  date: 07:00 (winter) or 08:00 (summer) in Sweden, the small hours of the
+  day west to UTC-6, the evening before from UTC-7 west, and late in the
+  day east of UTC+4 (accepted; GAP-88b's tighter scheduler would fix it).
+  `dueReminderOccurrence` (`household-events.ts`, pure) says which
+  occurrence is due: "the morning of" on its own day, "the day before" on
+  the day before, repeats expanded with `expandEventOccurrences`, and only
+  ever today's, so a missed run sends nothing late. Each push is claimed
+  first with an `EventReminderSend` row, unique on `(userId, eventId,
+  occurrenceDate)` (the `WeeklyDigestSend` pattern), so a repeat or racing
+  run sends nothing more; the same run drops rows for days before the UTC
+  date. The push is in the recipient's own language (`User.locale`): the
+  event's title, and "Today" or "Tomorrow" with the time for a timed event
+  ("Imorgon, 14:30"), opening the calendar. It goes through
+  `sendPushToHouseholdMembers`, so it is scoped to the household's members
+  and quiet hours apply (a silenced push is not retried).
 - Tests: `src/lib/household-events.test.ts`,
   `src/app/dashboard/calendar/actions.test.ts`,
-  `src/app/dashboard/calendar/upcoming.test.ts`, the feed's tests, and
-  `e2e/calendar.spec.ts` (add, see it today and on Home, edit into a weekly
-  repeat, delete with Undo).
+  `src/app/dashboard/calendar/upcoming.test.ts`, `src/lib/event-reminders.test.ts`,
+  the feed's tests, `e2e/calendar.spec.ts` (add, see it today and on Home,
+  edit into a weekly repeat, delete with Undo) and
+  `e2e/event-reminders.spec.ts` (pick a reminder and see it on reopen, turn
+  on the Profile toggle, the sync claims one send and none for another
+  household's event).
 
 ## Theming
 
