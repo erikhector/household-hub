@@ -510,32 +510,6 @@ DESIGN.md: errors sit beside the field, input is kept, and every target
 is at least 44 px. It also timed Copy last week with the server action
 held for 4 s. WebKit was not run (no browser installed here).
 
-- [ ] **UX-213. Show progress on the planner's whole-week actions** (impact: med, effort: S) —
-      Copy last week (⋯ menu), Fill empty days and a plan template's
-      "Use" each write up to a week of meals and show nothing while they
-      run. Copy last week runs from a menu item that closes on tap, so
-      its `disabled={copyPending}` (`week-planner.tsx:211`) is never
-      seen. With the action held for 4 s on Pixel 7, the ⋯ trigger
-      stayed enabled and no spinner or toast appeared until the result.
-      Fill empty days (`fill-empty-days-dialog.tsx:160`) and "Use"
-      (`plan-template-dialogs.tsx:193`, which shares one `pending` with
-      the row's Delete) only grey out. None of the three
-      (`week-planner-helpers.ts:54`, `fill-empty-days-dialog.tsx:73`,
-      `plan-template-dialogs.tsx:131`) catches a rejected call, so a
-      dropped connection hits the error boundary. This breaks M5
-      (pending, then result) and M8 (say "you're offline"). Fix: show
-      `Loader2` on the ⋯ trigger and disable it while copying, use
-      `PendingLabel` with a busy string (en + sv) on Fill empty days and
-      Use, give Use and Delete their own transitions, and wrap each call
-      in try/catch with `unstable_rethrow` and
-      `toast.error(dict.prepConnectionError)`, as `meal-entry-row.tsx:121`
-      does.
-      Acceptance: an `e2e/` spec (`mobile` and `desktop`) holds the
-      server action with `page.route`. After tapping Copy last week, the
-      "More planner actions" button is disabled and busy until the
-      "Copied … meals" toast appears. In the Fill empty days dialog the
-      submit button shows its busy label. With the route aborted, an
-      error toast shows and the page stays on the planner.
 - [ ] **UX-214. Let the full text in meal-planning lists be read on a phone** (impact: med, effort: S) —
       Two lists cut off text whose rest can only be reached through a
       `title` tooltip, which touch can't open.

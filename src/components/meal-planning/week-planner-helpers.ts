@@ -1,3 +1,4 @@
+import { unstable_rethrow } from "next/navigation";
 import { toast } from "sonner";
 import { copyWeekAction, undoCopyWeekAction } from "@/app/dashboard/meal-planning/planner-actions";
 import { MEAL_TYPES, type MealType } from "@/app/dashboard/meal-planning/meal-types";
@@ -44,7 +45,10 @@ export const TODAY_CARD_ID = "meal-planner-today-card";
 // sitting down to plan would reach for it. On a partly filled week the
 // action would still work (it skips filled slots), but a menu item that
 // silently copies "around" existing meals is harder to predict. The Undo
-// takes back exactly the entries this copy wrote, by id.
+// takes back exactly the entries this copy wrote, by id. The menu item
+// closes on tap, so the planner shows the pending state on the ⋯ trigger
+// instead (UX-213). A dropped connection rejects the call, and that is a
+// toast saying so, not the error boundary (M8).
 export function copyLastWeek(
   dict: MealPlanningDict,
   weekStartKey: string,
@@ -52,7 +56,14 @@ export function copyLastWeek(
   startTransition: (callback: () => Promise<void>) => void,
 ) {
   startTransition(async () => {
-    const result = await copyWeekAction(prevWeekKey, weekStartKey);
+    let result;
+    try {
+      result = await copyWeekAction(prevWeekKey, weekStartKey);
+    } catch (error) {
+      unstable_rethrow(error);
+      toast.error(dict.prepConnectionError);
+      return;
+    }
     if (result.error) {
       toast.error(result.error);
       return;
