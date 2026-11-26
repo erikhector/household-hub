@@ -3,7 +3,8 @@
 Tracks home inventory (groceries etc.), flags low/out-of-stock items,
 auto-generates shopping lists, plans meals, analyzes grocery cost, and
 tracks household income/expenses. See [REQUIREMENTS.md](./REQUIREMENTS.md)
-for the full product spec, data model, and conventions.
+for the full product spec and data model, and [AGENTS.md](./AGENTS.md) for
+conventions and the development workflow.
 
 ## Getting started
 
@@ -28,6 +29,6 @@ details.
 
 - `npm run dev` — dev server (Turbopack)
 - `npm run build` / `npm run start` — production build/serve
-- `npm run lint` — ESLint
-- `npx tsc --noEmit` — type-check
+- `npm run check` — lint, type-check, unit tests and knip
+- `npm run test:e2e` — Playwright end-to-end suite (build first)
 - `npx prisma studio` — browse the local database
