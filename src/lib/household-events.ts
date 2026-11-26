@@ -10,7 +10,11 @@
 // ever read, so a server or browser west of UTC can't move an event to the
 // day before.
 
+import { format } from "@/lib/i18n/format";
+import type { Locale } from "@/lib/i18n/get-dictionary";
+
 export type EventRecurrence = "WEEKLY" | "MONTHLY" | "YEARLY";
+export type EventReminder = "MORNING_OF" | "DAY_BEFORE";
 
 // Same caps as a task's title and notes (tasks/actions.ts), for the same
 // reasons: a title is one line on a row, notes are a few lines of detail.
@@ -135,6 +139,22 @@ export function expandEventOccurrences(
 }
 
 /**
+ * GAP-88a: the occurrence a reminder is due for on `today` (a day number),
+ * or null. "The morning of" is due on the occurrence's own day, "the day
+ * before" on the day before it. Only ever today's: a day already past is
+ * never reminded late, and the occurrence must exist (a repeat not started
+ * yet, or a monthly event on a day a short month clamps away from, has none).
+ */
+export function dueReminderOccurrence(
+  event: { date: Date; recurrence: EventRecurrence | null; reminder: EventReminder | null },
+  today: number,
+): Date | null {
+  if (event.reminder === null) return null;
+  const day = dayNumberToDate(today + (event.reminder === "DAY_BEFORE" ? 1 : 0));
+  return expandEventOccurrences(event, day, day)[0] ?? null;
+}
+
+/**
  * The RFC 5545 RRULE for an event's repeat, or null for a one-off. Written to
  * land on exactly the days expandEventOccurrences does, clamping included:
  * a plain FREQ=MONTHLY on the 31st would skip every shorter month (RFC 5545
@@ -158,6 +178,29 @@ export function eventRrule(event: { date: Date; recurrence: EventRecurrence | nu
         ? "FREQ=YEARLY;BYMONTH=2;BYMONTHDAY=28,29;BYSETPOS=-1"
         : "FREQ=YEARLY";
   }
+}
+
+/** An "HH:MM" in the locale's own clock (14:30, 2:30 PM). */
+function formatTime(time: string, locale: Locale): string {
+  const [hours, minutes] = time.split(":").map(Number);
+  return new Intl.DateTimeFormat(locale, { hour: "numeric", minute: "2-digit", timeZone: "UTC" }).format(
+    new Date(Date.UTC(1970, 0, 1, hours, minutes)),
+  );
+}
+
+/**
+ * "All day", "14:30" or "14:30–15:15". Here rather than in the page's
+ * loader (calendar/upcoming.ts) so the reminder push (event-reminders.ts)
+ * words a time the same way without importing a server-only module.
+ */
+export function describeEventTime(
+  event: { startTime: string | null; endTime: string | null },
+  locale: Locale,
+  dict: { allDay: string; timeRange: string },
+): string {
+  if (!event.startTime) return dict.allDay;
+  const start = formatTime(event.startTime, locale);
+  return event.endTime ? format(dict.timeRange, { start, end: formatTime(event.endTime, locale) }) : start;
 }
 
 export type AgendaEvent = {

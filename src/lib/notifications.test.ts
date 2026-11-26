@@ -1570,12 +1570,13 @@ describe("findHouseholdIdsWithSyncCandidates", () => {
       .mockResolvedValueOnce([{ id: "h2" }])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([{ id: "h3" }, { id: "h1" }])
-      .mockResolvedValueOnce([{ id: "h4" }]);
+      .mockResolvedValueOnce([{ id: "h4" }])
+      .mockResolvedValueOnce([{ id: "h5" }, { id: "h4" }]);
 
     const ids = await findHouseholdIdsWithSyncCandidates(new Date("2026-03-10T06:00:00Z"));
 
-    expect(householdFindManyMock).toHaveBeenCalledTimes(5);
-    expect([...ids].sort()).toEqual(["h1", "h2", "h3", "h4"]);
+    expect(householdFindManyMock).toHaveBeenCalledTimes(6);
+    expect([...ids].sort()).toEqual(["h1", "h2", "h3", "h4", "h5"]);
   });
 
   it("returns nothing when no household has work", async () => {
@@ -1608,5 +1609,17 @@ describe("findHouseholdIdsWithSyncCandidates", () => {
       // A day ahead of the UTC date: a zone east of UTC is already on it.
       { completedAt: null, dueDate: { lte: new Date("2026-03-11") } },
     ]);
+    // GAP-88a: from the UTC date to two days on (a zone a day ahead, plus
+    // "the day before"'s day of lookahead).
+    expect(wheres[5]).toEqual({
+      members: { some: { user: { eventReminderNudge: true } } },
+      events: {
+        some: {
+          reminder: { not: null },
+          date: { lte: new Date("2026-03-12") },
+          OR: [{ recurrence: { not: null } }, { date: { gte: new Date("2026-03-10") } }],
+        },
+      },
+    });
   });
 });

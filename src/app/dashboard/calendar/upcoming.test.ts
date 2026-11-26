@@ -1,7 +1,7 @@
 // GAP-35: the upcoming-events loader (query scope, agenda, the "nothing yet"
 // flag) and the labels the calendar page and Home show. Prisma is mocked.
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { eventDayNumber, parseEventDate } from "@/lib/household-events";
+import { describeEventTime, eventDayNumber, parseEventDate } from "@/lib/household-events";
 
 vi.mock("server-only", () => ({}));
 
@@ -13,7 +13,7 @@ vi.mock("@/lib/prisma", () => ({
   prisma: { householdEvent: { findMany: findManyMock, findFirst: findFirstMock } },
 }));
 
-const { describeEventTime, loadUpcomingEvents, upcomingDayHeading } = await import("./upcoming");
+const { loadUpcomingEvents, upcomingDayHeading } = await import("./upcoming");
 
 const d = (key: string) => parseEventDate(key)!;
 const dayOf = (key: string) => eventDayNumber(d(key));

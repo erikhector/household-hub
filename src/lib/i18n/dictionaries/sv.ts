@@ -2735,6 +2735,13 @@ export const sv = {
     repeatWeekly: "Varje vecka",
     repeatMonthly: "Varje månad",
     repeatYearly: "Varje år",
+    // GAP-88a: the sheet's reminder choice and the push it sends.
+    reminderLabel: "Påminnelse",
+    reminderNone: "Ingen påminnelse",
+    reminderMorningOf: "Samma morgon",
+    reminderDayBefore: "Dagen innan",
+    reminderHint: "Skickas som pushnotis till alla som har slagit på kalenderpåminnelser i Profil.",
+    reminderPushBody: "{day}, {time}",
     forLabel: "För",
     forEveryone: "Alla",
     notesLabel: "Anteckningar",
@@ -4090,6 +4097,15 @@ export const sv = {
         "En pushnotis om dagen med dina egna sysslor som ska göras idag eller är försenade. Inget skickas om ingen av dem är din.",
       enabledToast: "Du får en syssloppåminnelse på morgonen",
       disabledToast: "Syssloppåminnelsen är avstängd",
+    },
+    // GAP-88a
+    eventReminders: {
+      title: "Kalenderpåminnelser",
+      label: "Påminn mig om händelser i kalendern",
+      description:
+        "En pushnotis samma morgon som en händelse, eller dagen innan, för händelser som har en påminnelse. Vem som helst i hushållet kan välja det på händelsen.",
+      enabledToast: "Du får kalenderpåminnelser",
+      disabledToast: "Kalenderpåminnelserna är avstängda",
     },
     dangerZoneTitle: "Farozon",
     dangerZoneDescription:

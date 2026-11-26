@@ -42,3 +42,20 @@ export async function setTaskDueNudgeAction(enabled: boolean): Promise<ActionSta
   revalidatePath("/dashboard/profile");
   return {};
 }
+
+// GAP-88a: the calendar event reminder push opt-in. Same shape and reasoning
+// as the two nudges above (syncEventReminders decides who gets the push).
+export async function setEventReminderNudgeAction(enabled: boolean): Promise<ActionState> {
+  const userId = await requireUserId();
+
+  if (typeof enabled !== "boolean") return await fail("invalidInput");
+
+  try {
+    await prisma.user.update({ where: { id: userId }, data: { eventReminderNudge: enabled } });
+  } catch (error) {
+    return await toFriendlyError(error);
+  }
+
+  revalidatePath("/dashboard/profile");
+  return {};
+}

@@ -59,6 +59,9 @@
 //   `User.taskDueNudge`. The bell entry is household-wide; the push goes to
 //   opted-in members who have a listed task assigned to them.
 //
+// Calendar event reminders (GAP-88a) run in the same cron pass but are push
+// only, with no bell entry, so they live in src/lib/event-reminders.ts.
+//
 // There used to be another, good-news "restocked" trigger (the inverse of
 // out-of-stock, firing when an item crossed back above its low-stock
 // threshold) — removed by product decision; nobody wanted a notification for
@@ -92,6 +95,7 @@ import { selectPutAwayReminders } from "@/lib/shopping/put-away-calc";
 import { EXPIRY_WARNING_DAYS } from "@/lib/inventory/expiry";
 import { loadIncomingByItem, loadIncomingQuantity } from "@/lib/incoming-stock";
 import { logger } from "@/lib/logger";
+import { eventReminderCandidateWhere } from "@/lib/event-reminders";
 import {
   PRICE_SPIKE_COOLDOWN_DAYS,
   PRICE_SPIKE_MAX_AGE_DAYS,
@@ -996,8 +1000,8 @@ async function getTaskDueTimeZone(userIds: string[]): Promise<string> {
 }
 
 // PERF-13: the households `/api/cron/sync-notifications` needs to run the
-// five syncs above for, so the cron's cost follows how much work exists, not
-// how many households are registered. One `household.findMany` per trigger,
+// five syncs above (and syncEventReminders, GAP-88a) for, so the cron's
+// cost follows how much work exists, not how many households are registered. One `household.findMany` per trigger,
 // each with the same predicate as the sync's own candidate query (kept side
 // by side so they can't drift), run in parallel and unioned. A match only
 // means "might have work": the syncs still do their own dedupe (an
@@ -1009,7 +1013,7 @@ export async function findHouseholdIdsWithSyncCandidates(now: Date = new Date())
   const expiryThreshold = new Date(now.getTime() + EXPIRY_WARNING_DAYS * 24 * 60 * 60 * 1000);
   const putAwaySince = new Date(now.getTime() - INCOMING_MAX_AGE_DAYS * 24 * 60 * 60 * 1000);
 
-  const [mealNotLogged, expiringSoon, putAway, tonightsDinner, taskDue] = await Promise.all([
+  const [mealNotLogged, expiringSoon, putAway, tonightsDinner, taskDue, eventReminders] = await Promise.all([
     prisma.household.findMany({
       where: {
         mealPlans: { some: { entries: { some: { date: { lt: today }, consumedAt: null, notification: null } } } },
@@ -1062,9 +1066,18 @@ export async function findHouseholdIdsWithSyncCandidates(now: Date = new Date())
       },
       select: { id: true },
     }),
+    // GAP-88a: syncEventReminders (src/lib/event-reminders.ts), whose own
+    // query sits beside this predicate there.
+    prisma.household.findMany({ where: eventReminderCandidateWhere(now), select: { id: true } }),
   ]);
 
-  return [...new Set([...mealNotLogged, ...expiringSoon, ...putAway, ...tonightsDinner, ...taskDue].map((household) => household.id))];
+  return [
+    ...new Set(
+      [...mealNotLogged, ...expiringSoon, ...putAway, ...tonightsDinner, ...taskDue, ...eventReminders].map(
+        (household) => household.id,
+      ),
+    ),
+  ];
 }
 
 // The bell's data source (src/app/dashboard/layout.tsx) — a pure read, no

@@ -505,47 +505,6 @@ Each item adds a migration (`npx prisma migrate dev --name <name>`, local
 only — production only ever runs `migrate deploy`). Land sequentially; the
 order below is a suggestion, not a dependency, unless noted.
 
-- [ ] **GAP-88a. Day-ahead reminders for household calendar events** —
-      follow-up to GAP-35, which shipped the calendar without any
-      notification. Split from GAP-88 (2026-11-25), keeping only the
-      reminders today's once-a-day cron can deliver on time. A member can
-      set a reminder on an event, "The morning of" or "The day before"
-      ("Zoe's birthday, the morning of"), sent as a push (`web-push`,
-      `src/lib/notifications.ts`) to members who opted in. Needs a
-      reminder choice on `HouseholdEvent` (a nullable enum, a migration),
-      a per-user opt-in like the task-due nudge (GAP-74,
-      `syncTaskDueNudge`, a Profile toggle beside it), and a pass in the
-      existing `/api/cron/sync-notifications` run (plus
-      `findHouseholdIdsWithSyncCandidates`) that expands repeats with
-      `expandEventOccurrences` (`src/lib/household-events.ts`) and sends
-      each reminder once per recipient and occurrence (an idempotency row,
-      as `WeeklyDigestSend`). Times are floating wall-clock dates, so
-      "the morning of" means the run on that day in the recipient's own
-      zone (their push devices' `PushSubscription.timeZone`, UTC when
-      unknown), "the day before" the run on the day before; a run that
-      finds the day already past sends nothing late. The run is at
-      06:00 UTC (`0 6 * * *` in `vercel.json`), which is still the
-      previous evening west of UTC, so a run's "today" is the later of
-      the recipient's local date and the UTC date, the rule
-      `syncTaskDueNudge` already uses (`Math.max(todayDayNumber(now,
-      timeZone), todayDayNumber(now))`, `src/lib/notifications.ts`, with
-      `todayDayNumber` in `src/app/dashboard/tasks/task-due.ts`). So a
-      run's "today" is always the UTC date, and "the morning of" goes out
-      at 06:00 UTC in the recipient's local time: from UTC to UTC+4,
-      06:00 to 10:00 on the event's day (07:00 in Sweden in winter, 08:00
-      in summer); from UTC-1 to UTC-6, the small hours (05:00 down to
-      00:00) of the event's day; from UTC-7 westward, 23:00 down to 18:00
-      the evening before; and east of UTC+4, late morning to evening of
-      the event's day, which can be after a morning event has started.
-      "The day before" goes out at the same local time one day earlier.
-      That's accepted, since the household is in Sweden and GAP-88b's
-      tighter scheduler would fix it. Push only, no bell
-      entry: a bell badge must mean something's wrong. Opt-in and off by
-      default. Acceptance: a member picks "The morning of" in the event
-      sheet, it saves and shows on reopen; the Profile toggle saves; the
-      sync sends each due reminder once and never for another
-      household's events.
-
 ## Phase 3 — larger items, own PR each
 
 ### State-of-the-art UI (2026-10-04 design audit)
@@ -947,7 +906,7 @@ out to be a product-scope question rather than a scoped task should move to
         in another place.
       - Keep reminders day-scale only (GAP-88a) and don't build this.
       Hosting plan and secrets are the owner's call (AUTOPILOT.md,
-      `never_decide`). Build GAP-88a first.
+      `never_decide`). GAP-88a has shipped (`src/lib/event-reminders.ts`).
 
 ### Infrastructure (moved from REQUIREMENTS.md's "Deferred" list)
 

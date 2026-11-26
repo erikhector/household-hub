@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   buildAgenda,
+  dueReminderOccurrence,
   eventDateKey,
+  eventDayNumber,
   eventRrule,
   expandEventOccurrences,
   isEventTime,
@@ -120,6 +122,45 @@ describe("expandEventOccurrences", () => {
 
   it("returns nothing for a window that ends before the event starts", () => {
     expect(expand("2027-03-10", "WEEKLY", "2026-01-01", "2026-12-31")).toEqual([]);
+  });
+});
+
+describe("dueReminderOccurrence (GAP-88a)", () => {
+  const due = (
+    date: string,
+    recurrence: EventRecurrence | null,
+    reminder: "MORNING_OF" | "DAY_BEFORE" | null,
+    today: string,
+  ) => {
+    const occurrence = dueReminderOccurrence({ date: d(date), recurrence, reminder }, eventDayNumber(d(today)));
+    return occurrence ? eventDateKey(occurrence) : null;
+  };
+
+  it("is due on the event's own day for the morning of", () => {
+    expect(due("2026-12-03", null, "MORNING_OF", "2026-12-03")).toBe("2026-12-03");
+    expect(due("2026-12-03", null, "MORNING_OF", "2026-12-02")).toBeNull();
+  });
+
+  it("is due on the day before for the day before", () => {
+    expect(due("2026-12-03", null, "DAY_BEFORE", "2026-12-02")).toBe("2026-12-03");
+    expect(due("2026-12-03", null, "DAY_BEFORE", "2026-12-03")).toBeNull();
+  });
+
+  it("never reminds late once the day has passed", () => {
+    expect(due("2026-12-03", null, "MORNING_OF", "2026-12-04")).toBeNull();
+    expect(due("2026-12-03", null, "DAY_BEFORE", "2026-12-04")).toBeNull();
+  });
+
+  it("is due for every occurrence of a repeat, and not before it starts", () => {
+    expect(due("2026-12-03", "WEEKLY", "MORNING_OF", "2026-12-17")).toBe("2026-12-17");
+    expect(due("2026-12-03", "YEARLY", "DAY_BEFORE", "2027-12-02")).toBe("2027-12-03");
+    expect(due("2026-12-03", "WEEKLY", "MORNING_OF", "2026-11-26")).toBeNull();
+    // A monthly event on the 31st is on 30 April, so the day before is the 29th.
+    expect(due("2027-01-31", "MONTHLY", "DAY_BEFORE", "2027-04-29")).toBe("2027-04-30");
+  });
+
+  it("is never due without a reminder", () => {
+    expect(due("2026-12-03", null, null, "2026-12-03")).toBeNull();
   });
 });
 
