@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.163.0",
+    "date": "2026-11-26",
+    "pr": 1783,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "You can now set a reminder on a calendar event, either the morning of or the day before, and get a push for it. Turn on Calendar reminders in Profile to receive them.",
+      "sv": "Nu kan du lägga till en påminnelse på en händelse i kalendern, samma morgon eller dagen innan, och få en pushnotis om den. Slå på Kalenderpåminnelser i Profil för att få dem."
+    }
+  },
+  {
     "version": "0.162.0",
     "date": "2026-11-25",
     "pr": 1772,
