@@ -3,8 +3,9 @@
 // GAP-35: the Add/Edit sheet for a household calendar event. Same shape as
 // TaskFormDialog (one component, `mode`, one <Dialog> around one <form>,
 // closes on success): a name, the day (today by default, M4), optional start
-// and end times (none is all day), a repeat, who it's for and a few lines of
-// notes. Both modes are form actions; edit binds the event's id.
+// and end times (none is all day), a repeat, a reminder (GAP-88a), who it's
+// for and a few lines of notes. Both modes are form actions; edit binds the
+// event's id.
 
 import { useActionState, useState, type FormEvent, type ReactElement } from "react";
 import { Button } from "@/components/ui/button";
@@ -18,7 +19,12 @@ import { useRequiredFields } from "@/components/shared/use-required-fields";
 import { guardFormAction } from "@/components/shared/guard-form-action";
 import { createEventAction, updateEventAction } from "@/app/dashboard/calendar/actions";
 import type { ActionState } from "@/lib/actions/auth";
-import { EVENT_NOTES_MAX_LENGTH, EVENT_TITLE_MAX_LENGTH, type EventRecurrence } from "@/lib/household-events";
+import {
+  EVENT_NOTES_MAX_LENGTH,
+  EVENT_TITLE_MAX_LENGTH,
+  type EventRecurrence,
+  type EventReminder,
+} from "@/lib/household-events";
 import { format } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
@@ -35,11 +41,14 @@ export type EditableEvent = {
   notes: string | null;
   forMemberId: string | null;
   recurrence: EventRecurrence | null;
+  reminder: EventReminder | null;
 };
 
-// Base UI's Select doesn't take "" as an item value, so "doesn't repeat" and
-// "everyone" need sentinels; they're submitted as "" through hidden inputs.
+// Base UI's Select doesn't take "" as an item value, so "doesn't repeat",
+// "no reminder" and "everyone" need sentinels; they're submitted as ""
+// through hidden inputs.
 const NO_REPEAT = "__none__";
+const NO_REMINDER = "__no_reminder__";
 const EVERYONE = "__everyone__";
 // The counters show this close to the cap (UX-107), like the task sheet's.
 const TITLE_COUNTER_FROM = 100;
@@ -76,6 +85,7 @@ export function EventFormDialog({
     notes: event?.notes ?? "",
     forMemberId: event?.forMemberId ?? EVERYONE,
     recurrence: event?.recurrence ?? NO_REPEAT,
+    reminder: event?.reminder ?? NO_REMINDER,
   });
   const [open, setOpen] = useState(false);
   const [values, setValues] = useState(initial);
@@ -115,6 +125,11 @@ export function EventFormDialog({
     WEEKLY: dict.repeatWeekly,
     MONTHLY: dict.repeatMonthly,
     YEARLY: dict.repeatYearly,
+  };
+  const reminderLabels: Record<string, string> = {
+    [NO_REMINDER]: dict.reminderNone,
+    MORNING_OF: dict.reminderMorningOf,
+    DAY_BEFORE: dict.reminderDayBefore,
   };
 
   return (
@@ -232,6 +247,28 @@ export function EventFormDialog({
                 ))}
               </SelectContent>
             </Select>
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="event-reminder">{dict.reminderLabel}</Label>
+            <Select value={values.reminder} onValueChange={(v) => set("reminder", String(v))}>
+              <input type="hidden" name="reminder" value={values.reminder === NO_REMINDER ? "" : values.reminder} />
+              <SelectTrigger id="event-reminder" aria-describedby="event-reminder-hint">
+                <SelectValue>{(v: string) => reminderLabels[v] ?? dict.reminderNone}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(reminderLabels).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {/* Who gets it isn't chosen here: each member opts in on their
+                Profile, so say where, or a reminder set and never felt
+                looks broken. */}
+            <p id="event-reminder-hint" className="text-xs text-muted-foreground">
+              {dict.reminderHint}
+            </p>
           </div>
           {/* Who it's for only means something with more than one person. */}
           {members.length > 1 && (

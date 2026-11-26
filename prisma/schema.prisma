@@ -73,6 +73,13 @@ model User {
   // own); the bell entry itself is household-wide.
   taskDueNudge Boolean @default(false)
 
+  // GAP-88a: opt-in push for household calendar events that have a reminder
+  // set (HouseholdEvent.reminder; syncEventReminders in
+  // src/lib/event-reminders.ts), toggled from the Notifications section of the
+  // Profile page beside the task nudge. Off by default, like the nudges
+  // above. Push only: a reminder never files a bell entry.
+  eventReminderNudge Boolean @default(false)
+
   // GAP-7: the user's own Swish number, so household members who owe them
   // money get a "Pay with Swish" link on the Budget page's "Who owes whom"
   // card. Stored normalized as Swish's alias format (46 + number without
@@ -102,6 +109,7 @@ model User {
   emailVerificationTokens    EmailVerificationToken[]
   pushSubscriptions          PushSubscription[]
   weeklyDigestSends          WeeklyDigestSend[]
+  eventReminderSends         EventReminderSend[]
   invitationsSent            Invitation[]
 }
 
@@ -1870,15 +1878,49 @@ model HouseholdEvent {
   forMemberId       String?
   createdByMemberId String?
   recurrence        RecurrenceFrequency?
+  // GAP-88a: when to push a reminder, null for none. Applies to every
+  // occurrence of a repeat.
+  reminder          EventReminder?
   createdAt         DateTime             @default(now())
 
-  household       Household        @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  forMember       HouseholdMember? @relation("EventFor", fields: [forMemberId], references: [id], onDelete: SetNull)
-  createdByMember HouseholdMember? @relation("EventCreatedBy", fields: [createdByMemberId], references: [id], onDelete: SetNull)
+  household       Household           @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  forMember       HouseholdMember?    @relation("EventFor", fields: [forMemberId], references: [id], onDelete: SetNull)
+  createdByMember HouseholdMember?    @relation("EventCreatedBy", fields: [createdByMemberId], references: [id], onDelete: SetNull)
+  reminderSends   EventReminderSend[]
 
   @@index([householdId])
   @@index([forMemberId])
   @@index([createdByMemberId])
+}
+
+// GAP-88a: a calendar event's day-ahead reminder. Floating like the event's
+// own times: MORNING_OF is the daily notification run on the event's day in
+// the recipient's zone, DAY_BEFORE the run on the day before (see
+// syncEventReminders in src/lib/event-reminders.ts).
+enum EventReminder {
+  MORNING_OF
+  DAY_BEFORE
+}
+
+// GAP-88a: one row per event reminder push sent, keyed by recipient, event
+// and the occurrence's day (a repeat has one per occurrence). Claimed before
+// the push goes out, the same idempotency guard as WeeklyDigestSend: a
+// retried or doubled cron run hits the unique instead of pushing twice.
+// Rows for days already past are pruned by the same run; no later run could
+// send for them anyway.
+model EventReminderSend {
+  id             String   @id @default(cuid())
+  userId         String
+  eventId        String
+  occurrenceDate DateTime @db.Date
+  sentAt         DateTime @default(now())
+
+  user  User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event HouseholdEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, eventId, occurrenceDate])
+  @@index([eventId])
+  @@index([occurrenceDate])
 }
 
 // GAP-27: one row per weekly digest email actually handed to Resend, keyed by

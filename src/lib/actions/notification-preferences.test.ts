@@ -14,7 +14,9 @@ vi.mock("@/lib/session", () => ({ requireUserId: requireUserIdMock }));
 vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
 vi.mock("@/lib/logger", () => ({ logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn() } }));
 
-const { setTonightsDinnerNudgeAction, setTaskDueNudgeAction } = await import("@/lib/actions/notification-preferences");
+const { setTonightsDinnerNudgeAction, setTaskDueNudgeAction, setEventReminderNudgeAction } = await import(
+  "@/lib/actions/notification-preferences"
+);
 
 beforeEach(() => {
   requireUserIdMock.mockResolvedValue("user-1");
@@ -66,6 +68,26 @@ describe("setTaskDueNudgeAction (GAP-74)", () => {
   it("returns a friendly error when the write fails", async () => {
     userUpdateMock.mockRejectedValue(new Error("db down"));
     const result = await setTaskDueNudgeAction(true);
+    expect(result.error).toBe("Something went wrong. Please try again.");
+  });
+});
+
+describe("setEventReminderNudgeAction (GAP-88a)", () => {
+  it("updates only the signed-in user's preference", async () => {
+    expect(await setEventReminderNudgeAction(true)).toEqual({});
+    expect(userUpdateMock).toHaveBeenCalledWith({ where: { id: "user-1" }, data: { eventReminderNudge: true } });
+    expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard/profile");
+  });
+
+  it("rejects a non-boolean value", async () => {
+    const result = await setEventReminderNudgeAction("yes" as unknown as boolean);
+    expect(result.error).toBeDefined();
+    expect(userUpdateMock).not.toHaveBeenCalled();
+  });
+
+  it("returns a friendly error when the write fails", async () => {
+    userUpdateMock.mockRejectedValue(new Error("db down"));
+    const result = await setEventReminderNudgeAction(true);
     expect(result.error).toBe("Something went wrong. Please try again.");
   });
 });
