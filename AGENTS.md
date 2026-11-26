@@ -212,7 +212,7 @@ Context is the scarcest resource. Spend it on the code you're changing, not
 on re-reading things or scrolling logs. None of these trade away quality:
 the verification steps above stay mandatory.
 
-- **Never read REQUIREMENTS.md (4 600+ lines) or BACKLOG.md whole.** List
+- **Never read REQUIREMENTS.md (11 000+ lines) or BACKLOG.md whole.** List
   headings with `grep -n '^#' REQUIREMENTS.md`, then read just your section
   with an offset/limit. Same for any file over ~300 lines: grep for the
   symbol first, then read the range around it.

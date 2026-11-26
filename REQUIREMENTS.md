@@ -258,6 +258,14 @@ easy for AI coding agents to work in correctly:
   shortcut again until the palette or the load error shows rather than
   pressing once after `expectHydrated` (MAINT-95). UX-165 (M2): the menu opens upward, so "Log out"
   is its top row, farthest from the thumb, never the last.
+- **Hidden tabs are not wrapped in `<Activity>` (PERF-29, tried and
+  dropped 2026-10-28).** Wrapping the inactive tabs of `MealPlanningView`
+  and `BudgetTabs` in `<Activity mode="hidden">` cut long-task time
+  before the tab bar hydrated by only 50–90 ms (within run-to-run noise
+  for time to interactive), downloaded the same JS, and cost the hidden
+  tabs' server-rendered DOM (no find-in-page or print before hydration).
+  Revisit only if per-tab code splitting (loading a tab's JS on first
+  open) is ever wanted, since `<Activity>` is how that would keep state.
 - **Server-side errors go through `reportError` (MAINT-11).** Caught
   failures in cron routes, `/api/health`, the digest unsubscribe route,
   `weekly-digest.ts`, `push.ts` and the Redis fallback in `rate-limit.ts`
@@ -6883,7 +6891,7 @@ opened from `RecipeManager`'s toolbar and, on an empty recipe list, as the
 empty state's secondary action beside New recipe, which stays the one
 primary (DESIGN.md M2)) offers a built-in
 catalog of recipes, ranked by how much of each the household already has in
-its pantry. Design: `docs/superpowers/specs/2026-11-02-recipe-discovery-design.md`.
+its pantry. Design: `docs/archive/RECIPE_DISCOVERY_DESIGN.md`.
 
 - **The catalog** lives in `src/lib/recipe-catalog/data.ts`: 120 recipes, each
   written for Squirrel and bilingual (`Localized<T>` = `{ en, sv }`, see
