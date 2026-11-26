@@ -25,6 +25,10 @@ import { defaultLineEstimate } from "@/lib/shopping/unit-price";
 import { LoggedExpense, logGroceriesExpense, formatExpenseLogged } from "./expense-log";
 import { updateItemPriceSchema } from "./price-schema";
 import { invalidateHome } from "@/lib/household-cache";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { sendPushToHouseholdMembers } from "@/lib/push";
+import { getDictionaryForLocale } from "@/lib/i18n/dictionaries";
+import { defaultLocale, isLocale, type Locale } from "@/lib/i18n/locales";
 
 const createListSchema = z.object({
   name: z.string().trim().max(120, v("listNameTooLong")).optional(),
@@ -227,6 +231,70 @@ export async function deleteShoppingListAction(listId: string): Promise<ActionSt
   invalidateHome(household.id);
   revalidatePath("/dashboard/shopping-list");
   redirect("/dashboard/shopping-list");
+}
+
+// GAP-89: one "going shopping" push per user and list per half hour. Long
+// enough that a double tap, or a second look at the menu in the car park,
+// can't buzz everyone twice; short enough that a second trip the same
+// evening can still be announced.
+const GOING_SHOPPING_WINDOW_MS = 30 * 60 * 1000;
+
+/**
+ * GAP-89: "Going shopping" in the list's ⋯ menu. Tells every other member,
+ * by push, that the signer is heading out, so they add what's missing
+ * before the trip rather than after it.
+ *
+ * Push only, with no bell row: the message is stale once the trip is over,
+ * and a bell entry would outlive it. sendPushToHouseholdMembers already
+ * skips a device inside its quiet hours. The text is worded in each
+ * recipient's own locale (User.locale), like the event reminders.
+ *
+ * A repeat inside the rate-limit window still succeeds, sending nothing, so
+ * the toast reads the same and a double tap can't spam. `told: false` means
+ * there was no one else in the household to tell (the menu hides the item
+ * then, so this is only reached when a member left after the page loaded),
+ * and it doesn't use up the window.
+ */
+export async function announceGoingShoppingAction(
+  listId: string,
+): Promise<ActionState & { told?: boolean }> {
+  const { household, userId } = await requireHousehold();
+
+  const list = await prisma.shoppingList.findFirst({
+    where: { id: listId, householdId: household.id, status: "ACTIVE" },
+    select: { id: true, name: true },
+  });
+  if (!list) return await fail("listNotEditable");
+
+  const members = await prisma.householdMember.findMany({
+    where: { householdId: household.id },
+    select: { user: { select: { id: true, displayName: true, locale: true } } },
+  });
+  const sender = members.find((m) => m.user.id === userId)?.user;
+  const recipients = members.map((m) => m.user).filter((user) => user.id !== userId);
+  if (recipients.length === 0) return { told: false };
+
+  if (!(await checkRateLimit(`going-shopping:${userId}:${list.id}`, 1, GOING_SHOPPING_WINDOW_MS))) {
+    return { told: true };
+  }
+
+  const byLocale = new Map<Locale, string[]>();
+  for (const recipient of recipients) {
+    const locale = isLocale(recipient.locale) ? recipient.locale : defaultLocale;
+    byLocale.set(locale, [...(byLocale.get(locale) ?? []), recipient.id]);
+  }
+  // Awaited, like the cron's pushes: this isn't inside a transaction, and
+  // awaiting is what makes sure the send is attempted before the response.
+  // deliver() never throws.
+  for (const [locale, userIds] of byLocale) {
+    const dict = getDictionaryForLocale(locale).shoppingList.goingShopping;
+    await sendPushToHouseholdMembers(household.id, userIds, {
+      title: dict.pushTitle,
+      body: format(dict.pushBody, { name: sender?.displayName ?? "", list: list.name }),
+      url: `/dashboard/shopping-list/${list.id}`,
+    });
+  }
+  return { told: true };
 }
 
 export async function generateFromLowStockAction(

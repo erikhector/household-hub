@@ -1031,6 +1031,15 @@ export const en = {
     copyTextToast: "List copied as text",
     copyTextFailedToast: "Couldn't copy the list",
     shareText: "Share as text",
+    // GAP-89: the ⋯ menu's "Going shopping", a one-shot push to the other
+    // members. The push is worded in each recipient's own locale.
+    goingShopping: {
+      menuItem: "Going shopping",
+      toast: "We've let the household know",
+      aloneToast: "No one else to tell",
+      pushTitle: "Going shopping",
+      pushBody: "{name} is going shopping, add anything you need to {list}",
+    },
     completedToast: "List completed",
     undo: "Undo",
     clearedTitle: "All done",

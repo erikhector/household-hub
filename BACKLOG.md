@@ -919,38 +919,11 @@ Checked Bring!, Listonic and OurHome, plus Copilot Money and Monarch for
 budgets. Most of what they ship is already here or already turned down:
 who added an item (GAP-65), urgent items (GAP-86), aisle order, smart
 suggestions, task rotation, loyalty cards (GAP-68), and chore points
-(REQUIREMENTS.md "Household tasks" rules them out). Two gaps are left:
-one buildable item below, and one money question filed under "Needs a
-decision before building":
+(REQUIREMENTS.md "Household tasks" rules them out). Two gaps were left:
+GAP-89 (tell the household you're going shopping), since built (see
+REQUIREMENTS.md, "Tell the household you're going shopping"), and one
+money question filed under "Needs a decision before building":
 
-- [ ] **GAP-89. Tell the household you're going shopping** (impact: med,
-      effort: S) — Bring! has ready-made messages for this ("I'm going
-      shopping, add what you need"), and it covers the moment where a
-      shared list helps most: a partner adds the missing item before the
-      trip, not after. In Squirrel, the only way to find out someone is
-      at the store is to message them outside the app. GAP-26 (live
-      presence) needs new infrastructure; this doesn't. It's a one-shot
-      push through the existing `sendPushToHouseholdMembers`
-      (`src/lib/push.ts:92`), which already respects quiet hours. Add a
-      "Going shopping" item to the list's ⋯ menu
-      (`src/components/shopping/shopping-list-client.tsx`, beside "Copy
-      as text" at :596). It calls a click action in
-      `src/app/dashboard/shopping-list/list-actions.ts`. The action takes
-      the household from `requireHousehold()`, re-checks that the list
-      belongs to it and is open, and pushes to every other member:
-      "{name} is going shopping, add anything you need to {list}". The
-      push links to `/dashboard/shopping-list/{id}`. It's rate-limited
-      through `checkRateLimit` (`src/lib/rate-limit.ts:122`) to one per
-      user and list every 30 minutes. A repeat within that window still
-      succeeds but sends nothing, so a double tap can't spam. No schema
-      change and no bell row, because the message is out of date once
-      the trip ends. The toast says "Let the household know", or "No one
-      else to tell" in a one-member household, where the item is hidden
-      instead. Strings go in en and sv.
-      Acceptance: a unit test covers tenancy, a closed list, the rate
-      limit and skipping the sender. An e2e test on `mobile` and
-      `desktop` opens the ⋯ menu, taps "Going shopping" and sees the
-      toast. The item isn't shown in a one-member household.
 - GAP-90 (refunds against an expense category) needs a product call, so
   it is under "Needs a decision before building".
 

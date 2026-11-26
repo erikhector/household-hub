@@ -226,6 +226,7 @@ export default async function ShoppingListDetailPage(
         activeDefault && activeDefault.id !== list.id ? activeDefault.name : dict.shoppingList.defaultListName
       }
       nextListId={activeDefault && activeDefault.id !== list.id ? activeDefault.id : null}
+      hasOtherMembers={members.length >= 2}
       moveTargets={activeLists.flatMap((other) => (other.id === list.id ? [] : [{ id: other.id, name: other.name }]))}
     />
     </LazyDialogErrorMessage>
