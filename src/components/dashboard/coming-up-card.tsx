@@ -2,8 +2,7 @@ import Link from "next/link";
 import { CalendarClock, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { loadUpcomingEvents, upcomingDayHeading } from "@/app/dashboard/calendar/upcoming";
-import { describeEventTime } from "@/lib/household-events";
-import { HOME_EVENT_DAYS, HOME_EVENT_LIMIT } from "@/lib/household-events";
+import { describeEventTime, HOME_EVENT_DAYS, HOME_EVENT_LIMIT } from "@/lib/household-events";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 
 // GAP-35: Home's light touch of the household calendar, under Today: the

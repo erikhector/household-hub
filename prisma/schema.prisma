@@ -75,7 +75,7 @@ model User {
 
   // GAP-88a: opt-in push for household calendar events that have a reminder
   // set (HouseholdEvent.reminder; syncEventReminders in
-  // src/lib/notifications.ts), toggled from the Notifications section of the
+  // src/lib/event-reminders.ts), toggled from the Notifications section of the
   // Profile page beside the task nudge. Off by default, like the nudges
   // above. Push only: a reminder never files a bell entry.
   eventReminderNudge Boolean @default(false)
@@ -1896,7 +1896,7 @@ model HouseholdEvent {
 // GAP-88a: a calendar event's day-ahead reminder. Floating like the event's
 // own times: MORNING_OF is the daily notification run on the event's day in
 // the recipient's zone, DAY_BEFORE the run on the day before (see
-// syncEventReminders in src/lib/notifications.ts).
+// syncEventReminders in src/lib/event-reminders.ts).
 enum EventReminder {
   MORNING_OF
   DAY_BEFORE
