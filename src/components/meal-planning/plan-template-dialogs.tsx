@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useTransition } from "react";
+import { unstable_rethrow } from "next/navigation";
 import { CalendarPlus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -117,20 +118,36 @@ function TemplateRow({
   template,
   weekStartKey,
   dict,
+  connectionError,
   onApplied,
 }: {
   template: PlanTemplateSummary;
   weekStartKey: string;
   dict: TemplatesDict;
+  connectionError: string;
   onApplied: () => void;
 }) {
-  const [pending, startTransition] = useTransition();
+  // UX-213: Use and Delete each have their own transition, so only the one
+  // tapped shows its busy state. Both stay disabled while either runs, so a
+  // template can't be stamped while it is being deleted.
+  const [applying, startApply] = useTransition();
+  const [removing, startRemove] = useTransition();
+  const pending = applying || removing;
 
   // Suggest, don't mutate: this button is the confirmation. The Undo takes
   // back exactly the entries this stamp wrote, by id, like Copy last week.
+  // A dropped connection rejects the call: say so (M8) and leave the picker
+  // open to try again, rather than hitting the error boundary.
   const apply = () =>
-    startTransition(async () => {
-      const result = await applyMealPlanTemplateAction(template.id, weekStartKey);
+    startApply(async () => {
+      let result;
+      try {
+        result = await applyMealPlanTemplateAction(template.id, weekStartKey);
+      } catch (error) {
+        unstable_rethrow(error);
+        toast.error(connectionError);
+        return;
+      }
       if (result.error) {
         toast.error(result.error);
         return;
@@ -158,8 +175,15 @@ function TemplateRow({
   // Undo over confirm: the template is gone at once and the toast's Undo
   // recreates it from the snapshot the action handed back.
   const remove = () =>
-    startTransition(async () => {
-      const result = await deleteMealPlanTemplateAction(template.id);
+    startRemove(async () => {
+      let result;
+      try {
+        result = await deleteMealPlanTemplateAction(template.id);
+      } catch (error) {
+        unstable_rethrow(error);
+        toast.error(connectionError);
+        return;
+      }
       if (result.error) {
         toast.error(result.error);
         return;
@@ -170,7 +194,7 @@ function TemplateRow({
           ? {
               label: dict.undo,
               onClick: () =>
-                startTransition(async () => {
+                startRemove(async () => {
                   const undo = await restoreMealPlanTemplateAction(snapshot);
                   if (undo.error) toast.error(undo.error);
                 }),
@@ -194,17 +218,19 @@ function TemplateRow({
           variant="outline"
           size="sm"
           disabled={pending}
+          aria-busy={applying || undefined}
           aria-label={format(dict.useAriaLabel, { name: template.name })}
           onClick={apply}
         >
           <CalendarPlus className="size-3.5" />
-          {dict.use}
+          <PendingLabel pending={applying} busy={dict.using} idle={dict.use} />
         </Button>
         <Button
           variant="ghost"
           size="icon-sm"
           className="text-muted-foreground hover:text-destructive"
           disabled={pending}
+          aria-busy={removing || undefined}
           aria-label={format(dict.deleteAriaLabel, { name: template.name })}
           onClick={remove}
         >
@@ -220,11 +246,13 @@ export function PlanFromTemplateDialog({
   dict,
   weekStartKey,
   templates,
+  connectionError,
   onClose,
 }: {
   dict: TemplatesDict;
   weekStartKey: string;
   templates: PlanTemplateSummary[];
+  connectionError: string;
   onClose: () => void;
 }) {
   return (
@@ -247,6 +275,7 @@ export function PlanFromTemplateDialog({
               template={template}
               weekStartKey={weekStartKey}
               dict={dict}
+              connectionError={connectionError}
               onApplied={onClose}
             />
           ))}

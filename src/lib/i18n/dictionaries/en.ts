@@ -2154,6 +2154,7 @@ export const en = {
     fillEmptyDaysShort: "You have fewer unplanned recipes than empty days, so the other days stay empty.",
     fillEmptyDaysSwapAriaLabel: "Swap the dinner on {day}",
     fillEmptyDaysSubmit: "Add dinners",
+    fillEmptyDaysAdding: "Adding dinners…",
     fillEmptyDaysCancel: "Cancel",
     fillEmptyDaysToast: {
       one: "Planned {count} dinner",
@@ -2264,6 +2265,7 @@ export const en = {
       pickEmpty: "No templates saved yet.",
       entryCount: { one: "{count} meal", other: "{count} meals" },
       use: "Plan this week",
+      using: "Planning…",
       useAriaLabel: 'Plan this week from template "{name}"',
       deleteAriaLabel: 'Delete template "{name}"',
       deletedToast: 'Template "{name}" deleted',

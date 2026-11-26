@@ -5681,6 +5681,22 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   so and nothing is written. The button is only offered on an empty week:
   the action would handle a partly filled one, but a copy that silently
   works around existing meals is harder to predict.
+- **Progress on the whole-week actions** (BACKLOG UX-213): Copy last week,
+  Fill empty days and a template's "Plan this week" each write up to a week
+  of meals, so each shows it is running (M5) and says when the server
+  can't be reached (M8). Copy last week's menu item closes on tap, so the
+  ⋯ trigger ("More planner actions") swaps its icon for a spinning
+  `Loader2`, is disabled and `aria-busy` until the result toast. Fill empty
+  days' submit reads "Adding dinners…" and the template row's button
+  "Planning…" (`PendingLabel`, so neither button changes width). A
+  template row's Use and Delete have their own transitions, so only the
+  one tapped shows busy, and both stay disabled while either runs. Each
+  call is wrapped in a try/catch with `unstable_rethrow`: a rejected call
+  (a dropped connection) shows the `prepConnectionError` toast and leaves
+  the planner, or the open dialog, in place to try again, instead of the
+  error boundary. `e2e/planner-week-progress.spec.ts` holds the Server
+  Action to assert the busy trigger and label, and drops it to assert the
+  toast.
 - **Fill empty days** (BACKLOG GAP-45): a "Fill empty days" item in the
   planner header's ⋯ menu, which keeps the controls one row on a phone
   (`FillEmptyDaysDialog`,

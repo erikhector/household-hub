@@ -2019,6 +2019,7 @@ export const sv = {
     fillEmptyDaysShort: "Du har färre oplanerade recept än tomma dagar, så de övriga dagarna förblir tomma.",
     fillEmptyDaysSwapAriaLabel: "Byt middagen på {day}",
     fillEmptyDaysSubmit: "Lägg till middagar",
+    fillEmptyDaysAdding: "Lägger till middagar…",
     fillEmptyDaysCancel: "Avbryt",
     fillEmptyDaysToast: {
       one: "Planerade {count} middag",
@@ -2130,6 +2131,7 @@ export const sv = {
       pickEmpty: "Inga mallar sparade än.",
       entryCount: { one: "{count} måltid", other: "{count} måltider" },
       use: "Planera veckan",
+      using: "Planerar…",
       useAriaLabel: 'Planera veckan från mallen "{name}"',
       deleteAriaLabel: 'Ta bort mallen "{name}"',
       deletedToast: 'Mallen "{name}" borttagen',

@@ -1,7 +1,7 @@
 "use client";
 
 import { useLayoutEffect, useState, useTransition } from "react";
-import { BookmarkPlus, CalendarPlus, Copy, LayoutTemplate, ListChecks, ListPlus, MoreHorizontal } from "lucide-react";
+import { BookmarkPlus, CalendarPlus, Copy, LayoutTemplate, ListChecks, ListPlus, Loader2, MoreHorizontal } from "lucide-react";
 import type { RecipeTag } from "@/lib/recipe-tags";
 import { Button } from "@/components/ui/button";
 import { MascotEmptyState } from "@/components/brand/mascot-empty-state";
@@ -199,19 +199,30 @@ export function WeekPlanner({
           dict={{ previous: dict.previousWeek, next: dict.nextWeek, current: dict.thisWeek }}
         />
         <DropdownMenu>
+          {/* UX-213: Copy last week's menu item closes on tap, so the copy's
+              pending state shows here: a spinner, and no second copy until
+              the first one's toast. */}
           <DropdownMenuTrigger
             render={
-              <Button type="button" variant="outline" size="icon-sm" aria-label={dict.morePlannerActions}>
-                <MoreHorizontal className="size-4" />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon-sm"
+                disabled={copyPending}
+                aria-label={dict.morePlannerActions}
+                aria-busy={copyPending || undefined}
+              >
+                {copyPending ? (
+                  <Loader2 className="size-4 animate-spin" aria-hidden />
+                ) : (
+                  <MoreHorizontal className="size-4" />
+                )}
               </Button>
             }
           />
           <DropdownMenuContent align="end">
             {entries.length === 0 && (
-              <DropdownMenuItem
-                disabled={copyPending}
-                onClick={() => copyLastWeek(dict, weekStartKey, prevWeekKey, startCopy)}
-              >
+              <DropdownMenuItem onClick={() => copyLastWeek(dict, weekStartKey, prevWeekKey, startCopy)}>
                 <Copy className="size-4" />
                 {dict.copyLastWeek}
               </DropdownMenuItem>
@@ -335,6 +346,7 @@ export function WeekPlanner({
               dict={dict.templates}
               weekStartKey={weekStartKey}
               templates={planTemplates}
+              connectionError={dict.prepConnectionError}
               onClose={() => setPickTemplateOpen(false)}
             />
           )
