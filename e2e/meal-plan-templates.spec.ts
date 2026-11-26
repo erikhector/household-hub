@@ -26,7 +26,27 @@ test("a saved week can be stamped onto an empty week", async ({ page }, testInfo
   const planId = `e2e-gap52-plan-${E2E_WORKER}-${stamp}`;
 
   await withDb(async (client) => {
+    // MAINT-79: the weeks are fixed, and the worker's household outlives a
+    // failed attempt. A first attempt that times out can be torn down before
+    // its `finally` runs, and the retry runs in the same household, so its
+    // seed insert would hit MealPlan's (householdId, weekStartDate) key on a
+    // week the dead attempt left behind. Clear both weeks first, scoped to
+    // E2E_HOUSEHOLD, then again on the way out. (The other cause, a spec
+    // picking a random far-off week that happened to be one of these, went
+    // with MAINT-117's far-weeks.ts bands.)
+    const clearWeeks = async () => {
+      await client.query(
+        `DELETE FROM "MealPlanEntry" WHERE "mealPlanId" IN
+           (SELECT id FROM "MealPlan" WHERE "householdId" = $1 AND "weekStartDate" = ANY($2::timestamp[]))`,
+        [E2E_HOUSEHOLD.id, [source, target]],
+      );
+      await client.query(`DELETE FROM "MealPlan" WHERE "householdId" = $1 AND "weekStartDate" = ANY($2::timestamp[])`, [
+        E2E_HOUSEHOLD.id,
+        [source, target],
+      ]);
+    };
     try {
+      await clearWeeks();
       await client.query(`INSERT INTO "MealPlan" (id, "householdId", "weekStartDate") VALUES ($1, $2, $3)`, [
         planId,
         E2E_HOUSEHOLD.id,
@@ -77,15 +97,7 @@ test("a saved week can be stamped onto an empty week", async ({ page }, testInfo
       await expect(page.getByRole("main").getByText(monday)).toBeVisible();
       await expect(page.getByRole("main").getByText(wednesday)).toBeVisible();
     } finally {
-      await client.query(
-        `DELETE FROM "MealPlanEntry" WHERE "mealPlanId" IN
-           (SELECT id FROM "MealPlan" WHERE "householdId" = $1 AND "weekStartDate" = ANY($2::timestamp[]))`,
-        [E2E_HOUSEHOLD.id, [source, target]],
-      );
-      await client.query(`DELETE FROM "MealPlan" WHERE "householdId" = $1 AND "weekStartDate" = ANY($2::timestamp[])`, [
-        E2E_HOUSEHOLD.id,
-        [source, target],
-      ]);
+      await clearWeeks();
       await client.query(`DELETE FROM "MealPlanTemplate" WHERE "householdId" = $1 AND name = $2`, [
         E2E_HOUSEHOLD.id,
         templateName,
