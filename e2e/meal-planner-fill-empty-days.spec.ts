@@ -12,7 +12,7 @@ import { dismissCookieNotice, expectNoHorizontalOverflow } from "./ui";
 // and they used to be planner-add-missing.spec.ts's planned weeks, whose
 // seeded meal that delete could wipe mid-test (found with MAINT-115). Not a
 // past week, since Fill only proposes days that haven't passed, and not one
-// in 2036-2093, where far-weeks.ts hands out the random far-off weeks other
+// in 2036-2099, where far-weeks.ts hands out the random far-off weeks other
 // specs plan in, so that delete could wipe their plan too. 2199 is beyond
 // all of them.
 const weekFor = (project: string) => (project === "mobile" ? "2199-08-12" : "2199-08-05");

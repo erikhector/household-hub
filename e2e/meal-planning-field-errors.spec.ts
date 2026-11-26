@@ -69,7 +69,7 @@ for (const [locale, storageState, t] of [
       // them clear of every other spec's fixed weeks (grep `e2e/` for the
       // year before changing them) and of the random far-future weeks
       // plan-leftovers, cook-soon and friends pick, which far-weeks.ts keeps
-      // in 2036-2093. The menu item doesn't care whether the week is over.
+      // in 2036-2099. The menu item doesn't care whether the week is over.
       const week = `2019-04-${{ desktop: { en: "01", sv: "08" }, mobile: { en: "15", sv: "22" } }[testInfo.project.name === "mobile" ? "mobile" : "desktop"][locale]}`;
       const planId = `e2e-ux183b-plan-${E2E_WORKER}-${locale}-${testInfo.project.name}`;
       await withDb(async (client) => {
