@@ -913,6 +913,47 @@ out to be a product-scope question rather than a scoped task should move to
       Code 128/EAN barcode at full brightness on `mobile`, never
       visible to other members and never in logs.
 
+### 2026-11-25 scan
+
+Checked Bring!, Listonic and OurHome, plus Copilot Money and Monarch for
+budgets. Most of what they ship is already here or already turned down:
+who added an item (GAP-65), urgent items (GAP-86), aisle order, smart
+suggestions, task rotation, loyalty cards (GAP-68), and chore points
+(REQUIREMENTS.md "Household tasks" rules them out). Two gaps are left:
+one buildable item below, and one money question filed under "Needs a
+decision before building":
+
+- [ ] **GAP-89. Tell the household you're going shopping** (impact: med,
+      effort: S) — Bring! has ready-made messages for this ("I'm going
+      shopping, add what you need"), and it covers the moment where a
+      shared list helps most: a partner adds the missing item before the
+      trip, not after. In Squirrel, the only way to find out someone is
+      at the store is to message them outside the app. GAP-26 (live
+      presence) needs new infrastructure; this doesn't. It's a one-shot
+      push through the existing `sendPushToHouseholdMembers`
+      (`src/lib/push.ts:92`), which already respects quiet hours. Add a
+      "Going shopping" item to the list's ⋯ menu
+      (`src/components/shopping/shopping-list-client.tsx`, beside "Copy
+      as text" at :596). It calls a click action in
+      `src/app/dashboard/shopping-list/list-actions.ts`. The action takes
+      the household from `requireHousehold()`, re-checks that the list
+      belongs to it and is open, and pushes to every other member:
+      "{name} is going shopping, add anything you need to {list}". The
+      push links to `/dashboard/shopping-list/{id}`. It's rate-limited
+      through `checkRateLimit` (`src/lib/rate-limit.ts:122`) to one per
+      user and list every 30 minutes. A repeat within that window still
+      succeeds but sends nothing, so a double tap can't spam. No schema
+      change and no bell row, because the message is out of date once
+      the trip ends. The toast says "Let the household know", or "No one
+      else to tell" in a one-member household, where the item is hidden
+      instead. Strings go in en and sv.
+      Acceptance: a unit test covers tenancy, a closed list, the rate
+      limit and skipping the sender. An e2e test on `mobile` and
+      `desktop` opens the ⋯ menu, taps "Going shopping" and sees the
+      toast. The item isn't shown in a one-member household.
+- GAP-90 (refunds against an expense category) needs a product call, so
+  it is under "Needs a decision before building".
+
 ## Needs a decision before building
 
 - [ ] **AUTO-13. Receipts that arrive by themselves** `[!]` needs a product
@@ -977,6 +1018,31 @@ out to be a product-scope question rather than a scoped task should move to
       - Keep reminders day-scale only (GAP-88a) and don't build this.
       Hosting plan and secrets are the owner's call (AUTOPILOT.md,
       `never_decide`). GAP-88a has shipped (`src/lib/event-reminders.ts`).
+
+- [ ] **GAP-90. Record a refund against an expense category** `[!]` —
+      Found in the 2026-11-25 competitors scan.
+      Copilot Money and Monarch both treat a return as negative spending
+      in the original category: return a 400 kr jacket and Clothes goes
+      down by 400. Squirrel has nowhere to put it.
+      `transaction-actions.ts:22` (and the personal budget's
+      `actions.ts`) require `amount > 0`, and an expense category only
+      takes expenses. Logged as income, the refund inflates income and
+      Safe to spend, and the category stays over its limit, so the
+      budget lies after every return. This needs a call on the
+      representation, because every sum touches it (category
+      limits, rollover, Safe to spend, Insights, CSV export, splits and
+      settle-up). Recommended: a "This is a refund" switch on Add/Edit
+      expense that stores a negative `amount` on an `EXPENSE` row, so
+      every existing sum nets it out without new filters. This is the
+      same reason planned bills avoided a status column. Shares on a
+      split refund are the original split negated, so settle-up
+      reverses who owes what. No migration is needed. Money code is
+      human-only (AUTOPILOT.md). Acceptance (if approved): unit tests
+      show a refund lowers category spend, rollover and Safe to spend,
+      and that a 50/50 split refund reduces the other member's debt by
+      half. An e2e test on `mobile` adds a refund and sees the
+      category's spent amount drop and the row shown as a refund (a "+"
+      amount, labelled "Refund").
 
 ### Infrastructure (moved from REQUIREMENTS.md's "Deferred" list)
 
