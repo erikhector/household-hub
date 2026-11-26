@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.164.0",
+    "date": "2026-11-26",
+    "pr": 1798,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Heading to the shop? Choose \"Going shopping\" in a list's ⋯ menu and everyone else in the household gets a notification, so they can add what they need before you're at the store.\n\nThe meal planner now shows that Copy last week, Fill empty days and Plan from template are working while they run. If you lose your connection, it says so instead of showing an error page.",
+      "sv": "Ska du handla? Välj \"Ska handla\" i listans ⋯-meny så får alla andra i hushållet en notis och kan lägga till det de behöver innan du är i butiken.\n\nMåltidsplaneraren visar nu att Kopiera förra veckan, Fyll tomma dagar och Planera från mall arbetar medan de körs. Om anslutningen bryts får du veta det i stället för att en felsida visas."
+    }
+  },
+  {
     "version": "0.163.0",
     "date": "2026-11-26",
     "pr": 1783,
