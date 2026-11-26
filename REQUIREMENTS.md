@@ -3178,6 +3178,36 @@ and confirms with a toast.
   adds two items, copies on desktop and mobile, asserts the toast and
   clipboard text, then ticks one and asserts it drops out.
 
+#### Tell the household you're going shopping (GAP-89)
+
+A shared list helps most just before a trip, when a partner can still add
+what's missing. The `⋯` menu's **"Going shopping"** item (in "This trip",
+on an ACTIVE list, only when the household has another member) pushes
+every other member "{name} is going shopping, add anything you need to
+{list}", linking to the list, and confirms with a "We've let the household
+know" toast.
+
+- **Action**: `announceGoingShoppingAction(listId)` in
+  `src/app/dashboard/shopping-list/list-actions.ts`. The household comes
+  from `requireHousehold()`; a list that isn't the household's or isn't
+  ACTIVE is refused (`listNotEditable`). The push goes through
+  `sendPushToHouseholdMembers`, so quiet hours apply, and never to the
+  sender. Each recipient gets it worded in their own `User.locale`.
+- **Rate limit**: `checkRateLimit("going-shopping:<user>:<list>", 1, 30 min)`.
+  A repeat inside the window still succeeds and shows the same toast but
+  sends nothing, so a double tap can't buzz everyone twice.
+- **Alone**: the page hides the item when the household has one member. If
+  the action still runs with no one else to tell (someone left after the
+  page loaded), it sends nothing, doesn't use up the window, and the toast
+  says "No one else to tell".
+- **Deliberately not built**: no bell row (the message is stale once the
+  trip ends), no schema change, no "who's shopping now" presence (GAP-26).
+- **Tests**: `list-actions.going-shopping.test.ts` (tenancy, a closed list,
+  skipping the sender, per-locale wording, the alone case, the rate limit
+  per user and list); `e2e/going-shopping.spec.ts` taps the item on desktop
+  and mobile and sees the toast, and checks a one-member household has no
+  such item.
+
 ### Budget month start day (UX-134)
 
 `Household.budgetMonthStartDay` (1 to 28, default 1, migration

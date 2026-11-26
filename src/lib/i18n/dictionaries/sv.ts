@@ -959,6 +959,13 @@ export const sv = {
     copyTextToast: "Listan kopierad som text",
     copyTextFailedToast: "Det gick inte att kopiera listan",
     shareText: "Dela som text",
+    goingShopping: {
+      menuItem: "Ska handla",
+      toast: "Vi har sagt till hushållet",
+      aloneToast: "Det finns ingen annan att säga till",
+      pushTitle: "Ska handla",
+      pushBody: "{name} ska handla, lägg till det du behöver på {list}",
+    },
     completedToast: "Listan är klarmarkerad",
     undo: "Ångra",
     clearedTitle: "Allt klart",
