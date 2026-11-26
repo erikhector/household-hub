@@ -529,10 +529,17 @@ order below is a suggestion, not a dependency, unless noted.
       the recipient's local date and the UTC date, the rule
       `syncTaskDueNudge` already uses (`Math.max(todayDayNumber(now,
       timeZone), todayDayNumber(now))`, `src/lib/notifications.ts`, with
-      `todayDayNumber` in `src/app/dashboard/tasks/task-due.ts`). East of
-      UTC that lands in the morning; west of UTC "the morning of" arrives
-      the evening before the event's day and "the day before" two
-      evenings before, never after the event has started. Push only, no bell
+      `todayDayNumber` in `src/app/dashboard/tasks/task-due.ts`). So a
+      run's "today" is always the UTC date, and "the morning of" goes out
+      at 06:00 UTC in the recipient's local time: from UTC to UTC+4,
+      06:00 to 10:00 on the event's day (07:00 in Sweden in winter, 08:00
+      in summer); from UTC-1 to UTC-6, the small hours (05:00 down to
+      00:00) of the event's day; from UTC-7 westward, 23:00 down to 18:00
+      the evening before; and east of UTC+4, late morning to evening of
+      the event's day, which can be after a morning event has started.
+      "The day before" goes out at the same local time one day earlier.
+      That's accepted, since the household is in Sweden and GAP-88b's
+      tighter scheduler would fix it. Push only, no bell
       entry: a bell badge must mean something's wrong. Opt-in and off by
       default. Acceptance: a member picks "The morning of" in the event
       sheet, it saves and shows on reopen; the Profile toggle saves; the
