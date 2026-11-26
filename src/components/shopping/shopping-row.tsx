@@ -5,7 +5,7 @@ import { Check, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
+import { DecimalInput } from "@/components/shared/decimal-input";
 import { Badge } from "@/components/ui/badge";
 import { createDialogHandle } from "@/components/ui/dialog";
 import { LazyDialog } from "@/components/ui/lazy-dialog";
@@ -29,6 +29,7 @@ import type {
   ShoppingListDict,
   ShoppingListItemRow,
 } from "@/components/shopping/shopping-list-types";
+import { parseMoney } from "@/lib/decimal-input";
 
 export function ShoppingRow({
   item,
@@ -459,7 +460,7 @@ function PriceTag({
   }
 
   function save() {
-    const price = Number(draft.replace(",", "."));
+    const price = parseMoney(draft);
     if (draft.trim() === "" || !Number.isFinite(price) || price < 0) {
       setError(dict.priceInvalid);
       return;
@@ -475,7 +476,7 @@ function PriceTag({
   }
 
   return (
-    // `noValidate`: the browser's min={0} bubble speaks the browser's
+    // `noValidate`: the browser's pattern bubble speaks the browser's
     // language, not the app's, so save() does the checking (UX-202).
     <form
       noValidate
@@ -486,12 +487,8 @@ function PriceTag({
       }}
     >
       <div className="flex items-center gap-1 max-sm:gap-2 pointer-coarse:gap-2">
-        <Input
+        <DecimalInput
           id={fieldId}
-          type="number"
-          min={0}
-          step="any"
-          inputMode="decimal"
           autoFocus
           value={draft}
           disabled={isPending}

@@ -29,6 +29,10 @@ describe("findMissingFields", () => {
   it("treats a non-numeric value in a numeric field as missing, but not in a text field", () => {
     expect(findMissingFields(form({ name: "abc", amount: "abc" }), rules).map((rule) => rule.name)).toEqual(["amount"]);
   });
+
+  it("counts an amount typed with a decimal comma as filled (UX-30)", () => {
+    expect(findMissingFields(form({ name: "Rent", amount: "12,5" }), rules)).toEqual([]);
+  });
 });
 
 describe("findFieldProblems", () => {

@@ -1,5 +1,6 @@
 import { fail } from "@/lib/actions/errors";
 import { prisma } from "@/lib/prisma";
+import { normalizeMoney } from "@/lib/decimal-input";
 
 // Amounts within this tolerance of the total are accepted — guards against
 // floating point noise (e.g. splitting 10 three ways), not a real mismatch.
@@ -31,11 +32,15 @@ export async function parseShareSplitFormData(
   if (formData.get("splitEnabled") !== "on") return null;
 
   const memberIds = formData.getAll("splitMemberId").map((v) => String(v));
-  const amounts = formData.getAll("splitAmount").map((v) => Number(v));
+  const amounts = formData.getAll("splitAmount").map((v) => Number(normalizeMoney(v)));
   if (memberIds.length === 0 || memberIds.length !== amounts.length) {
     return fail("splitInvalid");
   }
-  if (amounts.some((a) => Number.isNaN(a) || a < 0)) {
+  // UX-30: "1,200" or "abc" is a format problem, not a negative one.
+  if (amounts.some(Number.isNaN)) {
+    return fail("amountFormat");
+  }
+  if (amounts.some((a) => a < 0)) {
     return fail("splitAmountNegative");
   }
 

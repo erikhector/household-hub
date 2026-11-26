@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { DecimalInput } from "@/components/shared/decimal-input";
 import { Label } from "@/components/ui/label";
 import { FieldError, fieldErrorId } from "@/components/auth/field-error";
 import {
@@ -35,6 +36,7 @@ import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 import { format, plural } from "@/lib/i18n/format";
 import { PendingLabel } from "@/components/ui/pending-label";
 import { defaultLowStockThreshold } from "@/lib/units";
+import { parseDecimal } from "@/lib/decimal-input";
 
 const initialState: ActionState = {};
 
@@ -112,7 +114,7 @@ export function ItemFormDialog({
     const found: { name?: string; quantity?: string } = {};
     if (!String(data.get("name") ?? "").trim()) found.name = dict.nameRequired;
     const typedQuantity = String(data.get("quantity") ?? "").trim();
-    if (typedQuantity === "" || !Number.isFinite(Number(typedQuantity))) found.quantity = dict.quantityRequired;
+    if (typedQuantity === "" || !Number.isFinite(parseDecimal(typedQuantity))) found.quantity = dict.quantityRequired;
     setClientErrors(found);
     if (found.name || found.quantity) {
       // Stops React running the form action, so nothing typed is reset.
@@ -204,7 +206,7 @@ export function ItemFormDialog({
   const unitsDiffer = !!duplicate && amountInExistingUnit(1, unit, duplicate.unit) === null;
   const addToExisting = () => {
     if (!duplicate) return;
-    const typed = Number(new FormData(formRef.current ?? undefined).get("quantity"));
+    const typed = parseDecimal(String(new FormData(formRef.current ?? undefined).get("quantity") ?? ""));
     // The form's unit may differ from the match's ("2 kg" onto an item kept
     // in g): convert into the item's unit, since the delta is applied in it.
     const amount = amountInExistingUnit(typed, unit, duplicate.unit);
@@ -365,13 +367,9 @@ export function ItemFormDialog({
           <div className="grid grid-cols-[6rem_minmax(0,1fr)] gap-3 sm:grid-cols-3">
             <div className="flex flex-col gap-2">
               <Label htmlFor="quantity">{dict.quantityLabel}</Label>
-              <Input
+              <DecimalInput
                 id="quantity"
                 name="quantity"
-                type="number"
-                inputMode="decimal"
-                min={0}
-                step="any"
                 defaultValue={kept.values.quantity ?? item?.quantity ?? 1}
                 onChange={() => setClientErrors((c) => (c.quantity ? { ...c, quantity: undefined } : c))}
                 aria-invalid={clientErrors.quantity ? true : undefined}
@@ -417,14 +415,10 @@ export function ItemFormDialog({
                   kept or saved value pins the key and is never replaced.
                   Empty is allowed: the action reads it as 0, "only warn
                   when out". */}
-              <Input
+              <DecimalInput
                 key={lowStockDefault}
                 id="lowStockThreshold"
                 name="lowStockThreshold"
-                type="number"
-                inputMode="decimal"
-                min={0}
-                step="any"
                 defaultValue={lowStockDefault}
               />
             </div>

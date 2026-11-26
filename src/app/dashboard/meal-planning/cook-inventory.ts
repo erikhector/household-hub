@@ -13,6 +13,7 @@ import { addToDefaultListOnLowStock, type AutoAddedItem } from "@/lib/shopping/d
 import { computeCookedIngredients, type CookedIngredientNeed } from "@/app/dashboard/meal-planning/cooked-ingredients";
 import { expandRecipeIngredients, portionsMultiplier } from "@/app/dashboard/meal-planning/recipe-expansion";
 import type { CookedIngredientData } from "@/components/meal-planning/types";
+import { normalizeDecimal } from "@/lib/decimal-input";
 
 // Mirrors recipe-actions.ts's identical bound on an ingredient's quantity,
 // kept as its own copy here (rather than imported) to keep this feature's
@@ -101,7 +102,7 @@ export async function previewCookedIngredientsForRecipe(
 // blank, non-finite, negative or past the cap.
 export function parseCookedRows(formData: FormData): CookedRow[] {
   const itemIds = formData.getAll("itemId").map((v) => String(v).trim());
-  const quantities = formData.getAll("itemQuantity").map((v) => Number(v));
+  const quantities = formData.getAll("itemQuantity").map((v) => Number(normalizeDecimal(v)));
 
   return itemIds
     .map((itemId, i) => ({ itemId, quantity: round2(quantities[i]) }))

@@ -370,6 +370,69 @@ limiter fails over to the in-memory bucket for that single attempt rather
 than throwing — a transient Redis error should never turn into a 500 on
 login/signup — and logs the failure via `console.error`.
 
+### Home cache (PERF-32)
+
+The same Upstash database can also cache Home's household data (tasks,
+pantry, lists, the household's safe to spend, tonight's dinner) across
+requests and serverless instances, so a Home visit can skip about fifteen
+queries. It's **off by default** and dormant until you turn it on; with it
+off, Home and every Server Action behave exactly as they did before.
+REQUIREMENTS.md ("Home's household data can be cached") says what's cached
+and what clears it.
+
+| Variable | Effect |
+|---|---|
+| `HOME_CACHE=1` | Turns the cache on. Needs `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` too; without them it stays off. |
+| `HOME_CACHE_TIMING=1` | Logs `home batch` with `cache` (`on` or `off`) and `ms` on every Home render, and, with the cache on, `[remote-cache] get <outcome>` with running counts of hits, misses, invalidated entries, unsynced reads and errors. Works with the cache on or off; for measuring only. |
+
+`HOME_CACHE` is read when the app is built too (`next.config.ts`
+registers the Redis handler only while it's on), and Vercel applies any
+variable change only to new deployments, so redeploy after changing either.
+
+**Measuring it (PERF-32b).** The cache is worth keeping only if it saves
+about 50 ms on Home. To find out:
+
+1. In Vercel, **Project → Settings → Environment Variables**, add
+   `HOME_CACHE_TIMING` = `1` for Production, and redeploy (Deployments →
+   ⋯ → Redeploy).
+2. Use Home normally for a day or so. In **Logs**, filter on `home batch`
+   and note the median and the slowest-tenth `ms` with `"cache":"off"`.
+   Also note the duration of the POST requests (Server Actions: ticking a
+   task, adding to a list) in Vercel's request logs or Observability.
+3. Add `HOME_CACHE` = `1` for Production and redeploy. The first visit
+   after each deploy, and after each change to your household's data, is
+   a miss that fills the cache; the next ones are hits.
+4. After another day, read the `"cache":"on"` lines the same way. A hit
+   pays two Upstash round trips; a miss pays those plus the queries.
+   Compare the Server Actions' duration too: with the cache on, every
+   action that revalidates a page or clears a tag (nearly all of them)
+   also writes the invalidation to Upstash before it answers (one round
+   trip, at most 1 s if Upstash hangs).
+5. Read the hit rate from the last `[remote-cache] get` line of each
+   instance: `hit` against the rest. It matters as much as the per-hit
+   saving, and it can be low for a reason outside your household: many
+   actions still call `revalidatePath("/dashboard")`, and a path is not
+   scoped to a household, so any household's edit evicts every
+   household's Home entry. PERF-33 to PERF-36 move those to household
+   tags; until then, a low hit rate across several households is
+   expected.
+6. If the median saving (weighed by the hit rate) is under ~50 ms, or the
+   Server Actions got noticeably slower, remove `HOME_CACHE` and redeploy:
+   the cache is gone (entries die with the deploy) and PERF-33 to PERF-36
+   are closed. Otherwise keep it on and go on to them. Either way, remove
+   `HOME_CACHE_TIMING` afterwards.
+
+To check it's really on: Upstash's **Data Browser** shows keys starting
+`squirrel:cache:entry:` after a Home visit, and `squirrel:cache:tags`
+after any edit. Upstash errors or timeouts are logged as
+`[remote-cache] … failed`; each one is a miss, never an error page.
+
+**What can show stale.** Every edit made in the app clears the
+household's Home data at once. Changes that don't go through a Server
+Action (a cron run, the background AI category guess, a row edited
+straight in the database) can take up to 5 minutes to show on Home. What
+Upstash holds is what Home shows, and each entry expires within an hour.
+
 ## 7. Scheduled jobs (notification background sync, weekly digest)
 
 `src/lib/notifications.ts`'s two lazy triggers — **meal-not-logged and

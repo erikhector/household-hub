@@ -14,6 +14,7 @@ import {
   type FetchRecipeError,
   type RecipeImportSource,
 } from "@/lib/recipe-import";
+import { invalidateHome } from "@/lib/household-cache";
 // GAP-29: the `tags` checkboxes arrive as repeated FormData values and are
 // run through the closed-set parser on every create/update — unknown keys
 // are dropped, so nothing outside RECIPE_TAGS can reach Recipe.tags no
@@ -34,6 +35,7 @@ import { MAX_UNIT_FACTOR, MIN_UNIT_FACTOR } from "@/lib/recipes/unit-choice";
 import type { Prisma } from "@/generated/prisma/client";
 import { fail, toFriendlyError, v, zodFail } from "@/lib/actions/errors";
 import { normalizeSourceUrl, RECIPE_NOTES_MAX } from "@/lib/recipe-source";
+import { normalizeDecimal } from "@/lib/decimal-input";
 
 const MEAL_PLANNING_PATH = "/dashboard/meal-planning";
 
@@ -135,7 +137,7 @@ async function parseIngredientRows(
       return await fail("ingredientUnitTooLong", { max: MAX_INGREDIENT_UNIT_LENGTH });
     }
 
-    const quantity = Number(quantities[i] || "1");
+    const quantity = Number(normalizeDecimal(quantities[i] || "1"));
     if (!Number.isFinite(quantity) || quantity <= 0 || quantity > MAX_INGREDIENT_QUANTITY) {
       return await fail("ingredientQuantityPositive");
     }
@@ -581,7 +583,7 @@ export async function previewIngredientMatchesAction(
 const optionalNonNegativeNumber = z
   .string()
   .optional()
-  .transform((value) => (value ? Number(value) : null))
+  .transform((value) => (value ? Number(normalizeDecimal(value)) : null))
   .refine((value) => value === null || (Number.isFinite(value) && value >= 0), {
     message: v("nutritionNegative"),
   });
@@ -644,7 +646,7 @@ async function parseComponentRows(
     if (!componentRecipeId || seen.has(componentRecipeId)) continue;
     seen.add(componentRecipeId);
 
-    const quantity = Number(quantities[i] || "1");
+    const quantity = Number(normalizeDecimal(quantities[i] || "1"));
     if (!Number.isFinite(quantity) || quantity <= 0 || quantity > MAX_COMPONENT_QUANTITY) {
       return { error: dict.componentQuantityError };
     }
@@ -821,6 +823,7 @@ export async function updateRecipeAction(
   }
   if (ingredients.aiCandidates.length > 0) scheduleAiCategoryFallback(household.id, ingredients.aiCandidates);
 
+  invalidateHome(household.id);
   revalidatePath(MEAL_PLANNING_PATH);
   return {};
 }
@@ -867,6 +870,7 @@ export async function deleteRecipeAction(recipeId: string): Promise<ActionState>
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath(MEAL_PLANNING_PATH);
   // The dashboard's meal-prep card lists active batches, which may just
   // have gone with the recipe.

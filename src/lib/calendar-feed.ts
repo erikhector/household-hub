@@ -3,8 +3,9 @@
 // and hands them to buildCalendarFeedEvents; the Household page and its
 // actions use the token helpers. See REQUIREMENTS.md's "Calendar feed".
 import { randomBytes } from "crypto";
-import type { IcalAllDayEvent } from "@/lib/ical";
+import type { IcalEvent } from "@/lib/ical";
 import { expandMonthlyDueDates, type TemplateFrequency } from "@/lib/recurring-template-calc";
+import { eventRrule, type EventRecurrence } from "@/lib/household-events";
 import { format } from "@/lib/i18n/format";
 import type { Locale } from "@/lib/i18n/locales";
 
@@ -78,6 +79,17 @@ export type FeedBill = {
   dayOfMonth: number | null;
 };
 
+// GAP-35: a HouseholdEvent row, as much of it as the feed may publish.
+export type FeedHouseholdEvent = {
+  id: string;
+  title: string;
+  date: Date;
+  startTime: string | null;
+  endTime: string | null;
+  notes: string | null;
+  recurrence: EventRecurrence | null;
+};
+
 export type CalendarFeedStrings = {
   mealSummary: string;
   billSummary: string;
@@ -114,20 +126,30 @@ function dayKey(date: Date): string {
  * Callers pass only active EXPENSE templates and meals already inside
  * [from, to]; meals are filtered again here so the window is enforced in one
  * testable place.
+ *
+ * GAP-35: the household calendar's own events are the third source, titled
+ * with their own name, their notes as the DESCRIPTION, never the member
+ * they're "for". A repeating event is one VEVENT with an RRULE
+ * (`eventRrule`) rather than one per day, so the calendar app shows it on
+ * every day it falls, past the window too; it's included while it has
+ * started by the window's end. A one-off is included when it's inside the
+ * window, like a meal.
  */
 export function buildCalendarFeedEvents({
   meals,
   bills,
+  events = [],
   from,
   to,
   strings,
 }: {
   meals: FeedMealEntry[];
   bills: FeedBill[];
+  events?: FeedHouseholdEvent[];
   from: Date;
   to: Date;
   strings: CalendarFeedStrings;
-}): IcalAllDayEvent[] {
+}): IcalEvent[] {
   const fromKey = dayKey(from);
   const toKey = dayKey(to);
 
@@ -172,7 +194,30 @@ export function buildCalendarFeedEvents({
     });
   });
 
-  return [...mealEvents, ...billEvents]
+  const householdEvents = events
+    .filter((event) => {
+      const key = dayKey(event.date);
+      return key <= toKey && (event.recurrence !== null || key >= fromKey);
+    })
+    .map((event) => {
+      const notes = event.notes?.trim();
+      const rrule = eventRrule(event);
+      const ical: IcalEvent = {
+        // One UID per event, repeats included: the RRULE carries the days.
+        uid: `event-${event.id}@${UID_DOMAIN}`,
+        date: event.date,
+        summary: event.title,
+        ...(notes && { description: notes }),
+        ...(event.startTime && { startTime: event.startTime }),
+        ...(event.startTime && event.endTime && { endTime: event.endTime }),
+        ...(rrule && { rrule }),
+      };
+      // All-day ("0") before timed ("1HH:MM"), as on the calendar page.
+      const time = event.startTime ? `1${event.startTime}` : "0";
+      return { sortKey: `${dayKey(event.date)}|2|${time}|${event.title}|${event.id}`, event: ical };
+    });
+
+  return [...mealEvents, ...billEvents, ...householdEvents]
     .sort((a, b) => (a.sortKey < b.sortKey ? -1 : a.sortKey > b.sortKey ? 1 : 0))
     .map((entry) => entry.event);
 }

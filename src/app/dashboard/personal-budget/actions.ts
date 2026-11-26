@@ -12,27 +12,14 @@ import { repeatTemplateFields } from "@/lib/repeat-template";
 import { plannedItemType } from "@/lib/planned-expense-calc";
 import {
   limitForType,
-  monthlyLimitFieldWith,
+  monthlyLimitField,
   rolloverEnabledField,
   rolloverForLimit,
 } from "@/lib/budget-category-limit";
-import { goalAmountFieldWith, goalDateFieldWith, goalForType } from "@/lib/savings-goal-calc";
+import { goalAmountField, goalDateField, goalForType } from "@/lib/savings-goal-calc";
 import { MAX_BUDGET_MONTH_START_DAY, MIN_BUDGET_MONTH_START_DAY } from "@/lib/budget-date-utils";
 import { getPersonalBudgetStartDay } from "@/lib/personal-budget-period";
-
-// MAINT-7: every `{ error }` here is in the request's language (`fail()` /
-// `zodFail()`), so the shared limit and goal fields get `errors` keys as
-// their messages. The household budget's actions still use the English
-// constants (monthlyLimitField and friends) until they're converted.
-const monthlyLimitField = monthlyLimitFieldWith({
-  number: v("monthlyLimitNumber"),
-  positive: v("monthlyLimitPositive"),
-});
-const goalAmountField = goalAmountFieldWith({
-  number: v("savingsGoalNumber"),
-  positive: v("savingsGoalPositive"),
-});
-const goalDateField = goalDateFieldWith(v("goalDateInvalid"));
+import { normalizeMoney } from "@/lib/decimal-input";
 
 // --- Categories --------------------------------------------------------
 
@@ -259,7 +246,7 @@ export async function deletePersonalCategoryAction(categoryId: string): Promise<
 
 const transactionSchema = z.object({
   categoryId: z.string().min(1, v("categoryRequired")),
-  amount: z.coerce.number().positive(v("amountPositive")),
+  amount: z.coerce.number({ error: v("amountFormat") }).positive(v("amountPositive")),
   description: z.string().trim().max(200).optional(),
   date: z.string().min(1, v("dateRequired")),
   isRecurring: z.boolean(),
@@ -278,7 +265,7 @@ const transactionSchema = z.object({
 function parseTransactionFormData(formData: FormData) {
   return transactionSchema.safeParse({
     categoryId: formData.get("categoryId"),
-    amount: formData.get("amount"),
+    amount: normalizeMoney(formData.get("amount")),
     description: formData.get("description") || undefined,
     date: formData.get("date"),
     isRecurring: formData.get("isRecurring") === "on",
@@ -466,7 +453,7 @@ export async function updatePersonalTransactionAction(
   const parsed = updateTransactionSchema.safeParse({
     id: formData.get("id"),
     categoryId: formData.get("categoryId"),
-    amount: formData.get("amount"),
+    amount: normalizeMoney(formData.get("amount")),
     description: formData.get("description") || undefined,
     date: formData.get("date"),
     isRecurring: formData.get("isRecurring") === "on",
@@ -542,7 +529,7 @@ export async function deletePersonalTransactionAction(transactionId: string): Pr
 const recurringTemplateSchema = z.object({
   name: z.string().trim().min(1, v("nameRequired")).max(120, v("nameTooLong")),
   categoryId: z.string().min(1, v("categoryRequired")),
-  amount: z.coerce.number().positive(v("amountPositive")),
+  amount: z.coerce.number({ error: v("amountFormat") }).positive(v("amountPositive")),
   frequency: z.enum(["WEEKLY", "MONTHLY", "YEARLY"]),
   dayOfMonth: z.coerce.number().int().min(1).max(31).optional(),
 });
@@ -551,7 +538,7 @@ function parseRecurringTemplateFormData(formData: FormData) {
   return recurringTemplateSchema.safeParse({
     name: formData.get("name"),
     categoryId: formData.get("categoryId"),
-    amount: formData.get("amount"),
+    amount: normalizeMoney(formData.get("amount")),
     frequency: formData.get("frequency"),
     dayOfMonth: formData.get("dayOfMonth") || undefined,
   });
@@ -607,7 +594,7 @@ export async function updatePersonalRecurringTemplateAction(
     id: formData.get("id"),
     name: formData.get("name"),
     categoryId: formData.get("categoryId"),
-    amount: formData.get("amount"),
+    amount: normalizeMoney(formData.get("amount")),
     frequency: formData.get("frequency"),
     dayOfMonth: formData.get("dayOfMonth") || undefined,
   });

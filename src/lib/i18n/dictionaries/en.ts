@@ -116,6 +116,12 @@ export const en = {
     repeatMin: "Repeat interval must be at least 1 day",
     repeatMax: "Repeat interval must be 366 days or fewer",
     dueDateInvalid: "Due date must be a real date",
+    // GAP-35: the household calendar's events (calendar/actions.ts).
+    eventNotFound: "Event not found",
+    eventDateInvalid: "Pick a date for the event",
+    eventTimeInvalid: "Enter a time as hours and minutes, like 14:30",
+    eventEndNeedsStart: "Add a start time before an end time",
+    eventEndBeforeStart: "The end time must be after the start time",
     eachPersonOnce: "Each person can only take turns once",
     plannedBillNotFound: "Planned bill not found",
     plannedBillAlreadyPaid: "This planned bill is already paid",
@@ -130,6 +136,7 @@ export const en = {
     invalidDueDate: "Invalid due date",
     billNameTooLong: "Name must be 100 characters or fewer",
     amountPositive: "Amount must be greater than zero",
+    amountFormat: "Write the amount with at most two decimals and no thousands separator, like 1200 or 1200.50",
     categoryRequired: "Category is required",
     splitInvalid: "Invalid split",
     splitAmountNegative: "Each split amount must be zero or more",
@@ -214,6 +221,15 @@ export const en = {
     transactionNotFound: "Transaction not found",
     recurringItemNotFound: "Recurring item not found",
     recurringItemAlreadyLogged: "A transaction for this recurring item already exists for this period",
+    // MAINT-7: the household budget's actions (budget/*-actions.ts).
+    splitPaidNegative: "Each paid amount must be zero or more",
+    splitSumMismatch: "The split amounts must add up to the transaction total",
+    splitPaidOverTotal: "The paid amounts can't add up to more than the transaction total",
+    chooseSplit: "Choose how to split this expense",
+    chooseOwnHousehold: "Choose a household you belong to",
+    chooseWhoPaid: "Choose who paid",
+    chooseWhoWasPaid: "Choose who was paid",
+    chooseTwoDifferentMembers: "Choose two different members",
   },
   nav: {
     // UX-164: the keyboard skip link that opens the dashboard.
@@ -226,6 +242,8 @@ export const en = {
     shoppingListShort: "Shopping",
     mealPlanningShort: "Meals",
     tasks: "Tasks",
+    // GAP-35: the household calendar (behind "More" on a phone).
+    calendar: "Calendar",
     budget: "Household budget",
     personalBudget: "Personal budget",
     household: "Household",
@@ -511,9 +529,9 @@ export const en = {
     calendarFeed: {
       title: "Calendar feed",
       description:
-        "Subscribe from Google Calendar, Apple Calendar or Outlook to see planned meals and the due dates of monthly bills. It updates on its own and is read-only.",
+        "Subscribe from Google Calendar, Apple Calendar or Outlook to see planned meals, calendar events and the due dates of monthly bills. It updates on its own and is read-only.",
       publicWarning:
-        "Anyone who has the link can see your planned meals, the notes on them and bill names, without logging in. Amounts are never included. Only share it with people you trust.",
+        "Anyone who has the link can see your planned meals, calendar events, the notes on them and bill names, without logging in. Amounts are never included. Only share it with people you trust.",
       offDescription: "The calendar feed is off.",
       contributorOffDescription: "The calendar feed is off. The household owner can turn it on.",
       enable: "Turn on calendar feed",
@@ -623,6 +641,12 @@ export const en = {
     },
   },
   dashboard: {
+    // GAP-35: Home's light "Coming up" card, the next few calendar events.
+    comingUp: {
+      title: "Coming up",
+      listAriaLabel: "Upcoming events",
+      openCalendar: "Open calendar",
+    },
     // UX-135: toast after the verification link signs a new user in.
     welcome: "Welcome to Squirrel, {name}",
     greeting: {
@@ -1298,6 +1322,7 @@ export const en = {
       ocrError: "Couldn't read this image. Try a clearer photo of the receipt.",
       rateError: "Couldn't convert {currency} right now — try again in a moment.",
       noMatchesError: "Match at least one line to a list item before applying.",
+      lineValueInvalid: "Check the price on \"{name}\": write it like 45 or 45.50, or clear it to leave the line out.",
       // AUTO-11: the collapsed block of lines matched with enough
       // confidence (exact name or barcode) that they don't need a look.
       autoMatchedSummary: { one: "{count} item matched", other: "{count} items matched" },
@@ -1360,6 +1385,7 @@ export const en = {
       appliedToast: "Registered {count} items ({amount}) as a completed list.",
       ocrError: "Couldn't read this image. Try a clearer photo of the receipt.",
       noItemsError: "Add at least one item before registering.",
+      lineValueInvalid: "Check the price and quantity on \"{name}\": write them like 45 or 45.50, or clear the price to leave the line out.",
       existingSelectionRequired: 'Choose an item, or switch to "Create new".',
       // AUTO-11: the collapsed block of lines matched with enough
       // confidence (exact name or barcode) that they don't need a look.
@@ -2841,6 +2867,66 @@ export const en = {
     prepEatenToast: "Marked as eaten",
     prepEatenUndoneToast: "Undone — not eaten yet",
   },
+  // GAP-35: the household calendar page (/dashboard/calendar).
+  calendar: {
+    title: "Calendar",
+    subtitle: "Appointments, birthdays and school events, for everyone in the household.",
+    addEvent: "Add event",
+    addEventDialogTitle: "Add event",
+    editEventDialogTitle: 'Edit "{name}"',
+    titleLabel: "Event",
+    titlePlaceholder: "Dentist, Zoe's birthday, school play",
+    titleRequired: "Give the event a name",
+    titleCounter: "{count} of {max} characters",
+    dateLabel: "Date",
+    dateRequired: "Pick a date for the event",
+    startTimeLabel: "Starts",
+    endTimeLabel: "Ends",
+    timeHint: "Leave the times empty for an all-day event.",
+    makeAllDay: "Make all day",
+    repeatLabel: "Repeats",
+    repeatNone: "Doesn't repeat",
+    repeatWeekly: "Every week",
+    repeatMonthly: "Every month",
+    repeatYearly: "Every year",
+    // GAP-88a: the sheet's reminder choice and the push it sends.
+    reminderLabel: "Reminder",
+    reminderNone: "No reminder",
+    reminderMorningOf: "The morning of",
+    reminderDayBefore: "The day before",
+    reminderHint: "Sent as a push to everyone who turned on calendar reminders in Profile.",
+    reminderPushBody: "{day}, {time}",
+    forLabel: "For",
+    forEveryone: "Everyone",
+    notesLabel: "Notes",
+    notesPlaceholder: "Bring the insurance card",
+    add: "Add",
+    adding: "Adding…",
+    save: "Save",
+    saving: "Saving…",
+    cancel: "Cancel",
+    delete: "Delete",
+    allDay: "All day",
+    timeRange: "{start}–{end}",
+    forName: "For {name}",
+    repeatsWeekly: "Weekly",
+    repeatsMonthly: "Monthly",
+    repeatsYearly: "Yearly",
+    today: "Today",
+    tomorrow: "Tomorrow",
+    agendaAriaLabel: "Upcoming events",
+    windowNote: "The next {days} days.",
+    emptyState: "Nothing on the calendar yet. Add an appointment, a birthday or a school event and everyone in the household sees it.",
+    emptyWindow: "Nothing in the next {days} days.",
+    editAriaLabel: "Edit {title}",
+    deleteAriaLabel: "Delete {title}",
+    moreAriaLabel: "More for {title}",
+    edit: "Edit",
+    deletedToast: 'Deleted "{name}"',
+    undo: "Undo",
+    saveFailedToast: "Couldn't save that. Check your connection and try again.",
+    mascotAlt: "Squirrel mascot",
+  },
   tasks: {
     title: "Tasks",
     subtitle: "A shared list for the household's day-to-day — no scoring, no streaks.",
@@ -4240,6 +4326,15 @@ export const en = {
         "A push once a day naming your own tasks that are due today or overdue. Nothing is sent when none of them are yours.",
       enabledToast: "You'll get a morning task reminder",
       disabledToast: "Task reminder turned off",
+    },
+    // GAP-88a
+    eventReminders: {
+      title: "Calendar reminders",
+      label: "Remind me about calendar events",
+      description:
+        "A push on the morning of an event, or the day before, for events that have a reminder set. Anyone in the household can set one in the event's sheet.",
+      enabledToast: "You'll get calendar reminders",
+      disabledToast: "Calendar reminders turned off",
     },
     dangerZoneTitle: "Danger zone",
     dangerZoneDescription:

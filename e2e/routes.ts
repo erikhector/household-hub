@@ -34,6 +34,7 @@ export const DASHBOARD_ROUTES: UiRoute[] = [
   },
   { pattern: "/dashboard/meal-planning", path: "/dashboard/meal-planning" },
   { pattern: "/dashboard/tasks", path: "/dashboard/tasks" },
+  { pattern: "/dashboard/calendar", path: "/dashboard/calendar" },
   { pattern: "/dashboard/budget", path: "/dashboard/budget" },
   { pattern: "/dashboard/personal-budget", path: "/dashboard/personal-budget" },
   { pattern: "/dashboard/household", path: "/dashboard/household" },

@@ -17,6 +17,8 @@
 // has passed just says so, neutrally, and keeps showing what's left.
 
 import { z } from "zod";
+import type { ErrorKey } from "@/lib/actions/errors";
+import { parseMoney } from "@/lib/decimal-input";
 
 /**
  * The CategoryManager form's optional "Savings goal" amount. Same rules as
@@ -25,26 +27,20 @@ import { z } from "zod";
  * be a positive number, since a goal of 0 is "reached" from day one and
  * reads as a mistake rather than a target.
  *
- * The messages are a parameter for the same reason as
- * monthlyLimitFieldWith's (MAINT-7): the personal budget passes `errors`
- * keys, the household budget still returns the English text as it is.
+ * The messages are `errors` keys, for the same reason as monthlyLimitField's
+ * (MAINT-7).
  */
-export function goalAmountFieldWith(messages: { number: string; positive: string }) {
-  return z.preprocess(
-    (value) => {
-      if (value === null || value === undefined) return null;
-      const trimmed = String(value).trim();
-      return trimmed === "" ? null : Number(trimmed);
-    },
-    z.number({ error: messages.number }).positive(messages.positive).nullable(),
-  );
-}
-
-/** The household budget's field, with the English messages its actions still return. */
-export const goalAmountField = goalAmountFieldWith({
-  number: "Savings goal must be a number",
-  positive: "Savings goal must be greater than 0",
-});
+export const goalAmountField = z.preprocess(
+  (value) => {
+    if (value === null || value === undefined) return null;
+    const trimmed = String(value).trim();
+    return trimmed === "" ? null : parseMoney(trimmed);
+  },
+  z
+    .number({ error: "savingsGoalNumber" satisfies ErrorKey })
+    .positive("savingsGoalPositive" satisfies ErrorKey)
+    .nullable(),
+);
 
 const DATE_INPUT_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
 
@@ -59,32 +55,26 @@ const DATE_INPUT_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
  * user from saving an unrelated edit (a rename) once the date has gone by,
  * and the card already handles a passed date gracefully.
  *
- * `invalidMessage` is a parameter for the same reason as
- * goalAmountFieldWith's messages (MAINT-7).
+ * The message is an `errors` key, like goalAmountField's (MAINT-7).
  */
-export function goalDateFieldWith(invalidMessage: string) {
-  return z.preprocess(
-    (value) => {
-      if (value === null || value === undefined) return null;
-      const trimmed = String(value).trim();
-      if (trimmed === "") return null;
-      const match = DATE_INPUT_RE.exec(trimmed);
-      if (!match) return "invalid";
-      const [, y, m, d] = match.map(Number);
-      const date = new Date(Date.UTC(y, m - 1, d));
-      // Rejects rollovers like 2026-02-31 → Mar 3 rather than silently
-      // storing a different day than the one typed.
-      if (date.getUTCFullYear() !== y || date.getUTCMonth() !== m - 1 || date.getUTCDate() !== d) {
-        return "invalid";
-      }
-      return date;
-    },
-    z.date({ error: invalidMessage }).nullable(),
-  );
-}
-
-/** The household budget's field, with the English message its actions still return. */
-export const goalDateField = goalDateFieldWith("Goal date must be a valid date");
+export const goalDateField = z.preprocess(
+  (value) => {
+    if (value === null || value === undefined) return null;
+    const trimmed = String(value).trim();
+    if (trimmed === "") return null;
+    const match = DATE_INPUT_RE.exec(trimmed);
+    if (!match) return "invalid";
+    const [, y, m, d] = match.map(Number);
+    const date = new Date(Date.UTC(y, m - 1, d));
+    // Rejects rollovers like 2026-02-31 → Mar 3 rather than silently
+    // storing a different day than the one typed.
+    if (date.getUTCFullYear() !== y || date.getUTCMonth() !== m - 1 || date.getUTCDate() !== d) {
+      return "invalid";
+    }
+    return date;
+  },
+  z.date({ error: "goalDateInvalid" satisfies ErrorKey }).nullable(),
+);
 
 /**
  * Only SAVINGS categories can carry a goal (money put aside towards

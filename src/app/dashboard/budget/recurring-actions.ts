@@ -7,18 +7,20 @@ import { requireHousehold } from "@/lib/session";
 import { getPeriodKey } from "@/lib/recurring-template-calc";
 import { normalizeStartDay } from "@/lib/budget-date-utils";
 import type { ActionState } from "@/lib/actions/auth";
-import { toFriendlyError } from "@/lib/actions/errors";
+import { fail, toFriendlyError, v, zodFail } from "@/lib/actions/errors";
 import { parseShareSplitFormData } from "@/lib/share-split-form";
 import { assertNoDuplicateTemplatePeriod, revalidateBudgetPages, type ParsedSplit } from "./action-helpers";
+import { normalizeMoney } from "@/lib/decimal-input";
+import { invalidateHome } from "@/lib/household-cache";
 
 // --- Recurring templates --------------------------------------------------
 // See prisma/schema.prisma's RecurringTemplate/RecurringTemplateAck doc
 // comments and src/lib/recurring-template-calc.ts for the "accounted for" model.
 
 const recurringTemplateSchema = z.object({
-  name: z.string().trim().min(1, "Name is required").max(120, "Name is too long"),
-  categoryId: z.string().min(1, "Category is required"),
-  amount: z.coerce.number().positive("Amount must be greater than 0"),
+  name: z.string().trim().min(1, v("nameRequired")).max(120, v("nameTooLong")),
+  categoryId: z.string().min(1, v("categoryRequired")),
+  amount: z.coerce.number({ error: v("amountFormat") }).positive(v("amountPositive")),
   frequency: z.enum(["WEEKLY", "MONTHLY", "YEARLY"]),
   dayOfMonth: z.coerce.number().int().min(1).max(31).optional(),
 });
@@ -27,7 +29,7 @@ function parseRecurringTemplateFormData(formData: FormData) {
   return recurringTemplateSchema.safeParse({
     name: formData.get("name"),
     categoryId: formData.get("categoryId"),
-    amount: formData.get("amount"),
+    amount: normalizeMoney(formData.get("amount")),
     frequency: formData.get("frequency"),
     dayOfMonth: formData.get("dayOfMonth") || undefined,
   });
@@ -41,13 +43,13 @@ export async function createRecurringTemplateAction(
 
   const parsed = parseRecurringTemplateFormData(formData);
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return zodFail(parsed.error);
   }
 
   const category = await prisma.budgetCategory.findFirst({
     where: { id: parsed.data.categoryId, householdId: household.id },
   });
-  if (!category) return { error: "Category not found" };
+  if (!category) return fail("categoryNotFound");
 
   const split = await parseShareSplitFormData(
     formData,
@@ -81,6 +83,7 @@ export async function createRecurringTemplateAction(
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath("/dashboard/budget");
   return {};
 }
@@ -99,23 +102,23 @@ export async function updateRecurringTemplateAction(
     id: formData.get("id"),
     name: formData.get("name"),
     categoryId: formData.get("categoryId"),
-    amount: formData.get("amount"),
+    amount: normalizeMoney(formData.get("amount")),
     frequency: formData.get("frequency"),
     dayOfMonth: formData.get("dayOfMonth") || undefined,
   });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return zodFail(parsed.error);
   }
 
   const category = await prisma.budgetCategory.findFirst({
     where: { id: parsed.data.categoryId, householdId: household.id },
   });
-  if (!category) return { error: "Category not found" };
+  if (!category) return fail("categoryNotFound");
 
   const existing = await prisma.recurringTemplate.findFirst({
     where: { id: parsed.data.id, householdId: household.id },
   });
-  if (!existing) return { error: "Recurring template not found" };
+  if (!existing) return fail("recurringItemNotFound");
 
   const split = await parseShareSplitFormData(
     formData,
@@ -154,6 +157,7 @@ export async function updateRecurringTemplateAction(
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath("/dashboard/budget");
   return {};
 }
@@ -173,6 +177,7 @@ export async function setRecurringTemplateActiveAction(
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath("/dashboard/budget");
   return {};
 }
@@ -188,6 +193,7 @@ export async function deleteRecurringTemplateAction(templateId: string): Promise
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath("/dashboard/budget");
   return {};
 }
@@ -206,7 +212,7 @@ export async function acknowledgeTemplatePeriodAction(templateId: string): Promi
   const template = await prisma.recurringTemplate.findFirst({
     where: { id: templateId, householdId: household.id },
   });
-  if (!template) return { error: "Recurring template not found" };
+  if (!template) return fail("recurringItemNotFound");
 
   const periodKey = getPeriodKey(new Date(), template.frequency, normalizeStartDay(household.budgetMonthStartDay));
   try {
@@ -219,6 +225,7 @@ export async function acknowledgeTemplatePeriodAction(templateId: string): Promi
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath("/dashboard/budget");
   return {};
 }
@@ -265,7 +272,7 @@ export async function logRecurringTemplateAction(templateId: string): Promise<Ac
     where: { id: templateId, householdId: household.id },
     include: { splits: true },
   });
-  if (!template) return { error: "Recurring template not found" };
+  if (!template) return fail("recurringItemNotFound");
 
   const dup = await assertNoDuplicateTemplatePeriod(
     template.id,
@@ -311,6 +318,7 @@ export async function logRecurringTemplateAction(templateId: string): Promise<Ac
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidateBudgetPages();
   return {};
 }
@@ -322,7 +330,7 @@ export async function unacknowledgeTemplatePeriodAction(templateId: string): Pro
   const template = await prisma.recurringTemplate.findFirst({
     where: { id: templateId, householdId: household.id },
   });
-  if (!template) return { error: "Recurring template not found" };
+  if (!template) return fail("recurringItemNotFound");
 
   const periodKey = getPeriodKey(new Date(), template.frequency, normalizeStartDay(household.budgetMonthStartDay));
   try {
@@ -333,6 +341,7 @@ export async function unacknowledgeTemplatePeriodAction(templateId: string): Pro
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath("/dashboard/budget");
   return {};
 }

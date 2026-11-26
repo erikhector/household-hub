@@ -14,6 +14,7 @@ import { ScrollToHash } from "@/components/dashboard/scroll-to-hash";
 import { PushNotificationsCard } from "@/components/profile/push-notifications-card";
 import { WeeklyDigestSetting } from "@/components/profile/weekly-digest-setting";
 import { TaskDueSetting } from "@/components/profile/task-due-setting";
+import { EventReminderSetting } from "@/components/profile/event-reminder-setting";
 import { TonightsDinnerSetting } from "@/components/profile/tonights-dinner-setting";
 import { ProfileDisclosure } from "@/components/profile/profile-disclosure";
 import { LogoutButton } from "@/components/logout-button";
@@ -121,6 +122,7 @@ export default async function ProfilePage({
           />
           <TonightsDinnerSetting enabled={user.tonightsDinnerNudge} dict={dict.profile.tonightsDinner} />
           <TaskDueSetting enabled={user.taskDueNudge} dict={dict.profile.taskDue} />
+          <EventReminderSetting enabled={user.eventReminderNudge} dict={dict.profile.eventReminders} />
           <InstallAppCard dict={dict.profile.installApp} />
         </section>
         <section aria-labelledby="profile-data" className="flex flex-col gap-3">

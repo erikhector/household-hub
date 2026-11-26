@@ -72,7 +72,7 @@ for (const locale of LOCALES) {
 
       // Sorted by name: Alpha first. Its amount is pre-filled; correct it.
       await expect(dialog.getByText(alpha)).toBeVisible();
-      const amount = dialog.getByRole("spinbutton");
+      const amount = dialog.getByRole("textbox");
       await expect(amount).toHaveValue("4");
       await amount.fill("1");
       await dialog.getByRole("button", { name: c.next }).click();

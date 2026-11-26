@@ -34,6 +34,9 @@ const CALENDAR_FEED_RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
 // make one request build an unbounded document. Far above the ~4 slots × 213
 // days the window can realistically hold.
 const MAX_MEAL_ENTRIES = 2000;
+// The same kind of cap on household events (GAP-35). A repeat is one row
+// however often it falls, so this is far beyond any real household.
+const MAX_HOUSEHOLD_EVENTS = 2000;
 
 // no-store rather than a short max-age: turning the feed off or regenerating
 // the link should take effect on the very next fetch, not after a cache
@@ -75,7 +78,7 @@ export async function GET(request: Request, ctx: RouteContext<"/api/calendar/[to
   const now = new Date();
   const { from, to } = calendarFeedWindow(now);
 
-  const [meals, bills] = await Promise.all([
+  const [meals, bills, householdEvents] = await Promise.all([
     prisma.mealPlanEntry.findMany({
       where: { mealPlan: { householdId: household.id }, date: { gte: from, lte: to } },
       select: {
@@ -103,6 +106,20 @@ export async function GET(request: Request, ctx: RouteContext<"/api/calendar/[to
       },
       select: { id: true, name: true, frequency: true, dayOfMonth: true },
     }),
+    // GAP-35: the household calendar's events. A one-off inside the window;
+    // a repeat that has started by its end (its RRULE carries it from there).
+    // buildCalendarFeedEvents applies the same rule on its own. No member
+    // columns: the feed never names who an event is for.
+    prisma.householdEvent.findMany({
+      where: {
+        householdId: household.id,
+        date: { lte: to },
+        OR: [{ recurrence: { not: null } }, { date: { gte: from } }],
+      },
+      select: { id: true, title: true, date: true, startTime: true, endTime: true, notes: true, recurrence: true },
+      orderBy: [{ date: "asc" }, { id: "asc" }],
+      take: MAX_HOUSEHOLD_EVENTS,
+    }),
   ]);
 
   const feedDict = dict.household.calendarFeed.feed;
@@ -116,6 +133,7 @@ export async function GET(request: Request, ctx: RouteContext<"/api/calendar/[to
       note: m.note,
     })),
     bills,
+    events: householdEvents,
     from,
     to,
     strings: {

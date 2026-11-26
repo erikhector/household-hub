@@ -9,6 +9,7 @@ import {
   Users,
   User,
   ListChecks,
+  CalendarClock,
 } from "lucide-react";
 
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
@@ -34,6 +35,7 @@ type NavKey =
   | "shoppingList"
   | "mealPlanning"
   | "tasks"
+  | "calendar"
   | "budget"
   | "personalBudget"
   | "household"
@@ -88,6 +90,9 @@ export const navItems: NavItem[] = [
   { href: "/dashboard/shopping-list", key: "shoppingList", shortKey: "shoppingListShort", icon: ShoppingCart, color: "chart-2" },
   { href: "/dashboard/meal-planning", key: "mealPlanning", shortKey: "mealPlanningShort", icon: CalendarDays, color: "chart-3" },
   { href: "/dashboard/tasks", key: "tasks", icon: ListChecks, color: "chart-5" },
+  // GAP-35: the household calendar. Behind "More" on a phone, next to Tasks:
+  // the bottom bar's four slots are the hands-on shopping/cooking trio.
+  { href: "/dashboard/calendar", key: "calendar", icon: CalendarClock, color: "chart-2" },
   { href: "/dashboard/budget", key: "budget", icon: Wallet, color: "chart-1" },
   { href: "/dashboard/personal-budget", key: "personalBudget", icon: PiggyBank, color: "chart-2" },
   { href: "/dashboard/household", key: "household", icon: Users, color: "chart-3" },

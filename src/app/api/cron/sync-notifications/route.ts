@@ -8,10 +8,12 @@ import {
   syncTaskDueNudge,
   syncTonightsDinnerNudge,
 } from "@/lib/notifications";
+import { syncEventReminders } from "@/lib/event-reminders";
 import { timingSafeStringEqual } from "@/lib/timing-safe-equal";
 
 // Scheduled background sync for the lazy notification triggers (meal not
-// logged, expiring soon, and the put-away reminder) — see
+// logged, expiring soon, the put-away reminder, the opt-in morning nudges
+// and calendar event reminders) — see
 // src/lib/notifications.ts's top doc comment for the full picture. These used to run inline inside getActiveNotifications on
 // every bell fetch; that meant opening the bell could trigger an unbounded
 // number of Notification writes and push sends on what should've been a pure
@@ -113,6 +115,7 @@ export async function GET(request: Request) {
             syncPutAwayReminders(household.id),
             syncTonightsDinnerNudge(household.id),
             syncTaskDueNudge(household.id),
+            syncEventReminders(household.id),
           ]),
         ),
       );

@@ -1,5 +1,38 @@
 [
   {
+    "version": "0.163.0",
+    "date": "2026-11-26",
+    "pr": 1783,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "You can now set a reminder on a calendar event, either the morning of or the day before, and get a push for it. Turn on Calendar reminders in Profile to receive them.",
+      "sv": "Nu kan du lägga till en påminnelse på en händelse i kalendern, samma morgon eller dagen innan, och få en pushnotis om den. Slå på Kalenderpåminnelser i Profil för att få dem."
+    }
+  },
+  {
+    "version": "0.162.0",
+    "date": "2026-11-25",
+    "pr": 1772,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "There's now a shared household calendar. Add appointments, birthdays and school events, with an optional time and a weekly, monthly or yearly repeat, and everyone in the household sees them. The next few events show on Home, and they're included in the calendar feed.\n\nGroundwork for a faster Home screen. Nothing changes yet.\n\nYou can now type amounts and quantities with a decimal comma, like 12,5, on iPhones set to a Swedish region. Before, the value was lost.",
+      "sv": "Nu finns en gemensam kalender för hushållet. Lägg till tider, födelsedagar och skolevenemang, med tid och upprepning varje vecka, månad eller år om du vill, så ser alla i hushållet dem. De närmaste händelserna visas på Hem och kommer med i kalenderflödet.\n\nFörarbete för en snabbare startsida. Inget ändras än.\n\nNu kan du skriva belopp och mängder med decimalkomma, till exempel 12,5, även på iPhone med svenska regionsinställningar. Tidigare försvann värdet."
+    }
+  },
+  {
+    "version": "0.161.2",
+    "date": "2026-11-25",
+    "pr": 1766,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Swedish users now see budget error messages in Swedish.",
+      "sv": "Felmeddelanden i budgeten visas nu på svenska för den som använder appen på svenska."
+    }
+  },
+  {
     "version": "0.161.1",
     "date": "2026-11-24",
     "pr": 1747,

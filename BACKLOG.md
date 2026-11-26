@@ -154,39 +154,6 @@ Baseline at audit time: lint clean, `tsc` clean, 104 test files / 1,860
 tests passing, no `any`/`@ts-ignore` in app code. Item 7 does the
 shopping-list actions per feature, in the files MAINT-3 split them into.
 
-- [ ] **MAINT-7. Translate the remaining server-returned error messages**
-      (medium, M, one PR per feature) — UX-16 added `dict.errors`, `fail()`,
-      `zodFail()` and `v()` (`src/lib/actions/errors.ts`, see
-      REQUIREMENTS.md "Internationalization") and converted shopping list,
-      inventory, meal planning, tasks, the shared list link, household,
-      auth and profile, the invite email, and checked the receipt and shelf
-      scans and `parse-import-csv.ts` (codes their clients already
-      translate), all done, and the shared share-split parser
-      (`share-split-form.ts`), and the personal budget
-      (`personal-budget/actions.ts`). Recipe import needs nothing: since
-      MAINT-65 the `lib/recipe-import/` modules return only codes
-      (`FetchRecipeError`, `RecipeFileError`), which `recipe-actions.ts`
-      and `recipe-file-actions.ts` map to `dict.mealPlanning` strings, and
-      the photo import answers with `dict` strings too. Still English: the
-      string-literal `error:` values and Zod messages in the files left
-      on `PENDING` in `src/lib/actions/error-strings.test.ts`, the
-      household budget's action files (`budget/category-actions.ts`,
-      `transaction-actions.ts`, `recurring-actions.ts`,
-      `settlement-actions.ts`, split from `actions.ts` by MAINT-110), plus
-      the one `error:` literal in their shared `budget/action-helpers.ts`,
-      which the guard does not scan (35 between them). The Zod messages of the limit and goal fields in
-      `savings-goal-calc.ts` and `budget-category-limit.ts` are a parameter
-      for now (`monthlyLimitFieldWith`, `goalAmountFieldWith`,
-      `goalDateFieldWith`): the personal budget passes `v()` keys, the
-      household budget still gets the English constants. When converting
-      the household budget, switch its actions to `zodFail()`, put the keys
-      (`monthlyLimitNumber`, `monthlyLimitPositive`, `savingsGoalNumber`,
-      `savingsGoalPositive`, `goalDateInvalid`, already in `dict.errors`)
-      straight into the constants and delete the `…With` functions and the
-      personal budget's local copies. Add any new keys to `dict.errors` (or
-      a feature namespace, as `template-actions.ts` does), and delete the
-      file from `PENDING`: the test fails if a clean file stays listed.
-      Leave budget until BUDGET-6 is decided.
 - [ ] **MAINT-12. ESLint 10** (low, S, own PR — touches `package.json`/lockfile) `[!]` —
       the rest of MAINT-12 is done (REQUIREMENTS.md, "Migration drift and
       tooling pins"). Waiting on `eslint-config-next`'s plugins:
@@ -201,6 +168,7 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       Further sighting (2026-11-14, UX-191 builder run on 47d2ee9, PR #1429): line 89 failed once in the full locked `ci:local` run with the same `dialog has at least one combobox` error. It passed `--repeat-each=10` (52 passed) on clean `next` d52d120 and in the next full gate on the same commit.
       Further sighting (2026-11-15, release PR #1449 on 57e93f4, carrying #1446 and #1447, neither of which touches the shopping list or this spec): line 89 failed once in the reviewer's locked `ci:local` run with the same `dialog has at least one combobox` expected `> 0`, received `0` (`expectComboboxesHaveRoom`, line 30). It passed in a re-run of the spec on the same commit (`npx playwright test e2e/form-field-room.mobile.spec.ts --project=mobile`, 7 passed) and in the GitHub e2e job.
       Further sighting (2026-11-18, PR #1581 (UX-203) on 58d2867, which touches neither the shopping list nor this spec): line 89 failed once on `mobile` in the builder's locked `ci:local` (the shopping edit dialog had 0 comboboxes). It passed when re-run alone, and a second full `ci:local` on the same commit was clean.
+      Further sighting (2026-11-24, PR #1727 (UX-210) on 5e8807d, which touches only the auth and first-run household forms, not the shopping list or this spec): line 89 failed once on `mobile` in the builder's locked `ci:local` with the same `dialog has at least one combobox` expected `> 0`, received `0`. It passed when re-run alone (`--repeat-each=3`, 17 passed), and a second full `ci:local` on the same commit was clean.
       Acceptance: `npx playwright test e2e/form-field-room.mobile.spec.ts --project=mobile --repeat-each=30` passes 30/30.
 - [ ] **MAINT-77. Flaky: the chunk-retry tap doesn't open Add inventory item on desktop** (low, S) `[!]` —
       `e2e/inventory-lazy-dialogs.spec.ts:52` ("a failed chunk load › says so, and the next tap retries"), `desktop` project. In the GitHub e2e job on release commit b13ba5e (2026-11-01) it failed on both attempts (the retry limit, 7.7 s and 8.6 s) at line 95: `getByRole("dialog", { name: "Add inventory item" })` not visible within 5 s after the retry tap. It passed on a local re-run of the same commit. This is a new shape: MAINT-66 hardened this spec for `mobile` (merged in the same release as #968, which pre-fetches the chunks the abort refused), and MAINT-69 and MAINT-71 covered the history race and the route harness. Desktop still fails, so look at what differs there: chunks the retry needs that the abort never refused (so they are not warmed), or the dialog opening and being closed again by a history rewrite. Start from the failing run's trace.
@@ -266,17 +234,6 @@ Full report with screenshots: [Squirrel UI audit](https://claude.ai/artifact/FW6
 **File conflicts.** Several items touch the same shared primitives, so
 don't build these in parallel:
 - `ui/dialog.tsx`: UX-11, UX-12
-
-- [ ] **UX-30. Decimal comma in number fields on iOS** `[verify on device]`
-      (high if it reproduces, S) — There are 48 `type="number"
-      inputMode="decimal"` fields, for example
-      `transaction-dialog.tsx:319` and `quick-add-bar.tsx:102`. With a
-      Swedish region, iOS's decimal pad offers only ",". WebKit has
-      treated "12,5" in a number input as invalid and submitted `""`.
-
-      Test on a Swedish-region iPhone. If it reproduces, switch money and
-      quantity fields to `type="text" inputMode="decimal"` with a pattern,
-      and normalise "," before Zod, reusing `item-units.ts:68`'s parser.
 
 ### UX (2026-10-15 full UI review)
 
@@ -540,6 +497,75 @@ offline, and once with signup reloaded half-filled. WebKit was not run
 (no browser installed here). The audit config still needs an
 uncommitted `executablePath` copy to launch Chromium.
 
+### UX (2026-11-25 scout)
+
+Wednesday area: meal planning and recipes. Swept `desktop`, `mobile`,
+`landscape`, `tablet`, `small-phone`, `light`, `text-200` and both dialog
+sweeps. All 290 + 132 tests pass, and the only audit hits on the planner
+are the known sheet grabber and the `text-200` bottom-bar ellipsis
+(UX-150). The deep dive drove add meal (empty and 75-character Swedish
+names), the keyboard-open Save, the new-recipe form's error path and the
+Cook now and Meal prep tabs on Pixel 7 and at 320 px. All of those pass
+DESIGN.md: errors sit beside the field, input is kept, and every target
+is at least 44 px. It also timed Copy last week with the server action
+held for 4 s. WebKit was not run (no browser installed here).
+
+- [ ] **UX-213. Show progress on the planner's whole-week actions** (impact: med, effort: S) —
+      Copy last week (⋯ menu), Fill empty days and a plan template's
+      "Use" each write up to a week of meals and show nothing while they
+      run. Copy last week runs from a menu item that closes on tap, so
+      its `disabled={copyPending}` (`week-planner.tsx:211`) is never
+      seen. With the action held for 4 s on Pixel 7, the ⋯ trigger
+      stayed enabled and no spinner or toast appeared until the result.
+      Fill empty days (`fill-empty-days-dialog.tsx:160`) and "Use"
+      (`plan-template-dialogs.tsx:193`, which shares one `pending` with
+      the row's Delete) only grey out. None of the three
+      (`week-planner-helpers.ts:54`, `fill-empty-days-dialog.tsx:73`,
+      `plan-template-dialogs.tsx:131`) catches a rejected call, so a
+      dropped connection hits the error boundary. This breaks M5
+      (pending, then result) and M8 (say "you're offline"). Fix: show
+      `Loader2` on the ⋯ trigger and disable it while copying, use
+      `PendingLabel` with a busy string (en + sv) on Fill empty days and
+      Use, give Use and Delete their own transitions, and wrap each call
+      in try/catch with `unstable_rethrow` and
+      `toast.error(dict.prepConnectionError)`, as `meal-entry-row.tsx:121`
+      does.
+      Acceptance: an `e2e/` spec (`mobile` and `desktop`) holds the
+      server action with `page.route`. After tapping Copy last week, the
+      "More planner actions" button is disabled and busy until the
+      "Copied … meals" toast appears. In the Fill empty days dialog the
+      submit button shows its busy label. With the route aborted, an
+      error toast shows and the page stays on the planner.
+- [ ] **UX-214. Let the full text in meal-planning lists be read on a phone** (impact: med, effort: S) —
+      Two lists cut off text whose rest can only be reached through a
+      `title` tooltip, which touch can't open.
+      - Cook now: each row's "N ingredients needed: a, b, c…" is
+        `line-clamp-2` on phones and `line-clamp-1` from `sm`, with the
+        full list only in `title` (`cook-now-list.tsx:80-90`). The row
+        isn't tappable (only "Add to plan" is), so for a recipe missing
+        several ingredients the list that decides whether to cook it
+        can't be read (Cook now tab on Pixel 7 and at 320 px, driven
+        in this run).
+      - The place-a-pick sheet `truncate`s the meals already in each
+        day's slot to one line (`place-pick-dialog.tsx:103`), the very
+        thing you check before doubling up. Its four slot buttons are
+        12 px (`text-xs`) and `truncate` too (`:83`), below the 14 px
+        floor M9 allows only the bottom bar.
+      This breaks M9 ("full value reachable") and the checklist's "no
+      hover-only affordance". Fix: let the missing list wrap (`break-words`, no
+      clamp) or put it behind a disclosure, and drop the redundant
+      `title`s (`cook-now-list.tsx:74`, `prep-tab.tsx:204`,
+      `plan-template-dialogs.tsx:185`). In place-pick, use
+      `line-clamp-2 break-words` for the slot contents and `text-sm`
+      with no truncation on the slot buttons (2×2 below `sm` if they
+      don't fit).
+      Acceptance: an `e2e/` spec on `mobile` (and `small-phone` in the
+      audit) seeds a recipe missing six long-named ingredients. On the
+      Cook now tab the last ingredient's name is visible, with no
+      `title` on the row. In the place-pick sheet, a slot holding two
+      long meal names shows both, and the slot buttons compute to at
+      least 14 px.
+
 
 ---
 
@@ -691,52 +717,39 @@ Rules every follow-up keeps (from the original item):
   members tick it live). Anything reading `cookies()` stays outside a cached
   function.
 
-- [ ] **PERF-32. Household cache helper, remote handler and Home summary**
-      (M) `[!]` — `householdTag(id, area)` in one module, a Redis-backed
-      `cacheHandlers` entry on Upstash (check `refreshTags()` and a GET
-      timeout) used through `"use cache: remote"`, and Home's batch cached
-      behind it with the three cookie-backed helpers kept outside. Takes
-      `householdId`/`userId`/a day key; every action that changes Home's data
-      calls `updateTag(householdTag(id, "home"))`. Acceptance: a production
-      before/after of the Home batch, stopping here if the saving is under
-      ~50 ms, and an e2e spec that
-      edits a task or an item and sees Home change without a reload delay.
-      Depends on PERF-31 (shipped).
-      **Blocked, question for the owner:** the acceptance needs a
-      production before/after of the Home batch behind the Redis remote
-      handler, and a build session has no production access or Upstash
-      credentials, so it can't take that measurement and the stop-if-under-50 ms
-      gate can't be applied. Either (a) the owner supplies a way to measure
-      (a preview deploy with `UPSTASH_REDIS_REST_URL`/`TOKEN` and timings
-      from Vercel logs), or (b) split into PERF-32a (helper module plus
-      handler plus Home cached, behind an env flag that defaults to off)
-      and PERF-32b (measure in production, then flip the flag or revert).
-      Say which.
-      Recommendation (2026-11-23): (b). The flag keeps it dormant and
-      reversible; the owner flips it in Vercel and reads the Home timings,
-      and PERF-33 to PERF-36 wait on that number. See #1704.
+- [ ] **PERF-32b. Measure the Home cache in production** (S, owner) —
+      PERF-32a shipped the tag helper, the Redis handler and Home's batch
+      behind `HOME_CACHE`, off by default (REQUIREMENTS.md, "Home's
+      household data can be cached"). The owner sets `HOME_CACHE=1` in
+      Vercel (Upstash is already configured for the rate limiter),
+      redeploys, and compares the Home batch's server time before and
+      after, as DEPLOYMENT.md "Home cache (PERF-32)" describes. Stop if the
+      saving is under ~50 ms: unset the flag and close PERF-33 to PERF-36.
+      Otherwise keep it on and proceed to PERF-33..36. Owner-only: a build
+      session has no production access or Upstash credentials (#1704).
 - [ ] **PERF-33. Cache inventory and closed shopping lists** (M) — cached
       reads for the inventory list and item pages (tags
       `householdTag(id, "inventory")`) and for completed shopping lists. The
       open list stays uncached. Every inventory, stock and list write in
       `inventory/actions.ts` and `shopping-list/actions.ts` calls `updateTag`.
-      Depends on PERF-32.
+      Depends on PERF-32b.
 - [ ] **PERF-34. Cache tasks and meal planning** (M) — the same for
       `dashboard/tasks` and `dashboard/meal-planning` (recipes, planner,
       prepared batches), with day-keyed arguments so "today" never goes
-      stale across midnight. Depends on PERF-32.
+      stale across midnight. Depends on PERF-32b.
 - [ ] **PERF-35. Cache the household and personal budgets** (M) — budget
       pages and `loadHouseholdSafeToSpend`/`loadPersonalBudgetPosition`,
       tagged by household and (personal) by `userId`, invalidated by every
       transaction, template, planned-expense and split write, including the
-      recurring-template acks. Depends on PERF-32.
+      recurring-template acks. Depends on PERF-32b.
 - [ ] **PERF-36. Invalidate from the writers outside a session, and guard it**
-      (M) — `revalidateTag` in `api/cron/sync-notifications`,
-      `api/cron/weekly-digest` and `share/shopping-list/actions.ts` (no
-      `updateTag` there: it is Server Actions only), plus a unit test that
+      (M) — `revalidateTag` in `api/cron/sync-notifications` and
+      `api/cron/weekly-digest` (no `updateTag` there: it is Server Actions
+      only; the share-link tick is a Server Action and already clears Home,
+      PERF-32a), plus a unit test that
       fails when a Server Action calls a Prisma write on a cached model
       without a matching tag call. Ship together with the first area that
-      lands after PERF-32.
+      lands after PERF-32b.
 
 ## Competitive gap scan
 
@@ -816,20 +829,6 @@ out to be a product-scope question rather than a scoped task should move to
       committing, rather than treating it as a routine feature slice.
 
 ### 2026-09-26 scan
-
-- [ ] **GAP-35. Household-wide calendar for events, not just meals and bills** `[!]` —
-      needs a product decision. Cozi's core differentiator is a shared
-      family calendar for appointments, birthdays and school events —
-      Squirrel's `.ics` feed (`src/lib/calendar-feed.ts`,
-      `src/app/api/calendar/[token]/route.ts`) only ever publishes
-      meal-plan entries and recurring-bill due dates; there's no
-      `HouseholdEvent` model or in-app view for a one-off or recurring
-      appointment. The delivery mechanism (the existing opt-in `.ics`
-      feed, `buildCalendarFeedEvents`) is already built and could carry
-      a third event source cheaply, but the feature itself needs
-      decisions the meal/bill feed didn't: does an event need its own
-      reminder/push, per-member visibility, or in-app recurrence — none
-      of which this app's calendar surface has had to answer before.
 
 - [ ] **GAP-36. "Give every dollar a job" zero-based budgeting** `[!]` —
       needs a product decision. YNAB's defining feature is requiring the
@@ -1019,6 +1018,25 @@ suggestions, task rotation, loyalty cards (GAP-68), and chore points
       against merging the underlying Prisma models, but left this smaller
       question open. Revisit only after BUDGET-2 → BUDGET-5 land and the
       real prop surface each merged component needs is known.
+
+- [ ] **GAP-88b. Hour-scale reminders for calendar events** `[!]` —
+      the rest of GAP-88 (split 2026-11-25): "the dentist, an hour
+      before". `/api/cron/sync-notifications` runs once a day (`0 6 * * *`
+      in `vercel.json`), because Vercel Hobby caps Cron Jobs at once a
+      day and fails the deployment on a tighter schedule (DEPLOYMENT.md,
+      "Scheduled jobs"). A reminder an hour or two before a timed event
+      can't arrive on time from a daily run, so this needs a scheduler
+      that runs every 15 minutes or so. Options:
+      - **Recommended:** a Vercel Pro plan (or Railway/Render's own
+        cron), with the existing sync route on `*/15 * * * *`; GAP-88a's
+        sender then only gains offsets of minutes and hours.
+      - An outside pinger (a scheduled GitHub Actions workflow or a free
+        cron service) calling the route with `CRON_SECRET`. Free, but
+        GitHub's schedules run late under load and it puts the secret
+        in another place.
+      - Keep reminders day-scale only (GAP-88a) and don't build this.
+      Hosting plan and secrets are the owner's call (AUTOPILOT.md,
+      `never_decide`). GAP-88a has shipped (`src/lib/event-reminders.ts`).
 
 ### Infrastructure (moved from REQUIREMENTS.md's "Deferred" list)
 

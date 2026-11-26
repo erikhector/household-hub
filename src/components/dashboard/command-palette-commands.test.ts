@@ -10,7 +10,7 @@ describe("buildCommands", () => {
     expect(commands[0].label).toBe("Add task");
     expect(commands[1].href).toBe("/dashboard/shopping-list?add=1");
     expect(commands.map((c) => c.label)).toContain("Go to Household budget");
-    expect(commands.filter((c) => c.kind === "goTo")).toHaveLength(9);
+    expect(commands.filter((c) => c.kind === "goTo")).toHaveLength(10);
   });
 
   it("is translated", () => {

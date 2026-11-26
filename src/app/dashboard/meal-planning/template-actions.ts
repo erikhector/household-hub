@@ -20,6 +20,7 @@ import {
   templateSlotKey,
   type TemplateEntryInput,
 } from "@/app/dashboard/meal-planning/plan-template-calc";
+import { invalidateHome } from "@/lib/household-cache";
 
 // GAP-52: reusable named meal-plan templates, the planner's counterpart to
 // the shopping list's templates (GAP-4, shopping-list/template-actions.ts).
@@ -156,6 +157,7 @@ export async function applyMealPlanTemplateAction(
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath(MEAL_PLANNING_PATH);
   return { copied: created.length, entryIds: created.map((e) => e.id) };
 }

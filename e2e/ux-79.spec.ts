@@ -113,7 +113,7 @@ test("a row's price is added from the ⋯ on a phone, and the ⋯ stays a 44 px 
     await page.getByRole("button", { name: `Add an estimated price for ${name}` }).click();
   }
 
-  const input = page.getByRole("spinbutton", { name: `Estimated price for ${name}` });
+  const input = page.getByRole("textbox", { name: `Estimated price for ${name}` });
   await expect(input).toBeFocused();
   await input.fill("24");
   await page.getByRole("button", { name: "Save price" }).click();

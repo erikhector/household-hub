@@ -33,7 +33,7 @@ test("the recipe form is in recipe order, labelled, with 44 px tag chips", async
   await expect(dialog.getByText("One step per line — each becomes a step in Cook mode")).toBeVisible();
   await expect(dialog.getByLabel("Instructions")).toHaveAccessibleDescription(/One step per line/);
 
-  await expect(dialog.getByRole("spinbutton", { name: "Quantity" })).toBeVisible();
+  await expect(dialog.getByRole("textbox", { name: "Quantity" })).toBeVisible();
   await expect(dialog.getByRole("textbox", { name: "Unit", exact: true })).toBeVisible();
   await expect(dialog.getByText(/inventory decrement/)).toHaveCount(0);
 

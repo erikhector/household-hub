@@ -1196,6 +1196,18 @@ describe("a task that uses up a pantry item (GAP-87)", () => {
     });
   });
 
+  it("reads an amount used typed with a decimal comma (UX-30)", async () => {
+    inventoryItemFindFirstMock.mockResolvedValue({ id: "item-1" });
+
+    const result = await createTaskAction(
+      {},
+      formData({ title: "Run the dishwasher", consumesItemId: "item-1", consumesQuantity: "0,5" }),
+    );
+
+    expect(result.error).toBeUndefined();
+    expect(householdTaskCreateMock.mock.calls[0][0].data).toMatchObject({ consumesQuantity: 0.5 });
+  });
+
   it("refuses another household's item (forged id)", async () => {
     inventoryItemFindFirstMock.mockResolvedValue(null);
 
