@@ -258,6 +258,14 @@ easy for AI coding agents to work in correctly:
   shortcut again until the palette or the load error shows rather than
   pressing once after `expectHydrated` (MAINT-95). UX-165 (M2): the menu opens upward, so "Log out"
   is its top row, farthest from the thumb, never the last.
+- **Hidden tabs are not wrapped in `<Activity>` (PERF-29, tried and
+  dropped 2026-10-28).** Wrapping the inactive tabs of `MealPlanningView`
+  and `BudgetTabs` in `<Activity mode="hidden">` cut long-task time
+  before the tab bar hydrated by only 50–90 ms (within run-to-run noise
+  for time to interactive), downloaded the same JS, and cost the hidden
+  tabs' server-rendered DOM (no find-in-page or print before hydration).
+  Revisit only if per-tab code splitting (loading a tab's JS on first
+  open) is ever wanted, since `<Activity>` is how that would keep state.
 - **Server-side errors go through `reportError` (MAINT-11).** Caught
   failures in cron routes, `/api/health`, the digest unsubscribe route,
   `weekly-digest.ts`, `push.ts` and the Redis fallback in `rate-limit.ts`
@@ -3170,6 +3178,36 @@ and confirms with a toast.
   adds two items, copies on desktop and mobile, asserts the toast and
   clipboard text, then ticks one and asserts it drops out.
 
+#### Tell the household you're going shopping (GAP-89)
+
+A shared list helps most just before a trip, when a partner can still add
+what's missing. The `⋯` menu's **"Going shopping"** item (in "This trip",
+on an ACTIVE list, only when the household has another member) pushes
+every other member "{name} is going shopping, add anything you need to
+{list}", linking to the list, and confirms with a "We've let the household
+know" toast.
+
+- **Action**: `announceGoingShoppingAction(listId)` in
+  `src/app/dashboard/shopping-list/list-actions.ts`. The household comes
+  from `requireHousehold()`; a list that isn't the household's or isn't
+  ACTIVE is refused (`listNotEditable`). The push goes through
+  `sendPushToHouseholdMembers`, so quiet hours apply, and never to the
+  sender. Each recipient gets it worded in their own `User.locale`.
+- **Rate limit**: `checkRateLimit("going-shopping:<user>:<list>", 1, 30 min)`.
+  A repeat inside the window still succeeds and shows the same toast but
+  sends nothing, so a double tap can't buzz everyone twice.
+- **Alone**: the page hides the item when the household has one member. If
+  the action still runs with no one else to tell (someone left after the
+  page loaded), it sends nothing, doesn't use up the window, and the toast
+  says "No one else to tell".
+- **Deliberately not built**: no bell row (the message is stale once the
+  trip ends), no schema change, no "who's shopping now" presence (GAP-26).
+- **Tests**: `list-actions.going-shopping.test.ts` (tenancy, a closed list,
+  skipping the sender, per-locale wording, the alone case, the rate limit
+  per user and list); `e2e/going-shopping.spec.ts` taps the item on desktop
+  and mobile and sees the toast, and checks a one-member household has no
+  such item.
+
 ### Budget month start day (UX-134)
 
 `Household.budgetMonthStartDay` (1 to 28, default 1, migration
@@ -5643,6 +5681,22 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   so and nothing is written. The button is only offered on an empty week:
   the action would handle a partly filled one, but a copy that silently
   works around existing meals is harder to predict.
+- **Progress on the whole-week actions** (BACKLOG UX-213): Copy last week,
+  Fill empty days and a template's "Plan this week" each write up to a week
+  of meals, so each shows it is running (M5) and says when the server
+  can't be reached (M8). Copy last week's menu item closes on tap, so the
+  ⋯ trigger ("More planner actions") swaps its icon for a spinning
+  `Loader2`, is disabled and `aria-busy` until the result toast. Fill empty
+  days' submit reads "Adding dinners…" and the template row's button
+  "Planning…" (`PendingLabel`, so neither button changes width). A
+  template row's Use and Delete have their own transitions, so only the
+  one tapped shows busy, and both stay disabled while either runs. Each
+  call is wrapped in a try/catch with `unstable_rethrow`: a rejected call
+  (a dropped connection) shows the `prepConnectionError` toast and leaves
+  the planner, or the open dialog, in place to try again, instead of the
+  error boundary. `e2e/planner-week-progress.spec.ts` holds the Server
+  Action to assert the busy trigger and label, and drops it to assert the
+  toast.
 - **Fill empty days** (BACKLOG GAP-45): a "Fill empty days" item in the
   planner header's ⋯ menu, which keeps the controls one row on a phone
   (`FillEmptyDaysDialog`,
@@ -6883,7 +6937,7 @@ opened from `RecipeManager`'s toolbar and, on an empty recipe list, as the
 empty state's secondary action beside New recipe, which stays the one
 primary (DESIGN.md M2)) offers a built-in
 catalog of recipes, ranked by how much of each the household already has in
-its pantry. Design: `docs/superpowers/specs/2026-11-02-recipe-discovery-design.md`.
+its pantry. Design: `docs/archive/RECIPE_DISCOVERY_DESIGN.md`.
 
 - **The catalog** lives in `src/lib/recipe-catalog/data.ts`: 120 recipes, each
   written for Squirrel and bilingual (`Localized<T>` = `{ en, sv }`, see
@@ -11434,7 +11488,12 @@ UX-14's rapid ticks and the rollback toast.
   in `ux-19.mobile.spec.ts`'s 2031-06-02, and ux-19 timed out waiting for
   "Add first dinner"). A new hand-picked week stays out of 2036-2093, and
   a new spec that needs a random far-off week adds its name to the list
-  there. The same goes for the seeded users themselves: a spec that
+  there. A spec that seeds a fixed week also clears that week's plan,
+  scoped to its worker's household, *before* the insert as well as after:
+  an attempt that times out can be torn down before its cleanup runs, and
+  the retry lands in the same household (MAINT-79:
+  `meal-plan-templates.spec.ts` hit the `(householdId, weekStartDate)` key
+  in its own seed insert). The same goes for the seeded users themselves: a spec that
   changes one (a display name saved through the profile, say) puts it
   back in an `afterEach`, so a failing run restores it too, and waits for
   any save it held before restoring, or the late save would rename the

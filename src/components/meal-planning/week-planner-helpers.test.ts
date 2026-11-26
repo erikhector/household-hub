@@ -66,6 +66,13 @@ describe("copyLastWeek", () => {
     expect(toast.success).not.toHaveBeenCalled();
   });
 
+  it("says the server couldn't be reached when the call rejects (UX-213)", async () => {
+    copyWeekAction.mockRejectedValue(new TypeError("Failed to fetch"));
+    copyLastWeek(dict, "2031-03-10", "2031-03-03", run);
+    await vi.waitFor(() => expect(toast.error).toHaveBeenCalledWith(dict.prepConnectionError));
+    expect(toast.success).not.toHaveBeenCalled();
+  });
+
   it("shows the Undo's own error when the copy can't be taken back", async () => {
     copyWeekAction.mockResolvedValue({ entryIds: ["a"] });
     undoCopyWeekAction.mockResolvedValue({ error: "Too late" });

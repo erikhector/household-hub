@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { unstable_rethrow } from "next/navigation";
 import { Shuffle } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { PendingLabel } from "@/components/ui/pending-label";
 import {
   Dialog,
   DialogClose,
@@ -72,10 +74,19 @@ export function FillEmptyDaysDialog({
 
   function accept() {
     startTransition(async () => {
-      const result = await fillEmptyDaysAction(
-        weekStartKey,
-        proposal.map((p) => ({ date: p.dateKey, recipeId: p.recipeId })),
-      );
+      let result;
+      try {
+        result = await fillEmptyDaysAction(
+          weekStartKey,
+          proposal.map((p) => ({ date: p.dateKey, recipeId: p.recipeId })),
+        );
+      } catch (error) {
+        // UX-213: a dropped connection rejects the call. Say so and keep the
+        // preview open to try again, rather than hitting the error boundary (M8).
+        unstable_rethrow(error);
+        toast.error(dict.prepConnectionError);
+        return;
+      }
       if (result.error) {
         toast.error(result.error);
         return;
@@ -157,8 +168,13 @@ export function FillEmptyDaysDialog({
 
         <DialogFooter>
           <DialogClose render={<Button type="button" variant="outline" />}>{dict.fillEmptyDaysCancel}</DialogClose>
-          <Button type="button" disabled={proposal.length === 0 || pending} onClick={accept}>
-            {dict.fillEmptyDaysSubmit}
+          <Button
+            type="button"
+            disabled={proposal.length === 0 || pending}
+            aria-busy={pending || undefined}
+            onClick={accept}
+          >
+            <PendingLabel pending={pending} busy={dict.fillEmptyDaysAdding} idle={dict.fillEmptyDaysSubmit} />
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -31,13 +31,11 @@ IDs are prefixed by area so they stay stable as items move between phases:
 | Prefix | Area | Origin |
 |---|---|---|
 | `AUTO-` | Shopping list & inventory automation — "make it feel like magic" | `docs/archive/AUTOMATION_BACKLOG.md` (design review, Sep 2026) |
-| `SCALE-` | Performance, scale and security | `docs/archive/SCALABILITY_BACKLOG.md` (2026-09-15 review) |
-| `BUDGET-` | Collapse `personal-budget/` components into the household ones | `docs/archive/PERSONAL_BUDGET_UNIFICATION.md` (design spike) |
-| `PRICE-`, `TASKS-`, `INFRA-` | Open product decisions | `docs/archive/UX_FRICTION_BACKLOG.md`, `docs/archive/JOY_GAP_BACKLOG.md`, REQUIREMENTS.md |
+| `BUDGET-` | Sharing code between the household and personal budgets | `docs/archive/PERSONAL_BUDGET_UNIFICATION.md` (design spike) |
+| `PRICE-`, `INFRA-` | Open product decisions | `docs/archive/UX_FRICTION_BACKLOG.md`, `docs/archive/JOY_GAP_BACKLOG.md`, REQUIREMENTS.md |
 | `GAP-` | Feature gaps vs. competing household/grocery/budget apps (AnyList, Bring!, Grocy, Listonic, Splitwise, Cozi, …) | recurring daily competitive scan, logged as dated entries below |
 | `SEC-`, `PERF-`, `MAINT-` | Security, performance and maintainability | Three-way code audit, 2026-09-26 (this file is the only record) |
 | `UX-`, `BUG-`, `DEPS-` | UX problems, production errors, dependency upgrades | Autopilot scouts (see AUTOPILOT.md); `SEC-`/`PERF-`/`MAINT-`/`GAP-` scouts reuse those prefixes |
-| `MATCH-` | Recipe ingredient → inventory matching review, aliases, unit conversions | [`docs/archive/RECIPE_INGREDIENT_MATCHING.md`](./docs/archive/RECIPE_INGREDIENT_MATCHING.md) (design, 2026-09-27) |
 
 Before any item: run lint → typegen → tsc → test → build (see AGENTS.md)
 before calling it done, and add every new user-facing string to both
@@ -101,58 +99,9 @@ Parallel-safe except where noted.
 
 ### Dependencies
 
-### Performance (2026-09-26 audit)
+### Performance
 
-Bundle numbers are First Load JS gzipped, measured from a production build:
-shared root 206 KB; meal-planning 472 KB; shopping list 445 KB; inventory
-395 KB; budget 390 KB; home 335 KB; login 260 KB.
-
-### Client JS and caching (2026-10-26 measurement)
-
-Measured on a production build with the seeded e2e user in Chromium
-(Pixel 7 profile): JS actually loaded per dashboard page, JS coverage at
-load, and timings under 4× CPU and Lighthouse's Slow 4G profile. Every
-dashboard page loads the same **325 KB gz of shared JS** (Next/React
-174 KB, Base UI 83, `releases.json` 39, the rest small). Pages paint at
-~1 s but finish loading JS at 2.7–3.3 s, and the smallest page
-(`/dashboard/notifications`, 5 KB of its own JS) still takes 2.7 s, so
-the shared JS dominates that "looks ready, doesn't respond yet" window. A
-page's own JS ranges from 4 KB (what's new) to 109 KB (meal planning),
-and 56–78% of it is unused at load, mostly dialogs. Client navigation
-fetches no new JS (the bottom bar's links prefetch the chunks), so
-per-page splitting helps the cold start and hydration on slow phones,
-not tab switches. Re-measure before and after each item.
-`npx next analyze` attributes chunks to modules; JS coverage per route
-comes from Playwright's `page.coverage`.
-**`<Activity>` for the hidden tabs: tried, not worth shipping (PERF-29,
-2026-10-28).** Wrapping the inactive tabs of `MealPlanningView` and
-`BudgetTabs` in `<Activity mode="hidden">` (React 19.3.1, Next 16.4.3,
-production build, Chromium at 4× CPU, 5 loads per page, median) made the
-visible tab bar hydrate no faster in any way that clears the noise:
-time to hydrated tab bar 1770 to 1803 ms (meal planning, desktop), 1968
-to 1701 (meal planning, phone), 1967 to 1782 (budget, desktop) and 1899
-to 1779 (budget, phone), where single runs vary by about 200 ms. Long-task
-time before that point fell by 50 to 90 ms (579 to 511, 598 to 507, 540
-to 476, 549 to 460 ms), about 10 to 16%. The server HTML shrank 15 to 17%
-(161 to 136 KB and 168 to 139 KB) because hidden panels' markup is no
-longer streamed, while their text is still in the page (the markers I
-searched for were all present, so the Flight payload still carries it).
-State survives a switch (the Recipes search text was kept). It does not
-cut the downloaded JS (all four tabs' chunks are still in the payload),
-which the item above says dominates, so the gain is a small slice of
-hydration work, and it costs the hidden tabs' server-rendered DOM
-(nothing to find-in-page or print before hydration) and pauses their
-effects while hidden. Not worth that for about 80 ms; revisit if the
-tab bodies get heavier or if per-tab code splitting (loading a tab's JS
-on first open) is ever wanted, since `<Activity>` is the way to keep the
-state when that lands. The measurement spec was a throwaway and is not
-kept.
-
-### Maintainability (2026-09-26 audit)
-
-Baseline at audit time: lint clean, `tsc` clean, 104 test files / 1,860
-tests passing, no `any`/`@ts-ignore` in app code. Item 7 does the
-shopping-list actions per feature, in the files MAINT-3 split them into.
+### Maintainability
 
 - [ ] **MAINT-12. ESLint 10** (low, S, own PR — touches `package.json`/lockfile) `[!]` —
       the rest of MAINT-12 is done (REQUIREMENTS.md, "Migration drift and
@@ -188,314 +137,16 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       Further sighting (2026-11-13, MAINT-92 builder run on 3b2fb5b, PR #1390): `mobile` project, failed once in the full local `ci:local` run (`Add inventory item` dialog not visible within 5 s) and passed on a second full run of the same commit.
       Further sighting (2026-11-13, release PR #1399 on ccaa00e): `mobile` project, failed once in the reviewer's full local `ci:local` run at line 95 (`Add inventory item` dialog not visible within 5 s) and passed on a focused re-run of the spec on the same commit; the GitHub e2e job was green.
       Further sighting (2026-11-14, MAINT-97 builder run on a5fc3e8, PR #1418): `mobile` project, failed once in the second full local `ci:local` run (`Add inventory item` dialog not visible within 5 s) and passed on a locked `--project=mobile --repeat-each=10` rerun of the spec on the same commit (32 passed).
-- [ ] **MAINT-79. Flaky: a saved week can't be stamped because the seed insert clashes on desktop** (low, S) `[!]` —
-      `e2e/meal-plan-templates.spec.ts:20` ("a saved week can be stamped onto an empty week"), `desktop` project. In the local `npm run ci:local` run on release commit ca7801a (2026-11-01) it failed inside its own seed insert (line 31) with `duplicate key value violates unique constraint "MealPlan_householdId_weekStartDate_key"`. It passed on a local re-run of the same commit, desktop and mobile. The week it seeds collides with a `MealPlan` another test of the same worker household created: pick a week no other spec uses, or delete the row first, scoped to `E2E_HOUSEHOLD`.
-      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/meal-plan-templates.spec.ts --project=desktop --repeat-each=30` passes 30/30.
 - [ ] **MAINT-112. Flaky: the page is still on Tasks 5 s after a scripted push to Profile on iphone** (low, S) —
       `e2e/flows.spec.ts:57` ("an edit still shows after navigating away and back"), `iphone` project (WebKit), GitHub `End-to-end (Playwright)` job only. Third sighting, the first since #1487 added the `waitForDialogHistory(page)` wait before the push: release PR #1506 on b66e4ce, 2026-11-16, job 133437206856, failed its first attempt and passed on retry #1. Fourth sighting: release PR #1518 on fa83d4c, 2026-11-16, job 133656933989, same step and same URL, passed on retry #1 (local `ci:local` has no `iphone` project and was clean). Failing step: `:81`, `expect(page).toHaveURL(/\/dashboard\/profile/)` after `window.next.router.push("/dashboard/profile")`; the page was still on `http://localhost:3000/dashboard/tasks` after the 5000 ms timeout. Desktop and mobile passed first time, locally and on GitHub. The first two sightings: release PR #1425 on 138ae29, 2026-11-14, job 132417142477, and release PR #1484 on f77b161, 2026-11-16, job 133033346476 (already with the MAINT-103 repair). With the dialog's history settled before the push, the pending `history.back()` is ruled out as the cause; the remaining candidate is a slow first client navigation to `/dashboard/profile` in a cold WebKit (the route's RSC payload not prefetched yet). Start from a trace of an `iphone` run (keep one with `--trace on` in the GitHub job, or wherever WebKit installs), and check whether the push is issued but the navigation is slow (then wait on the navigation, e.g. on Profile's heading, with a timeout that fits a cold compile, rather than the URL's default 5 s) or never issued at all (an app bug in the router hand-off, fix in the app).
-      Fix in flight: the PR from `autopilot/maint-112-profile-push-flake` (no WebKit where it was built, and the GitHub job kept no trace, since it uploads the report only when the job fails and these runs passed on retry) waits for the push's RSC request, then for Profile's heading with 20 s, before the URL check. Don't build this a second time. The item is done when the fallback acceptance below holds on a `master` that has it; if `[iphone] › e2e/flows.spec.ts:57` still fails there, and at the new request wait, the push never went out: look at the router hand-off in the app.
+      Fix merged (#1573, built without WebKit; the GitHub job kept no trace, since it uploads the report only when the job fails and these runs passed on retry): it waits for the push's RSC request, then for Profile's heading with 20 s, before the URL check. Don't build it a second time. The item is done when the fallback acceptance below holds on a `master` that has it; if `[iphone] › e2e/flows.spec.ts:57` still fails there, and at the new request wait, the push never went out: look at the router hand-off in the app.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `E2E_WEBKIT=1 npx playwright test e2e/flows.spec.ts --project=iphone --repeat-each=30` passes 30/30 (where WebKit can't be installed, the next two **Nightly e2e** runs (`e2e-nightly.yml`, which since #1579 is the only GitHub run of the `iphone` project) list `[iphone] › e2e/flows.spec.ts:57` passed on the first attempt, not `flaky`).
 - [ ] **MAINT-124. Flaky: the URL still has `?add=1` 5 s after the palette's "Add to shopping list" on iphone** (low, S) —
       `e2e/command-palette.spec.ts:288` ("Add to shopping list focuses the add box of the list in use"), `iphone` project (WebKit). First sighting: **Nightly e2e** run 44715652293 (job 136218234858) on `next` at 08ea77d, 2026-11-20: failed its first attempt and passed on retry #1. Desktop and mobile passed first time there, in the release PR #1642 shards on d6e6db7 and in a local `ci:local` on the same commit. Failing step: `:295`, `expect(page).toHaveURL(/\/dashboard\/shopping-list\/[^/?]+$/)` received `…/dashboard/shopping-list/<id>?add=1` after the 5000 ms timeout, so on WebKit the page reached the list but the `?add=1` hand-off query wasn't stripped (yet). Start by checking how the shopping-list page consumes `add=1` (focus, then `router.replace` without the query): whether WebKit's replace is slow on a cold route or the strip never runs when the box is focused before hydration. If the strip can legitimately land late, wait on the add box being focused first and then on the URL with a timeout that fits; if it never runs, fix it in the app.
-      Fix in flight: the PR from `autopilot/maint-124-palette-add-query-flake` (no WebKit where it was built: the proxy blocks Playwright's WebKit download) waits for the add box's focus, then for the `router.replace()` strip's own RSC request, then for the stripped URL with 20 s. The strip is in the same effect as the focus and the router writes the URL only once the list's server render arrives, so a cold WebKit can legitimately take over 5 s. Don't build this a second time. The item is done when the fallback acceptance below holds on a `master` that has it; if `[iphone] › e2e/command-palette.spec.ts:288` still fails there at the new request wait, the strip never went out: look at SmartAddBar's effect and the palette dialog's history hand-off in the app.
+      Fix merged (#1645, built without WebKit: the proxy blocks Playwright's WebKit download): it waits for the add box's focus, then for the `router.replace()` strip's own RSC request, then for the stripped URL with 20 s. The strip is in the same effect as the focus and the router writes the URL only once the list's server render arrives, so a cold WebKit can legitimately take over 5 s. Don't build this a second time. The item is done when the fallback acceptance below holds on a `master` that has it; if `[iphone] › e2e/command-palette.spec.ts:288` still fails there at the new request wait, the strip never went out: look at SmartAddBar's effect and the palette dialog's history hand-off in the app.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `E2E_WEBKIT=1 npx playwright test e2e/command-palette.spec.ts --project=iphone --repeat-each=30` passes 30/30 (where WebKit can't be installed, the next two **Nightly e2e** runs list `[iphone] › e2e/command-palette.spec.ts:288` passed on the first attempt, not `flaky`).
-
-### UX (2026-09-26 scout)
-
-Found by loading every dashboard route at 390×844 and 1280×800, in English
-and Swedish (which needed the seeded user's `locale` set in the DB — the
-`locale` cookie is only a fallback for signed-out pages, per
-`get-dictionary.ts`'s comment). No console errors, no untranslated strings,
-no broken empty states — the issues below are all clipped/illegible text.
-
-### UX (2026-09-30 scout)
-
-Found by reading the mobile (Pixel 7) and desktop `en`/`sv` screenshots from
-`npm run test:e2e:screenshots`. All 102 smoke/public tests pass, so these are
-judgement calls, not failures.
-
-### UX (2026-10-04 production-readiness audit)
-
-A full design audit of every page and every dialog, menu and popover:
-- 352 screenshots: Pixel 7, iPhone SE (1st gen) 320×568, Android 360×740, phone
-  landscape 863×393, iPad portrait 810×1080 and desktop, in dark and
-  light, en and sv, and at 200% text.
-- A probe for overflow, clipped text, tiny text and sub-16px fields.
-- 198 popups opened and closed with Escape.
-- A code read of `src/components/**` against DESIGN.md.
-
-The smoke suite passes. Every item below is something it doesn't
-measure, and each was confirmed in a screenshot or in code (file:line).
-Full report with screenshots: [Squirrel UI audit](https://claude.ai/artifact/FW6gUZ7NeMtTPVV15YwN2j).
-
-**File conflicts.** Several items touch the same shared primitives, so
-don't build these in parallel:
-- `ui/dialog.tsx`: UX-11, UX-12
-
-### UX (2026-10-15 full UI review)
-
-The owner asked for an extensive review of every page, logged in and
-logged out, with one goal: Squirrel should be fun to use and surprise
-people with how good it looks and feels. How it was found:
-- `npm run test:e2e:screenshots`: all 130 smoke/public checks pass.
-- Seven reviewers each signed up a fresh household. They filled it
-  through the UI with realistic data (long names, å/ä/ö) and used every
-  page, dialog, menu and swipe in their area on a Pixel 7 first, then on
-  desktop, in en and sv, light and dark.
-
-Every item below was reproduced in a screenshot or confirmed in code
-(file:line). Items already open elsewhere in this file were left out.
-
-**Start here.** These items are broken or actively mislead people, so
-build them first: UX-47.
-
-#### Logged out, signup and invites
-
-#### First run and the overview
-
-
-#### Profile and household settings
-
-#### Shopping
-
-#### Meals and recipes
-
-#### Inventory
-
-### UX (2026-10-23 scout)
-
-Friday area: household and personal budgets. Swept `desktop`, `mobile`,
-`landscape`, `tablet`, `small-phone`, `light`, `text-200` and both dialog
-sweeps; every route passes and the popup probe has no phone-size or
-off-screen hits in the budget dialogs. WebKit was not run.
-
-### UX (2026-10-25 scout)
-
-Sunday area: public, auth and legal pages, first-run flow. Swept `desktop`,
-`mobile`, `landscape`, `tablet`, `small-phone`, `light`, `text-200` and both
-dialog sweeps; all 268 + 132 tests pass and the popup probe has no phone-size
-hits. Signup error paths at 320 px keep input and put errors beside the
-field. WebKit was not run.
-
-### UX (2026-10-28 scout)
-
-Wednesday area: meal planning and recipes. Swept `desktop`, `mobile`,
-`landscape`, `tablet`, `small-phone`, `light`, `text-200` and both dialog
-sweeps; all 268 + 132 tests pass and the popup probe has no phone-size
-hits (its one "Collapse sheet 64x16" hit is the sheet grabber, whose
-`after:` pseudo-element already gives it the 44 px target). The two items
-below come from `text-200-dashboard-meal-planning.png`. WebKit was not run.
-
-
-### UX (2026-10-29 scout)
-
-Thursday area: tasks, household, members. Swept `desktop`, `mobile`,
-`landscape`, `tablet`, `small-phone`, `light`, `text-200` and both dialog
-sweeps; all 268 + 132 tests pass. The popup probe has no phone-size hits
-(its "Collapse sheet 64x16" is the sheet grabber, whose `after:`
-pseudo-element gives the 44 px target). WebKit was not run, and the
-per-action deep dive was not driven this run.
-
-### UX (2026-10-31 scout)
-
-Saturday area: overview, navigation shell, profile, notifications, what's
-new. Swept `desktop`, `mobile`, `landscape`, `tablet`, `small-phone`,
-`light`, `text-200` and both dialog sweeps; all 268 + 132 tests pass and the
-popup probe has no phone-size hits. The `text-200` "clipped" hits on the
-bottom bar's labels are the deliberate ellipsis of UX-150, not a finding.
-WebKit was not run, and the per-action deep dive was not driven this run.
-
-### UX (2026-10-31 design review)
-
-A full design and UX review of the app, run as a dual-agent critique and
-audit against DESIGN.md: 104 page screenshots (desktop and Pixel 7, en and
-sv), the design-audit sweep (320 px, light, 200 % text, 117 popups
-measured), ~70 driven flows (Pixel 7, 320 px, desktop, dark, Swedish at
-200 %), axe-core on 16 routes, tab-order traces, reduced-motion emulation
-and a contrast script over the token pairs `globals-contrast.test.ts`
-does not cover. The sweep is clean (no overflow, off-screen or sub-44 px
-hits anywhere); every item below is a hierarchy, first-run, theming or
-accessibility finding confirmed in a screenshot or in code. Full report
-with evidence: [Squirrel UX review](https://claude.ai/artifact/5ReYfhYPsSn72FRWUVk7Ew).
-Items already open (UX-30, UX-66, UX-89, UX-125, UX-41c, UX-43) were
-left out.
-
-**File conflicts.** Don't build these in parallel:
-- `src/components/inventory/inventory-client.tsx`: UX-166
-
-
-### UX (2026-11-04 scout)
-
-Wednesday area: meal planning and recipes. Swept `desktop`, `mobile`,
-`landscape`, `tablet`, `small-phone`, `light`, `text-200` and both dialog
-sweeps; all 290 + 132 tests pass, and the popup probe's only phone-size hit
-(the 64x16 sheet grabber, 44 px via `::after`) and the `text-200` bottom-bar
-ellipsis (UX-150) are already known. WebKit was not run, and the per-action
-deep dive was a screenshot and code read, not driven through the UI.
-
-### UX (2026-11-05 scout)
-
-Thursday area: tasks, household, members and invites. Swept `desktop`,
-`mobile`, `landscape`, `tablet`, `small-phone`, `light`, `text-200` and both
-dialog sweeps; all 290 + 132 tests pass, and the popup probe's only
-phone-size hit (the sheet grabber) and the `text-200` bottom-bar ellipsis
-(UX-150) are already known. The household tab bar scrolls at 200% text
-(Settings is cut by its fade), which is by design. WebKit was not run (no
-browser installed here), and the per-action deep dive was a screenshot and
-code read, not driven through the UI.
-
-### UX (2026-11-07 scout)
-
-Saturday area: overview, navigation shell, profile, notifications, what's
-new. Swept `desktop`, `mobile`, `landscape`, `tablet`, `small-phone`,
-`light`, `text-200` and both dialog sweeps; all 290 + 132 tests pass. The
-only audit hits are the known `text-200` bottom-bar ellipsis (UX-150) and
-a hidden zero-size "Invite member" button on the household page. WebKit was
-not run (no browser installed here), and the per-action deep dive was a
-screenshot and code read, not driven through the UI.
-
-### UX (2026-11-08 scout)
-
-Sunday area: public, auth and legal pages, first-run flow. Swept `desktop`,
-`mobile`, `landscape`, `tablet`, `small-phone`, `light`, `text-200` and both
-dialog sweeps; all 290 + 132 tests pass. The only audit hits are the known
-`text-200` bottom-bar ellipsis (UX-150) and the sheet grabber. WebKit was
-not run (no browser installed here), and the per-action deep dive was a
-screenshot and code read, not driven through the UI.
-
-### UX (2026-11-09 scout)
-
-Monday area: inventory and item pages. Swept `desktop`, `mobile`,
-`landscape`, `tablet`, `small-phone`, `light`, `text-200` and both dialog
-sweeps; all 290 + 132 tests pass, and the only audit hits are the known
-`text-200` bottom-bar ellipsis (UX-150) and the sheet grabber. The deep dive
-drove the add-item sheet at 320 px (empty submit, 90-character name).
-WebKit was not run (no browser installed here). The audit config has no
-fallback for the missing headless shell that `playwright.config.ts` has, so
-the audit was run through an uncommitted copy with `executablePath` set.
-
-### UX (2026-11-11 scout)
-
-Wednesday area: meal planning and recipes. Swept `desktop`, `mobile`,
-`landscape`, `tablet`, `small-phone`, `light`, `text-200` and both dialog
-sweeps; all 290 + 132 tests pass, and the only audit hits are the known
-`text-200` bottom-bar ellipsis (UX-150), the hidden "Invite member" button
-and the sheet grabber. The deep dive drove the four tabs, the new-recipe
-sheet (empty submit, 80-character Swedish-flavoured name, a keyboard-height
-viewport), the recipe sheet and the add-meal sheet on Pixel 7 (en, sv) and
-at 320 px; Save stays pinned above the keyboard and errors sit by the
-field. WebKit was not run (no browser installed here).
-
-### UX (2026-11-13 scout)
-
-Friday area: household and personal budgets. Swept `desktop`, `mobile`,
-`landscape`, `tablet`, `small-phone`, `light`, `text-200` and both dialog
-sweeps; all 290 + 132 tests pass. The deep dive drove the starter set, the
-add-transaction sheet (empty submit, negative amount, a 75-character
-Swedish description, Undo toast) and the Activity, Setup and Insights tabs
-on Pixel 7 and at 320 px. No small targets, no console errors, and errors
-sit by the field, so nothing filed for budgets. One gap: the seeded
-households have no budget categories, so every sweep only photographs the
-budget onboarding card. Safe to spend going red on the first expense with
-no income is the documented UX-154 behaviour. WebKit was not run (no
-browser installed here).
-
-### UX (2026-11-14 scout)
-
-Saturday area: overview, navigation shell, profile, notifications, what's
-new. Swept `desktop`, `mobile`, `landscape`, `tablet`, `small-phone`,
-`light`, `text-200` and both dialog sweeps; all 290 + 132 tests pass, and
-the only audit hits are the known `text-200` bottom-bar ellipsis (UX-150).
-The deep dive drove the More menu, the notification submenu (four seeded
-notifications: dismiss one, dismiss all) and the notification centre on
-Pixel 7 and at 320 px, and measured the landscape sidebar (it scrolls as
-UX-7 documents, so it isn't filed). WebKit was not run (no browser
-installed here).
-
-### UX (2026-11-15 scout)
-
-Sunday area: public, auth and legal pages, and the first-run flow. Swept
-`desktop`, `mobile`, `landscape`, `tablet`, `small-phone`, `light`,
-`text-200` and both dialog sweeps; all 290 + 132 tests pass, and the
-only audit hits are the known `text-200` truncations (UX-150); the
-screenshot review found UX-196. The deep
-dive drove login, forgot and reset password, signup (to the confirmation
-view and a resend), a valid invite, the no-household page and a new
-household's first run on Pixel 7 and at 320 px, in `en` and `sv`.
-WebKit was not run (no browser installed here), and no project in
-either sweep renders the dark theme (`mobile` has no `colorScheme`), so
-dark was not looked at.
-
-### UX (2026-11-16 scout)
-
-Monday area: inventory and item pages. Swept `desktop`, `mobile`,
-`landscape`, `tablet`, `small-phone`, `light`, `text-200` and both dialog
-sweeps; all 290 + 132 tests pass, and the only audit hits are the known
-`text-200` truncations (UX-150). The deep dive drove add (empty and with
-a 70-character name), the quantity sheet, Mark as empty, delete and Undo,
-bulk select, search and the item page on Pixel 7 and at 320 px, in `en`
-and `sv`. WebKit was not run (no browser installed here), and dark was
-not looked at (no project renders it).
-
-### UX (2026-11-17 scout)
-
-Tuesday area: shopping lists, shopping mode and the share page. Swept
-`desktop`, `mobile`, `landscape`, `tablet`, `small-phone`, `light`,
-`text-200` and both dialog sweeps; all 290 + 132 tests pass. The only
-audit hits are the known `text-200` bottom-bar truncations (UX-150) and
-the Next up dock's aisle name ("Baki…") at 200% text, which is too small
-to file on its own. The deep dive drove smart add (with a
-70-character Swedish name), the inline price edit with invalid input,
-tick, the row and list menus, share and the share page, and an empty
-new list on Pixel 7 and at 320 px, in `en` and `sv`. WebKit was not run
-(no browser installed here), and dark was not looked at.
-
-### UX (2026-11-18 scout)
-
-Wednesday area: meal planning and recipes. Swept `desktop`, `mobile`,
-`landscape`, `tablet`, `small-phone`, `light`, `text-200` and both dialog
-sweeps; all 290 + 132 tests pass. The only audit hits are the known
-`text-200` bottom-bar truncations (UX-150) and the hidden "Invite member"
-button. The landscape sidebar and the Next up dock look cut off in the
-full-page shots. Both are documented behaviour: on short screens the
-aside scrolls (UX-7), and the dock is sticky (UX-37). The deep dive drove the add-meal sheet (empty
-submit, Custom meal with an empty name, a 79-character Swedish name), the
-meal row sheet, Fill empty days, Cook now, Meal prep, the recipe sheet and
-cook mode on Pixel 7 and at 320 px. WebKit was not run (no browser
-installed here), and dark was not looked at (no project renders it).
-
-### UX (2026-11-19 scout)
-
-Thursday area: tasks, household, members and invites. Swept `desktop`,
-`mobile`, `landscape`, `tablet`, `small-phone`, `light`, `text-200` and
-both dialog sweeps; all 290 + 132 tests pass, and the only audit hits are
-the known `text-200` bottom-bar truncations (UX-150), the hidden "Invite
-member" button and the sheet grabber. The deep dive drove the add-task
-sheet (empty submit, an 89-character Swedish title), the edit sheet, tick
-and Undo, a tick while offline, the three Household tabs, adding and
-pinning a note (online and offline), the invite dialog and closing a
-pending invite, on Pixel 7 and at 320 px. Tasks hold up: errors sit by
-the field, Save stays reachable and an offline tick rolls back with a
-toast. The household notes board and the pending-invites list don't.
-WebKit was not run (no browser installed here), and the audit config
-still needs an uncommitted `executablePath` copy to launch Chromium.
-
-### UX (2026-11-22 scout)
-
-Sunday area: public, auth and legal pages, and the first-run flow. Swept
-`desktop`, `mobile`, `landscape`, `tablet`, `small-phone`, `light`,
-`text-200` and both dialog sweeps. All 290 + 132 tests pass, and the only
-audit hits are the known `text-200` truncations (UX-150) and the hidden
-"Invite member" button. The screenshot review's touch-target suspicions
-(Forgot password, footer links, status-card links) measured 44 px on
-phones, so they aren't filed. The deep dive drove login, signup and
-forgot password on Pixel 7 (`en`) and at 320 px (`sv`): once submitted
-offline, and once with signup reloaded half-filled. WebKit was not run
-(no browser installed here). The audit config still needs an
-uncommitted `executablePath` copy to launch Chromium.
 
 ### UX (2026-11-25 scout)
 
@@ -510,32 +161,6 @@ DESIGN.md: errors sit beside the field, input is kept, and every target
 is at least 44 px. It also timed Copy last week with the server action
 held for 4 s. WebKit was not run (no browser installed here).
 
-- [ ] **UX-213. Show progress on the planner's whole-week actions** (impact: med, effort: S) —
-      Copy last week (⋯ menu), Fill empty days and a plan template's
-      "Use" each write up to a week of meals and show nothing while they
-      run. Copy last week runs from a menu item that closes on tap, so
-      its `disabled={copyPending}` (`week-planner.tsx:211`) is never
-      seen. With the action held for 4 s on Pixel 7, the ⋯ trigger
-      stayed enabled and no spinner or toast appeared until the result.
-      Fill empty days (`fill-empty-days-dialog.tsx:160`) and "Use"
-      (`plan-template-dialogs.tsx:193`, which shares one `pending` with
-      the row's Delete) only grey out. None of the three
-      (`week-planner-helpers.ts:54`, `fill-empty-days-dialog.tsx:73`,
-      `plan-template-dialogs.tsx:131`) catches a rejected call, so a
-      dropped connection hits the error boundary. This breaks M5
-      (pending, then result) and M8 (say "you're offline"). Fix: show
-      `Loader2` on the ⋯ trigger and disable it while copying, use
-      `PendingLabel` with a busy string (en + sv) on Fill empty days and
-      Use, give Use and Delete their own transitions, and wrap each call
-      in try/catch with `unstable_rethrow` and
-      `toast.error(dict.prepConnectionError)`, as `meal-entry-row.tsx:121`
-      does.
-      Acceptance: an `e2e/` spec (`mobile` and `desktop`) holds the
-      server action with `page.route`. After tapping Copy last week, the
-      "More planner actions" button is disabled and busy until the
-      "Copied … meals" toast appears. In the Fill empty days dialog the
-      submit button shows its busy label. With the route aborted, an
-      error toast shows and the page stays on the planner.
 - [ ] **UX-214. Let the full text in meal-planning lists be read on a phone** (impact: med, effort: S) —
       Two lists cut off text whose rest can only be reached through a
       `title` tooltip, which touch can't open.
@@ -566,33 +191,21 @@ held for 4 s. WebKit was not run (no browser installed here).
       long meal names shows both, and the slot buttons compute to at
       least 14 px.
 
-
 ---
 
 ## Phase 2 — schema changes, one at a time
 
 Each item adds a migration (`npx prisma migrate dev --name <name>`, local
-only — production only ever runs `migrate deploy`). Land sequentially; the
-order below is a suggestion, not a dependency, unless noted.
+only — production only ever runs `migrate deploy`), so land them one at a
+time. None open.
 
 ## Phase 3 — larger items, own PR each
 
 ### State-of-the-art UI (2026-10-04 design audit)
 
-The owner wants the UI itself to be what sets Squirrel apart. The
-benchmark is the best consumer apps on the same tasks:
-- **Bring!** and **AnyList**: offline in the shop, tactile lists.
-- **Todoist** and **Things**: swipe actions, instant feedback, motion.
-- **Copilot Money**: charts and numbers that feel alive.
-
-The UX items above make the app correct. These make it feel native and
-delightful. Motion and view transitions shipped as UX-33, swipe row
-actions as UX-35 and drag-to-dismiss sheets as UX-34. Still to come: the
-charts are hand-rolled `div`s. Land UX-7 to UX-14 first:
-polish on top of broken layouts is wasted. Each item keeps M7 (every
-gesture has a visible button) and respects `prefers-reduced-motion`.
-UX-36 (offline ticks in the shop) and UX-36b (offline adds) shipped;
-price edits stay online.
+The owner wants the UI itself to be what sets Squirrel apart (benchmarks:
+Bring!, AnyList, Todoist, Things, Copilot Money). Motion, swipe actions,
+drag-to-dismiss sheets and offline ticks and adds have shipped.
 
 - [ ] **UX-43. Visual regression screenshots in CI** (M) `[!]` needs a decision on
       how baselines are made — Keep the polish
@@ -919,38 +532,11 @@ Checked Bring!, Listonic and OurHome, plus Copilot Money and Monarch for
 budgets. Most of what they ship is already here or already turned down:
 who added an item (GAP-65), urgent items (GAP-86), aisle order, smart
 suggestions, task rotation, loyalty cards (GAP-68), and chore points
-(REQUIREMENTS.md "Household tasks" rules them out). Two gaps are left:
-one buildable item below, and one money question filed under "Needs a
-decision before building":
+(REQUIREMENTS.md "Household tasks" rules them out). Two gaps were left:
+GAP-89 (tell the household you're going shopping), since built (see
+REQUIREMENTS.md, "Tell the household you're going shopping"), and one
+money question filed under "Needs a decision before building":
 
-- [ ] **GAP-89. Tell the household you're going shopping** (impact: med,
-      effort: S) — Bring! has ready-made messages for this ("I'm going
-      shopping, add what you need"), and it covers the moment where a
-      shared list helps most: a partner adds the missing item before the
-      trip, not after. In Squirrel, the only way to find out someone is
-      at the store is to message them outside the app. GAP-26 (live
-      presence) needs new infrastructure; this doesn't. It's a one-shot
-      push through the existing `sendPushToHouseholdMembers`
-      (`src/lib/push.ts:92`), which already respects quiet hours. Add a
-      "Going shopping" item to the list's ⋯ menu
-      (`src/components/shopping/shopping-list-client.tsx`, beside "Copy
-      as text" at :596). It calls a click action in
-      `src/app/dashboard/shopping-list/list-actions.ts`. The action takes
-      the household from `requireHousehold()`, re-checks that the list
-      belongs to it and is open, and pushes to every other member:
-      "{name} is going shopping, add anything you need to {list}". The
-      push links to `/dashboard/shopping-list/{id}`. It's rate-limited
-      through `checkRateLimit` (`src/lib/rate-limit.ts:122`) to one per
-      user and list every 30 minutes. A repeat within that window still
-      succeeds but sends nothing, so a double tap can't spam. No schema
-      change and no bell row, because the message is out of date once
-      the trip ends. The toast says "Let the household know", or "No one
-      else to tell" in a one-member household, where the item is hidden
-      instead. Strings go in en and sv.
-      Acceptance: a unit test covers tenancy, a closed list, the rate
-      limit and skipping the sender. An e2e test on `mobile` and
-      `desktop` opens the ⋯ menu, taps "Going shopping" and sees the
-      toast. The item isn't shown in a one-member household.
 - GAP-90 (refunds against an expense category) needs a product call, so
   it is under "Needs a decision before building".
 
@@ -997,8 +583,8 @@ decision before building":
       abstraction (an injected `{ findCategory, createCategory,
       deleteCategory, ... }` object per scope). The archived spike argues
       against merging the underlying Prisma models, but left this smaller
-      question open. Revisit only after BUDGET-2 → BUDGET-5 land and the
-      real prop surface each merged component needs is known.
+      question open. BUDGET-2 → BUDGET-5 (the merged components) have
+      shipped, so the real prop surface is now known.
 
 - [ ] **GAP-88b. Hour-scale reminders for calendar events** `[!]` —
       the rest of GAP-88 (split 2026-11-25): "the dentist, an hour

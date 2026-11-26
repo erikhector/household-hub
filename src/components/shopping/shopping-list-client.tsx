@@ -18,6 +18,7 @@ import {
   Download,
   Ellipsis,
   Link2,
+  Megaphone,
   PackageCheck,
   PackagePlus,
   Pencil,
@@ -65,6 +66,7 @@ import { SmartAddBar } from "@/components/shopping/smart-add-bar";
 import { OfflinePendingAdds } from "@/components/shopping/offline-pending-adds";
 import { NextUpDock } from "@/components/shopping/shopping-mode";
 import {
+  announceGoingShoppingAction,
   completeShoppingListAction,
   deleteShoppingListAction,
   generateFromLowStockAction,
@@ -137,6 +139,7 @@ export function ShoppingListClient({
   nextListId = null,
   moveTargets = [],
   aliases = [],
+  hasOtherMembers = false,
 }: {
   list: ShoppingListData;
   inventoryItems: InventoryItemOption[];
@@ -174,6 +177,9 @@ export function ShoppingListClient({
   /** MATCH-5: the household's learned item names, so a receipt line or an
    * unlinked row's suggestion links the way the household taught it. */
   aliases?: ItemAliasLike[];
+  /** GAP-89: someone else is in the household, so "Going shopping" has
+   * someone to tell. False hides that menu item. */
+  hasOtherMembers?: boolean;
 }) {
   const [isPending, startTransition] = useTransition();
   // Same formatter as the budget page's amounts (SafeToSpend,
@@ -323,6 +329,17 @@ export function ShoppingListClient({
       } else {
         toast.info(dict.addLowStockNoneToast);
       }
+    });
+
+  const announceGoingShopping = () =>
+    startTransition(async () => {
+      const result = await announceGoingShoppingAction(list.id);
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+      if (result.told) toast.success(dict.goingShopping.toast);
+      else toast.info(dict.goingShopping.aloneToast);
     });
 
   // Shared by "Done shopping" (no confirm — every item is already checked
@@ -583,6 +600,12 @@ export function ShoppingListClient({
                       <DropdownMenuItem onClick={() => setPutAwayMode("putAway")}>
                         <PackageCheck />
                         {format(dict.putAway.button, { count: awaitingPutAway.length })}
+                      </DropdownMenuItem>
+                    )}
+                    {isActive && hasOtherMembers && (
+                      <DropdownMenuItem onClick={announceGoingShopping}>
+                        <Megaphone />
+                        {dict.goingShopping.menuItem}
                       </DropdownMenuItem>
                     )}
                     {isActive && (
