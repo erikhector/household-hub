@@ -55,6 +55,13 @@ describe("loadWrapped", () => {
     });
   });
 
+  it("reads repeats from any earlier year but one-off events only from this one", async () => {
+    await loadWrapped("h1", 2026, NOW, "UTC");
+    const where = mocks.householdEvent.mock.calls[0][0].where;
+    expect(where.date).toEqual({ lte: new Date("2026-11-27T00:00:00Z") });
+    expect(where.OR).toEqual([{ recurrence: { not: null } }, { date: { gte: new Date("2026-01-01T00:00:00Z") } }]);
+  });
+
   it("is thin for a household with nothing this year", async () => {
     expect(await loadWrapped("h1", 2026, NOW, "UTC")).toEqual({ state: "thin", year: 2026 });
   });

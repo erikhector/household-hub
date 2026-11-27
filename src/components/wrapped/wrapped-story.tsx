@@ -154,6 +154,9 @@ export function WrappedStory({
   const [direction, setDirection] = useState<"forward" | "back">("forward");
   const pointerStart = useRef<{ x: number; y: number } | null>(null);
   const storyRef = useRef<HTMLDivElement>(null);
+  const backRef = useRef<HTMLButtonElement>(null);
+  const nextRef = useRef<HTMLButtonElement>(null);
+  const backHadFocus = useRef(false);
   const last = cards.length - 1;
 
   // Close, Done and Escape go back to wherever the story was opened from
@@ -171,11 +174,21 @@ export function WrappedStory({
 
   const go = useCallback(
     (step: 1 | -1) => {
+      // Stepping back onto the first card disables Back, and a disabled
+      // button drops focus to <body>, out of the story (M10). Noted here,
+      // while Back still has focus, and handed to Next once the card shows.
+      if (step === -1 && document.activeElement === backRef.current) backHadFocus.current = true;
       setDirection(step === 1 ? "forward" : "back");
       setIndex((i) => Math.min(last, Math.max(0, i + step)));
     },
     [last],
   );
+
+  useEffect(() => {
+    if (!backHadFocus.current) return;
+    backHadFocus.current = false;
+    if (index === 0) nextRef.current?.focus();
+  }, [index]);
 
   // Arrow keys step, Escape leaves. On the window so they work wherever
   // focus is in the story; the story takes focus on open so a keyboard user
@@ -389,7 +402,10 @@ export function WrappedStory({
         <article
           key={index}
           className={cn(
-            "flex w-full flex-col justify-center overflow-y-auto rounded-xl bg-card p-6 text-card-foreground ring-1 ring-foreground/10",
+            // Centred while the card fits, top-aligned once it doesn't: a
+            // plain justify-center pushes the top of a tall card (a phone on
+            // its side, 200% text) above the scroll start, out of reach (M9).
+            "flex w-full flex-col justify-center-safe overflow-y-auto rounded-xl bg-card p-6 text-card-foreground ring-1 ring-foreground/10",
             "motion-safe:animate-in motion-safe:fade-in motion-safe:duration-200",
             direction === "forward" ? "motion-safe:slide-in-from-right-8" : "motion-safe:slide-in-from-left-8",
           )}
@@ -400,7 +416,7 @@ export function WrappedStory({
       </div>
 
       <div className="mx-auto flex w-full max-w-md items-center justify-between gap-3">
-        <Button variant="outline" onClick={() => go(-1)} disabled={index === 0} className="gap-1">
+        <Button ref={backRef} variant="outline" onClick={() => go(-1)} disabled={index === 0} className="gap-1">
           <ChevronLeft className="size-4" aria-hidden />
           {dict.back}
         </Button>
@@ -409,7 +425,7 @@ export function WrappedStory({
             {dict.done}
           </Button>
         ) : (
-          <Button onClick={() => go(1)} className="gap-1">
+          <Button ref={nextRef} onClick={() => go(1)} className="gap-1">
             {dict.next}
             <ChevronRight className="size-4" aria-hidden />
           </Button>

@@ -49,7 +49,8 @@ export type WrappedRows = {
   stockEvents: { reason: string; delta: number; createdAt: Date; itemName: string }[];
   /** Tasks whose latest completion is in the year. */
   completedTasks: { completedAt: Date }[];
-  /** Calendar events that start on or before the year's last day. */
+  /** Calendar events that can fall in the range: repeats that start on or
+   * before its last day, and one-offs dated inside it. */
   events: { date: Date; recurrence: EventRecurrence | null }[];
   /** Household budget transactions, by their calendar day. */
   transactions: { date: Date }[];
@@ -70,11 +71,25 @@ export type WrappedStats = {
   year: number;
   shopping: { listsCompleted: number; itemsBought: number; topItem: WrappedTop | null };
   meals: { cooked: number; topRecipe: WrappedTop | null };
-  pantry: { restocks: number; topRestocked: WrappedTop | null };
+  pantry: {
+    /** Every put-in: hand restocks and trips put away. The card's number. */
+    restocks: number;
+    /** Just the hand restocks (a +1 or a scan): a trip put away is already
+     * items bought, so only these score the stocker persona. */
+    handRestocks: number;
+    topRestocked: WrappedTop | null;
+  };
   tasks: { completed: number };
-  calendar: { events: number };
+  calendar: {
+    /** Every day an event fell on in the range, repeats included. The card's number. */
+    events: number;
+    /** Events whose own start date is in the range: the ones planned this
+     * year, so only these score the planner persona. */
+    planned: number;
+  };
   activity: {
-    /** Countable things done (see activity below); money not included. */
+    /** Countable things done (see computeWrapped); money and calendar
+     * occurrences not included. */
     total: number;
     /** Distinct local days with any activity. */
     activeDays: number;
@@ -145,13 +160,19 @@ function topByName(names: readonly string[]): WrappedTop | null {
 /** The persona the closing card names. Each feature's activity is weighted
  * by roughly how much effort one unit is (cooking a meal is more than
  * ticking one item), and the biggest wins; ties go in the order below, so
- * the same stats always give the same squirrel. Money never counts. */
+ * the same stats always give the same squirrel. Money never counts.
+ *
+ * Nothing scores twice or for free: a trip put away is already items
+ * bought, so the stocker counts only hand restocks; and a repeating event
+ * is planned once, not once per occurrence, so the planner counts the
+ * events dated in the range, not every day a weekly swim fell on (one
+ * event made years ago would otherwise outscore a year of cooking). */
 export function pickPersona(stats: Pick<WrappedStats, "shopping" | "meals" | "pantry" | "tasks" | "calendar">): WrappedPersona {
   const scores: [WrappedPersona, number][] = [
-    ["planner", (stats.tasks.completed + stats.calendar.events) * 2],
+    ["planner", (stats.tasks.completed + stats.calendar.planned) * 2],
     ["chef", stats.meals.cooked * 4],
     ["forager", stats.shopping.itemsBought + stats.shopping.listsCompleted * 3],
-    ["stocker", stats.pantry.restocks * 2],
+    ["stocker", stats.pantry.handRestocks * 2],
   ];
   let best = scores[0];
   for (const entry of scores) if (entry[1] > best[1]) best = entry;
@@ -164,7 +185,8 @@ export function computeWrapped(input: WrappedInput): WrappedResult {
   const inRange = (day: number) => day >= firstDay && day <= lastDay;
 
   // Every countable thing lands on a local day; the days give "active
-  // days" and the months "busiest month".
+  // days" and the months "busiest month". Money and calendar occurrences
+  // are shown but never counted here (see each below).
   const activeDays = new Set<number>();
   const perMonth = new Array<number>(12).fill(0);
   let total = 0;
@@ -203,21 +225,26 @@ export function computeWrapped(input: WrappedInput): WrappedResult {
   const restocks = input.stockEvents.filter(
     (event) => RESTOCK_REASONS.has(event.reason) && event.delta > 0 && inRange(instantDay(event.createdAt)),
   );
-  restocks.filter((event) => event.reason === "restocked").forEach((event) => count(instantDay(event.createdAt)));
+  const handRestocks = restocks.filter((event) => event.reason === "restocked");
+  handRestocks.forEach((event) => count(instantDay(event.createdAt)));
 
   const taskDays = input.completedTasks.map((t) => instantDay(t.completedAt)).filter(inRange);
   taskDays.forEach(count);
 
-  // Every day an event fell on (a weekly swim is 52 of them), up to today.
+  // Every day an event fell on (a weekly swim is 52 of them), up to today,
+  // for the calendar card. An occurrence isn't something anyone did, though:
+  // a weekly event made in an earlier year lands on every week of this one
+  // untouched. Counting those filled the active days and the busiest month
+  // with weeks nobody opened the app, and lifted a household that did
+  // nothing out of "check back later". So the calendar adds nothing to the
+  // activity total, the active days or the busiest month.
   let eventCount = 0;
   for (const event of input.events) {
     for (const day of expandEventOccurrences(event, firstDate, lastDate)) {
-      const n = eventDayNumber(day);
-      if (!inRange(n)) continue;
-      eventCount += 1;
-      count(n);
+      if (inRange(eventDayNumber(day))) eventCount += 1;
     }
   }
+  const plannedEvents = input.events.filter((event) => inRange(eventDayNumber(event.date))).length;
 
   const transactions = input.transactions.filter((t) => inRange(eventDayNumber(t.date))).length;
 
@@ -231,9 +258,9 @@ export function computeWrapped(input: WrappedInput): WrappedResult {
   const features = {
     shopping: { listsCompleted: listDays.length, itemsBought: bought.length, topItem: topByName(bought.map((b) => b.name)) },
     meals: { cooked: cooked.length, topRecipe },
-    pantry: { restocks: restocks.length, topRestocked: topByName(restocks.map((r) => r.itemName)) },
+    pantry: { restocks: restocks.length, handRestocks: handRestocks.length, topRestocked: topByName(restocks.map((r) => r.itemName)) },
     tasks: { completed: taskDays.length },
-    calendar: { events: eventCount },
+    calendar: { events: eventCount, planned: plannedEvents },
   };
   const stats: WrappedStats = {
     year,

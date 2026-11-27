@@ -76,13 +76,22 @@ year easier.
 - **Tasks**: "different tasks ticked off", with a note that each counts
   once however often it came round.
 - **Calendar**: occurrences up to today, repeats expanded, so a weekly
-  activity counts each week.
-- **Busiest month**: from every counted thing on its local day; a
-  put-away trip isn't counted twice (it's already an item bought). The
-  card shows the month and the number of active days, not a total, so no
-  figure overclaims.
-- **Persona**: weighted scores (tasks + events ×2, meals ×4, items + lists
-  ×3, restocks ×2), ties broken Planner, Chef, Forager, Stockpiler.
+  activity counts each week on the calendar card. They aren't activity,
+  though: a weekly event made in an earlier year lands on every week
+  untouched, so occurrences never feed the activity total, active days,
+  busiest month or thin threshold.
+- **Busiest month**: from every counted thing on its local day (calendar
+  occurrences excluded); a put-away trip isn't counted twice (it's
+  already an item bought). The card shows the month and the number of
+  active days, not a total, so no figure overclaims.
+- **Persona**: weighted scores (tasks + events dated this year ×2, meals
+  ×4, items + lists ×3, hand restocks ×2), ties broken Planner, Chef,
+  Forager, Stockpiler. Nothing scores twice or for free: a put-away trip
+  is already items bought, and a repeat counts once, in the year it's
+  dated, not per occurrence.
+- **Tall cards**: centred while they fit, scrolled from their own top
+  once they don't (`justify-center-safe`), so a phone in landscape or
+  200% text never hides a card's top (M9).
 - **Share text**: the persona and up to three counts; never the household
   name (it may be a family name) or money.
 - **Navigation**: More menu and sidebar footer next to What's new, with

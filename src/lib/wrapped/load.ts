@@ -45,9 +45,10 @@ export async function loadWrapped(householdId: string, year: number, now: Date, 
       select: { completedAt: true },
     }),
     // A repeat that started in an earlier year still lands on days in this
-    // one, so every event up to the last day is read and expanded.
+    // one, so every repeat up to the last day is read and expanded; a
+    // one-off only counts on its own day, so older ones stay unread.
     prisma.householdEvent.findMany({
-      where: { householdId, date: { lte: lastDate } },
+      where: { householdId, date: { lte: lastDate }, OR: [{ recurrence: { not: null } }, { date: { gte: firstDate } }] },
       select: { date: true, recurrence: true },
     }),
     prisma.transaction.findMany({

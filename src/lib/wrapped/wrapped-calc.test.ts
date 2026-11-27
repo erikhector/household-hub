@@ -204,9 +204,24 @@ describe("computeWrapped counts", () => {
         }),
       ),
     );
-    expect(result.stats.pantry).toEqual({ restocks: 3, topRestocked: { name: "Coffee", count: 2 } });
+    expect(result.stats.pantry).toEqual({ restocks: 3, handRestocks: 2, topRestocked: { name: "Coffee", count: 2 } });
     // The trip is already an item bought, so only the two hand restocks add to activity.
     expect(result.stats.activity.total).toBe(12);
+  });
+
+  it("doesn't score a put-away trip twice: items bought and put away make a forager", () => {
+    // Twelve items bought and put away over twelve days, each with its trip event.
+    const at = (i: number) => new Date(Date.UTC(2026, 3, 1 + i, 17));
+    const result = story(
+      computeWrapped(
+        input({
+          boughtItems: Array.from({ length: 12 }, (_, i) => ({ name: `Item ${i}`, checkedOffAt: null, putAwayAt: at(i) })),
+          stockEvents: Array.from({ length: 12 }, (_, i) => ({ reason: "trip", delta: 1, createdAt: at(i), itemName: `Item ${i}` })),
+        }),
+      ),
+    );
+    expect(result.stats.pantry).toMatchObject({ restocks: 12, handRestocks: 0 });
+    expect(result.stats.persona).toBe("forager");
   });
 
   it("counts every calendar day an event fell on, up to today", () => {
@@ -224,7 +239,34 @@ describe("computeWrapped counts", () => {
         }),
       ),
     );
-    expect(result.stats.calendar.events).toBe(6);
+    // Six days on the card, but only the two events dated this year were planned in it.
+    expect(result.stats.calendar).toEqual({ events: 6, planned: 2 });
+    // ...and none of the six is activity: the ten tasks are all there is.
+    expect(result.stats.activity).toEqual({ total: 10, activeDays: 10, busiestMonth: 2 });
+  });
+
+  it("doesn't let a repeating event lift a household out of thin", () => {
+    // One weekly event made last year lands on every week of this one; nobody did anything.
+    const events = [{ date: new Date("2025-01-06T00:00:00Z"), recurrence: "WEEKLY" as const }];
+    expect(computeWrapped(input({ events })).state).toBe("thin");
+    expect(computeWrapped(input({ events, completedTasks: tasks(WRAPPED_MIN_ACTIVITY - 1) })).state).toBe("thin");
+  });
+
+  it("keeps calendar occurrences out of the busiest month", () => {
+    const result = story(
+      computeWrapped(
+        input(
+          {
+            completedTasks: tasks(10, "2026-03-01"),
+            // Three weekly events through August: 15 occurrences (1-29 Aug), no activity.
+            events: Array.from({ length: 3 }, () => ({ date: new Date("2026-08-01T00:00:00Z"), recurrence: "WEEKLY" as const })),
+          },
+          { now: new Date("2026-08-31T12:00:00Z") },
+        ),
+      ),
+    );
+    expect(result.stats.calendar.events).toBe(15);
+    expect(result.stats.activity.busiestMonth).toBe(2);
   });
 
   it("counts transactions by calendar day, as a neutral number", () => {
@@ -294,16 +336,31 @@ describe("pickPersona", () => {
   const zero = {
     shopping: { listsCompleted: 0, itemsBought: 0, topItem: null },
     meals: { cooked: 0, topRecipe: null },
-    pantry: { restocks: 0, topRestocked: null },
+    pantry: { restocks: 0, handRestocks: 0, topRestocked: null },
     tasks: { completed: 0 },
-    calendar: { events: 0 },
+    calendar: { events: 0, planned: 0 },
   };
 
   it("picks the feature with the most weighted activity", () => {
     expect(pickPersona({ ...zero, meals: { cooked: 10, topRecipe: null } })).toBe("chef");
     expect(pickPersona({ ...zero, shopping: { listsCompleted: 5, itemsBought: 100, topItem: null } })).toBe("forager");
-    expect(pickPersona({ ...zero, pantry: { restocks: 30, topRestocked: null } })).toBe("stocker");
-    expect(pickPersona({ ...zero, tasks: { completed: 20 }, calendar: { events: 5 } })).toBe("planner");
+    expect(pickPersona({ ...zero, pantry: { restocks: 30, handRestocks: 30, topRestocked: null } })).toBe("stocker");
+    expect(pickPersona({ ...zero, tasks: { completed: 20 }, calendar: { events: 5, planned: 5 } })).toBe("planner");
+  });
+
+  it("scores the planner by events planned this year, not by every repeat", () => {
+    // A weekly event from an earlier year: 47 days on the card, none planned this year.
+    expect(pickPersona({ ...zero, calendar: { events: 47, planned: 0 }, meals: { cooked: 5, topRecipe: null } })).toBe("chef");
+  });
+
+  it("scores the stocker by hand restocks, not trips already counted as bought", () => {
+    expect(
+      pickPersona({
+        ...zero,
+        pantry: { restocks: 30, handRestocks: 0, topRestocked: null },
+        shopping: { listsCompleted: 0, itemsBought: 30, topItem: null },
+      }),
+    ).toBe("forager");
   });
 
   it("weights a cooked meal above an item bought", () => {
