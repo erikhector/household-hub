@@ -99,6 +99,35 @@ Parallel-safe except where noted.
 
 ### Dependencies
 
+- [ ] **DEPS-12. Bump the in-range patch/minor versions** (impact: low, effort: S) —
+      `npm outdated` (2026-11-27) lists 12 bumps that `package.json`'s ranges
+      already allow: `@sentry/nextjs` 11.12.0 → 11.19.0, `lucide-react`
+      1.73.0 → 1.82.0, `resend` 6.38.1 → 6.40.1, `knip` 6.45.1 → 6.48.0,
+      `@types/node` 22.20.5 → 22.20.7, `@types/react` 19.3.0 → 19.3.3,
+      `@upstash/redis` 1.41.0 → 1.41.1, `@vercel/functions` 3.11.3 → 3.11.4,
+      `axe-core` 4.14.0 → 4.14.1, `barcode-detector` 3.2.4 → 3.2.5,
+      `shadcn` 4.23.0 → 4.23.1, `vitest` 5.1.0 → 5.1.2. `npm audit --omit=dev`
+      is clean (0 advisories), so this is upkeep, not a fix. Sentry jumps
+      seven minors, so re-check DEPS-5's send-only-error-details config
+      (REQUIREMENTS.md, "Sentry sends error details only") still holds.
+      Acceptance: `npm outdated` shows none of the above with
+      `current < wanted`; `npm run check && npm run build` pass;
+      `npm audit --omit=dev --audit-level=high` stays clean.
+- [ ] **DEPS-13. TypeScript 6.0** (impact: low, effort: S, own PR — touches
+      `package.json`/lockfile) — `typescript` is on 5.9.3. 7 is blocked
+      (typescript-eslint 8.70 accepts `>=4.8.4 <6.1.0`, and
+      `.github/dependabot.yml:28` ignores every TS major for that reason),
+      but 6.0.3 is inside that range. A trial on 2026-11-27 (`npm i -D
+      typescript@6.0.3`, `prisma generate`, `next typegen`, `tsc --noEmit`)
+      gave 0 errors with the current `tsconfig.json`, and ESLint ran on
+      `src/lib` with no new errors. Moving to 6 now also surfaces TS 6's
+      deprecation warnings before 7 removes those options. Update the
+      dependabot comment so it blocks only `>=7` (an `ignore` with
+      `versions: [">=7"]` instead of every major) and REQUIREMENTS.md's
+      CI paragraph that says TS majors are skipped.
+      Acceptance: `npx tsc -v` prints 6.0.x; `npm run check && npm run build`
+      pass with no new TS deprecation warnings; dependabot still skips 7.
+
 ### Performance
 
 ### Maintainability
