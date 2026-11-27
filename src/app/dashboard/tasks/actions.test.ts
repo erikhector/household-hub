@@ -4,6 +4,7 @@
 // database is touched. Same convention as src/lib/actions/household.test.ts
 // and src/app/dashboard/shopping-list/list-actions.test.ts.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { getNextDueDate } from "@/app/dashboard/tasks/recurrence";
 
 const {
   requireHouseholdMock,
@@ -415,7 +416,7 @@ describe("updateTaskAction", () => {
       });
     });
 
-    it("anchors a task that has been done on the latest such day, so its last tick still counts", async () => {
+    it("anchors a task that has been done on the latest such day before its tick, so the tick still counts", async () => {
       requireHouseholdMock.mockResolvedValue({ household });
       householdTaskFindFirstMock.mockResolvedValue({
         ...weeklyOnMonday,
@@ -433,6 +434,27 @@ describe("updateTaskAction", () => {
         where: { id: "task-1" },
         data: expect.objectContaining({ recurrenceAnchorAt: new Date("2026-11-21T00:00:00.000Z") }),
       });
+    });
+
+    it("anchors from the tick, not the edit day: moved to Saturdays on a Saturday it is due that day", async () => {
+      // Saturday 2026-11-28; done Monday 11-23.
+      vi.setSystemTime(new Date("2026-11-28T12:00:00.000Z"));
+      requireHouseholdMock.mockResolvedValue({ household });
+      const completedAt = new Date("2026-11-23T10:00:00.000Z");
+      householdTaskFindFirstMock.mockResolvedValue({ ...weeklyOnMonday, completedAt });
+
+      await updateTaskAction("task-1", {
+        assignedToMemberId: null,
+        recurrenceIntervalDays: 7,
+        recurrenceWeekday: 6,
+        rotationMemberIds: [],
+      });
+
+      const anchor = householdTaskUpdateMock.mock.calls[0][0].data.recurrenceAnchorAt;
+      expect(anchor).toEqual(new Date("2026-11-21T00:00:00.000Z"));
+      expect(
+        getNextDueDate({ completedAt, recurrenceIntervalDays: 7, createdAt: completedAt, recurrenceAnchorAt: anchor, skippedUntil: null }),
+      ).toEqual(new Date("2026-11-28T00:00:00.000Z"));
     });
 
     it("drops a skip that has run out when it re-anchors, and keeps one still running", async () => {

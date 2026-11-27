@@ -224,7 +224,7 @@ describe("weekly days", () => {
     expect(anchorForWeekday(1, wednesday, "UTC", "latest")).toEqual(new Date("2026-11-23T00:00:00.000Z"));
   });
 
-  it("a task done on Monday and moved to Saturdays (latest anchor) is next due this Saturday", () => {
+  it("a task done on Monday and moved to Saturdays (anchored on the Saturday before the tick) is due the Saturday after", () => {
     const t = task(new Date("2026-11-23T10:00:00.000Z"), 7, createdAt, new Date("2026-11-21T00:00:00.000Z"));
     expect(getNextDueDate(t)).toEqual(saturday);
   });

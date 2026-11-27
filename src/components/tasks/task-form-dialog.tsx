@@ -75,6 +75,8 @@ type EditableTask = {
   recurrenceIntervalDays: number | null;
   /** The weekday (0 Sunday … 6 Saturday) a whole-weeks repeat falls on, else null. */
   recurrenceWeekday: number | null;
+  /** The last completion, or null for a task never done (it alone waits for its new day). */
+  completedAt: Date | null;
   /** UX-133: a one-off's due date as YYYY-MM-DD. */
   dueDate: string | null;
   rotationMemberIds: string[];
@@ -406,7 +408,10 @@ export function TaskFormDialog({
               <Label htmlFor="task-weekday">{dict.weekdayLabel}</Label>
               <Select value={weekday} onValueChange={(v) => setWeekday(String(v))}>
                 <input type="hidden" name="recurrenceWeekday" value={weekday} />
-                <SelectTrigger id="task-weekday" aria-describedby="task-weekday-hint">
+                <SelectTrigger
+                  id="task-weekday"
+                  aria-describedby={mode === "create" || task?.completedAt == null ? "task-weekday-hint" : undefined}
+                >
                   <SelectValue>{(v: string) => dict.weekdayOption[WEEKDAY_KEYS[Number(v)] ?? "mon"]}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
@@ -417,9 +422,13 @@ export function TaskFormDialog({
                   ))}
                 </SelectContent>
               </Select>
-              <p id="task-weekday-hint" className="text-xs text-muted-foreground">
-                {dict.weekdayHint}
-              </p>
+              {/* Only a task never done waits for its day; one that has
+                  been done carries on from its last tick and stays listed. */}
+              {(mode === "create" || task?.completedAt == null) && (
+                <p id="task-weekday-hint" className="text-xs text-muted-foreground">
+                  {dict.weekdayHint}
+                </p>
+              )}
             </div>
           )}
           {/* UX-133: a one-off can carry a due date. A repeat is due when its

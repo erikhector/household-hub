@@ -33,10 +33,11 @@
 // open list until that day (`isUpcoming`) rather than showing as due at
 // once, and a tick before then does it early (the tick falls in the
 // interval just before the anchor, which counts as the first occurrence).
-// A task that has been done gets the latest one instead (today, or the last
-// such day), so the windows above carry on from its real last tick: moved
-// from Mondays to Saturdays after Monday's tick, it is next due this
-// Saturday, not a week later. A tick longer ago than one interval before the
+// A task that has been done gets the latest one on or before the day of its
+// last tick instead, so the windows above carry on from that tick whatever
+// day the edit is made: moved from Mondays to Saturdays after Monday's tick,
+// it is next due the Saturday after, not a week later (counting from the
+// edit day, an edit made on a Saturday made the tick cover that day). A tick longer ago than one interval before the
 // anchor belongs to no occurrence, so the task is next due on the anchor day
 // itself (overdue, when that is past).
 //

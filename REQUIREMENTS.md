@@ -7831,9 +7831,10 @@ co-managers, not kids earning rewards.
   when the interval changes, or when only the day changes (saving the same
   interval and day leaves the anchor alone). A task never done gets the
   start of the next local day on that weekday (today when today is that
-  day); a task that has been done gets the latest one, so its last tick
-  still counts: moved from Mondays to Saturdays after Monday's tick, it is
-  next due this Saturday, and a Monday task done Monday and switched to
+  day); a task that has been done gets the latest one on or before the
+  day of its last tick, so that tick still counts whatever day the edit is
+  made: moved from Mondays to Saturdays after Monday's tick, it is next due
+  the Saturday after (on a Saturday edit, that same day), and a Monday task done Monday and switched to
   every 2 weeks is due two weeks from that tick. Re-anchoring also drops a
   skip that has run out, which would otherwise stand in as a never-done
   task's due day. The weekday a task shows is its anchor's local weekday
@@ -7844,12 +7845,12 @@ co-managers, not kids earning rewards.
   its own "Upcoming" group between the open tasks and "Completed", with an
   unticked box and "Starts 28 Nov", no Skip, and off Home and the
   tasks-due-today push. The dialog says so under the picker ("It shows in
-  the list from that day."). A tick on an upcoming task completes it early:
+  the list from that day."), for a task never done only. A tick on an upcoming task completes it early:
   a tick in the interval before the anchor counts as the first occurrence,
   so it next opens one interval after the anchor. A tick from longer ago
-  than that belongs to no occurrence, so a task last done long ago and
-  moved to a new day is due (overdue, if it has passed) on its latest such
-  day (`getNextDueDate`). `task-weekday.spec.ts`
+  than that belongs to no occurrence, so the task is due on the anchor day
+  itself (`getNextDueDate`); a task last done long ago and moved to a new
+  day is overdue from the first such day after that tick. `task-weekday.spec.ts`
   covers picking a day, the Upcoming group, the edit dialog and the early
   tick.
   `task-anchor-day.spec.ts` covers the edit (it waits for the tick's
