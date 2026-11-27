@@ -201,7 +201,7 @@ function BatchCard({
   return (
     <Card size="sm" className="px-3">
       <div className="flex flex-col gap-1">
-        <h3 className="line-clamp-2 break-words text-base font-semibold" title={batch.recipeName}>
+        <h3 className="break-words text-base font-semibold">
           {batch.recipeName}
         </h3>
         <p className="font-medium tabular-nums">

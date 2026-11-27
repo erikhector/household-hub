@@ -16,7 +16,7 @@
 //   fixed week as the calendar moves.
 // - They start in 2036. The hand-picked weeks under `e2e/` all sit in the
 //   2019 and 2030-2034 range or at 2199 (grep `e2e/` for the year before
-//   adding one, and keep new ones out of 2036-2093). The offsets that must
+//   adding one, and keep new ones out of 2036-2099). The offsets that must
 //   stay near today (meal-prep, meal-plan-search, ux-185) reach about two
 //   years ahead, so they stay clear of 2036 too.
 // - Each spec's band is its own, so two specs never share a week. Within a
@@ -39,13 +39,14 @@ const FAR_WEEK_SPECS = [
   "cook-mode",
   "required-diet",
   "recipe-discover",
+  "ux-214",
 ] as const;
 
 type FarWeekSpec = (typeof FAR_WEEK_SPECS)[number];
 
 // Monday 7 January 2036.
 const FIRST_MONDAY = Date.UTC(2036, 0, 7);
-// About 5¾ years each, so all ten bands end in 2093.
+// About 5¾ years each, so all eleven bands end in 2099.
 const BAND_WEEKS = 300;
 // The picked week is at least this many weeks before the band's end, so a
 // spec can plan a day or two after it (plan-leftovers' base + 2,

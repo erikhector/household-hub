@@ -71,17 +71,18 @@ export function CookNowList({
             return (
               <div key={recipe.recipeId} className="flex items-center gap-3 px-3 py-2.5">
                 <ChefHat className="size-4 shrink-0 text-primary" />
+                {/* UX-214: name and missing list wrap in full, no clamp. The
+                    row isn't tappable and touch can't open a `title`
+                    tooltip, so a clamped list hid what decides whether to
+                    cook it (M9). */}
                 <div className="min-w-0 flex-1">
-                  <p className="line-clamp-2 break-words sm:line-clamp-1 font-medium" title={recipe.recipeName}>
+                  <p className="break-words font-medium">
                     {recipe.recipeName}
                   </p>
                   {recipe.missingIngredientNames.length === 0 ? (
                     <Badge variant="secondary">{dict.readyToCookBadge}</Badge>
                   ) : (
-                    <p
-                      className="line-clamp-2 break-words sm:line-clamp-1 text-sm text-muted-foreground"
-                      title={recipe.missingIngredientNames.join(", ")}
-                    >
+                    <p className="break-words text-sm text-muted-foreground">
                       {format(
                         plural(recipe.missingIngredientNames.length, dict.missingIngredientCount),
                         { count: recipe.missingIngredientNames.length },

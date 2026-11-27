@@ -148,49 +148,6 @@ Parallel-safe except where noted.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `E2E_WEBKIT=1 npx playwright test e2e/command-palette.spec.ts --project=iphone --repeat-each=30` passes 30/30 (where WebKit can't be installed, the next two **Nightly e2e** runs list `[iphone] › e2e/command-palette.spec.ts:288` passed on the first attempt, not `flaky`).
 
-### UX (2026-11-25 scout)
-
-Wednesday area: meal planning and recipes. Swept `desktop`, `mobile`,
-`landscape`, `tablet`, `small-phone`, `light`, `text-200` and both dialog
-sweeps. All 290 + 132 tests pass, and the only audit hits on the planner
-are the known sheet grabber and the `text-200` bottom-bar ellipsis
-(UX-150). The deep dive drove add meal (empty and 75-character Swedish
-names), the keyboard-open Save, the new-recipe form's error path and the
-Cook now and Meal prep tabs on Pixel 7 and at 320 px. All of those pass
-DESIGN.md: errors sit beside the field, input is kept, and every target
-is at least 44 px. It also timed Copy last week with the server action
-held for 4 s. WebKit was not run (no browser installed here).
-
-- [ ] **UX-214. Let the full text in meal-planning lists be read on a phone** (impact: med, effort: S) —
-      Two lists cut off text whose rest can only be reached through a
-      `title` tooltip, which touch can't open.
-      - Cook now: each row's "N ingredients needed: a, b, c…" is
-        `line-clamp-2` on phones and `line-clamp-1` from `sm`, with the
-        full list only in `title` (`cook-now-list.tsx:80-90`). The row
-        isn't tappable (only "Add to plan" is), so for a recipe missing
-        several ingredients the list that decides whether to cook it
-        can't be read (Cook now tab on Pixel 7 and at 320 px, driven
-        in this run).
-      - The place-a-pick sheet `truncate`s the meals already in each
-        day's slot to one line (`place-pick-dialog.tsx:103`), the very
-        thing you check before doubling up. Its four slot buttons are
-        12 px (`text-xs`) and `truncate` too (`:83`), below the 14 px
-        floor M9 allows only the bottom bar.
-      This breaks M9 ("full value reachable") and the checklist's "no
-      hover-only affordance". Fix: let the missing list wrap (`break-words`, no
-      clamp) or put it behind a disclosure, and drop the redundant
-      `title`s (`cook-now-list.tsx:74`, `prep-tab.tsx:204`,
-      `plan-template-dialogs.tsx:185`). In place-pick, use
-      `line-clamp-2 break-words` for the slot contents and `text-sm`
-      with no truncation on the slot buttons (2×2 below `sm` if they
-      don't fit).
-      Acceptance: an `e2e/` spec on `mobile` (and `small-phone` in the
-      audit) seeds a recipe missing six long-named ingredients. On the
-      Cook now tab the last ingredient's name is visible, with no
-      `title` on the row. In the place-pick sheet, a slot holding two
-      long meal names shows both, and the slot buttons compute to at
-      least 14 px.
-
 ---
 
 ## Phase 2 — schema changes, one at a time

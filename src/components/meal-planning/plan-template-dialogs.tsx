@@ -206,7 +206,7 @@ function TemplateRow({
   return (
     <li className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
       <div className="min-w-0 flex-1">
-        <p className="line-clamp-2 break-words font-medium sm:line-clamp-1" title={template.name}>
+        <p className="break-words font-medium">
           {template.name}
         </p>
         <p className="text-sm text-muted-foreground">

@@ -5344,7 +5344,12 @@ where this feature has none.
 `/dashboard/meal-planning` (`MealPlanningView`, a client-side tab switch
 between four tabs, "Planner", "Recipes", "Cook now" and "Meal prep" — no
 new route needed for the split) covers
-the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
+the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models.
+Names and lists in its rows wrap in full rather than clamping behind a
+`title` tooltip, which touch can't open (UX-214, M9): a Cook now row's
+name and "N ingredients needed: …" list, a meal-prep batch's name and a
+plan template's name. `e2e/ux-214.spec.ts` covers Cook now and the
+place-a-pick sheet.
 
 - **Recipes**: full CRUD (`createRecipeAction` / `updateRecipeAction` /
   `deleteRecipeAction` in `src/app/dashboard/meal-planning/actions.ts`) — a
@@ -7305,8 +7310,11 @@ holds meals chosen for the visible week but not placed on a day yet.
   portion stepper per ticked recipe (default its servings), custom meals,
   and a sticky "Add N meals". Toast with Undo.
 - **Placing**: tapping a chip opens its sheet (`PlacePickDialog`): slot
-  segmented control (Dinner preselected), the week's seven days each saying
-  what's in that slot or "<Slot> free", "Mark as cooked today" for a recipe
+  segmented control (Dinner preselected; 14 px labels, never truncated,
+  four across or 2×2 when the sheet is narrower than 21rem, a container
+  query so 320 px and large text both fit), the week's seven days each
+  saying what's in that slot (every meal on its own line, in full, wrapping
+  rather than truncated: UX-214, M9) or "<Slot> free", "Mark as cooked today" for a recipe
   pick (places it on today's dinner, then the usual Mark as cooked review
   runs on the new entry; closing the review without cooking takes it off
   today and back to its own week's tray, so cooking without placing holds),
@@ -11481,12 +11489,12 @@ UX-14's rapid ticks and the rollback toast.
   that wants a random far-off week takes it from `farDay()` in
   `e2e/far-weeks.ts`, never from an offset of its own: each such spec
   owns a fixed band of 300 weeks (the first starts on 2036-01-07, the
-  last ends in 2093), absolute rather than counted from today, so the
+  last ends in 2099), absolute rather than counted from today, so the
   bands never overlap each other or drift onto the weeks specs pick by
   hand, which all sit in 2019, 2030-2034 or 2199 (MAINT-117:
   `plan-leftovers.spec.ts`'s random 1-14 years ahead put a cooked dinner
   in `ux-19.mobile.spec.ts`'s 2031-06-02, and ux-19 timed out waiting for
-  "Add first dinner"). A new hand-picked week stays out of 2036-2093, and
+  "Add first dinner"). A new hand-picked week stays out of 2036-2099, and
   a new spec that needs a random far-off week adds its name to the list
   there. A spec that seeds a fixed week also clears that week's plan,
   scoped to its worker's household, *before* the insert as well as after:

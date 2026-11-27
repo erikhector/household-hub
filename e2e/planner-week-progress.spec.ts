@@ -11,7 +11,7 @@ import { dismissCookieNotice, expectHydrated, holdServerActions } from "./ui";
 //
 // The household is shared by the desktop and mobile runs, so each project
 // has its own weeks. They sit in 2198: not a past week (Fill only proposes
-// days that haven't passed), clear of far-weeks.ts' 2036-2093 bands and of
+// days that haven't passed), clear of far-weeks.ts' 2036-2099 bands and of
 // meal-planner-fill-empty-days.spec.ts' 2199 weeks, and no other spec uses
 // them, so the cleanup by week below can't wipe another spec's plan.
 const weeksFor = (project: string) =>
