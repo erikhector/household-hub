@@ -43,10 +43,20 @@
 // dialog.tsx that keeps a lifted sheet's top on screen). A field low in a
 // tall sheet's body then ends up behind the keyboard or above the screen,
 // so you type blind. `revealFocused` re-reveals the focused field once the
-// keyboard is up: when it opens or grows (a new, larger inset), and when
-// focus moves to another field while it's up. Not on every event: a
-// pinch-zoom pan or a repeat resize at the same height isn't a new
-// keyboard, and re-revealing then would fight the user's own scrolling.
+// keyboard is up: when it opens or grows (a taller keyboard — measured
+// without offsetTop, so a pinch-zoom pan never counts), and when focus
+// moves to another field while it's up. Not on every event: a pan or a
+// repeat resize at the same height isn't a new keyboard, and re-revealing
+// then would fight the user's own scrolling. The reveal itself waits for
+// the sheet's max-height transition to finish (the band it measures moves
+// until then) and keeps the field above DialogFooter, which is sticky and
+// opaque on phones (`revealScrollDelta` below).
+//
+// The cap needs the visible height, not just the inset: iOS can pan the
+// visual viewport down (offsetTop > 0, for a field under the keyboard or a
+// pinch-zoom), and then `100dvh − inset` reaches up past the visible top
+// by that pan. So while the keyboard is up the visual viewport's height is
+// also written, as `--kb-visible`, and dialog.tsx caps the sheet with it.
 //
 // A CSS variable, not storage: nothing persists in the browser, so there's
 // no cookie-inventory entry for this (AGENTS.md).
@@ -97,20 +107,28 @@ export function watchKeyboardInset(deps: {
   innerHeight: () => number;
   setInset: (px: number) => void;
   clearInset: () => void;
+  // The visible height while the keyboard is up, null when it's closed
+  // (see the header comment; dialog.tsx falls back to 100dvh).
+  setVisible?: (px: number | null) => void;
   // Bring the focused field back into view (see the header comment).
   revealFocused?: () => void;
 }): () => void {
   const { visualViewport, windowTarget } = deps;
   // Desktops and browsers without the API: nothing to lift.
   if (!visualViewport) return () => {};
-  // The last inset written, so a reveal fires only when the keyboard opens
-  // or grows, not on every event while it's up.
+  // The last inset written (0 = keyboard closed), and the keyboard's own
+  // height without the pan offset, so a reveal fires only when the
+  // keyboard opens or grows, never for a pinch-zoom pan.
   let inset = 0;
+  let keyboard = 0;
   const update = () => {
     const next = keyboardInsetPx(deps.innerHeight(), visualViewport.height, visualViewport.offsetTop);
-    const grew = next > inset;
+    const nextKeyboard = next > 0 ? deps.innerHeight() - visualViewport.height : 0;
+    const grew = nextKeyboard > keyboard;
     inset = next;
+    keyboard = nextKeyboard;
     deps.setInset(next);
+    deps.setVisible?.(next > 0 ? visualViewport.height : null);
     if (grew) deps.revealFocused?.();
   };
   // Focus moving between fields with the keyboard already up: no viewport
@@ -151,24 +169,66 @@ export function useKeyboardInset(): void {
         windowTarget: window,
         innerHeight: () => window.innerHeight,
         setInset: (px) => document.documentElement.style.setProperty("--kb-inset", `${px}px`),
-        clearInset: () => document.documentElement.style.removeProperty("--kb-inset"),
+        clearInset: () => {
+          document.documentElement.style.removeProperty("--kb-inset");
+          document.documentElement.style.removeProperty("--kb-visible");
+        },
+        setVisible: (px) =>
+          px === null
+            ? document.documentElement.style.removeProperty("--kb-visible")
+            : document.documentElement.style.setProperty("--kb-visible", `${px}px`),
         revealFocused,
       }),
     [],
   );
 }
 
-// Scrolls the focused field into the sheet's visible part. On the next
-// frame, so the browser has applied the new --kb-inset (the sheet's lift
-// and its max-height) before measuring. Only for a field inside a dialog:
-// this hook exists for sheets, and a stray focus elsewhere isn't ours to
-// scroll. `block: "nearest"` scrolls only as far as needed, so a field
-// that's already visible doesn't move.
+// How far (px) to scroll the sheet's body so a field sits inside the
+// visible band, scrolling only as far as needed ("nearest"): positive
+// scrolls down, negative up, 0 when it's already in view. The band is the
+// body's box minus the sticky footer on phones, so a field revealed from
+// below lands above Save/Cancel instead of under them. A field taller than
+// the band lines up its top, where typing starts.
+export function revealScrollDelta(
+  field: { top: number; bottom: number },
+  band: { top: number; bottom: number },
+): number {
+  if (field.top < band.top || field.bottom - field.top > band.bottom - band.top) return field.top - band.top;
+  if (field.bottom > band.bottom) return field.bottom - band.bottom;
+  return 0;
+}
+
+// Scrolls the focused field into the sheet's visible part. Only for a
+// field inside a dialog's body: this hook exists for sheets, and a stray
+// focus elsewhere isn't ours to scroll. The sheet's max-height (and lift)
+// transition when --kb-inset changes, and the band moves until they
+// settle, so this waits a frame (for the new value to start them) and
+// then for the popup's running animations to finish before measuring.
+// Scrolls the body by hand rather than scrollIntoView, which can also pan
+// the page behind the sheet and doesn't know about the sticky footer.
+// Longer than the sheet's slowest transition (the 320ms full-screen morph).
+const REVEAL_WAIT_MAX_MS = 500;
+
 function revealFocused(): void {
   requestAnimationFrame(() => {
-    const el = document.activeElement;
-    if (!(el instanceof HTMLElement) || el.matches('[data-slot="dialog-content"]')) return;
-    if (!el.closest('[data-slot="dialog-content"]')) return;
-    el.scrollIntoView({ block: "nearest", inline: "nearest" });
+    const popup = document.activeElement?.closest<HTMLElement>('[data-slot="dialog-content"]');
+    if (!popup) return;
+    // Capped, so an animation that never finishes (or a very slow motion
+    // token) can't hold the reveal back for good.
+    const settled = Promise.all(popup.getAnimations().map((a) => a.finished.catch(() => undefined)));
+    const cap = new Promise((resolve) => setTimeout(resolve, REVEAL_WAIT_MAX_MS));
+    void Promise.race([settled, cap]).then(() => {
+      const el = document.activeElement;
+      if (!(el instanceof HTMLElement)) return;
+      const body = el.closest<HTMLElement>('[data-slot="dialog-body"]');
+      if (!body || !popup.contains(body)) return;
+      const box = body.getBoundingClientRect();
+      const footer = body.querySelector<HTMLElement>('[data-slot="dialog-footer"]');
+      const footerTop =
+        footer && getComputedStyle(footer).position === "sticky" ? footer.getBoundingClientRect().top : box.bottom;
+      const field = el.getBoundingClientRect();
+      const delta = revealScrollDelta(field, { top: box.top, bottom: Math.min(box.bottom, footerTop) });
+      if (delta !== 0) body.scrollTop += delta;
+    });
   });
 }

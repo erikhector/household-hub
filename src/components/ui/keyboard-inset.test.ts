@@ -5,7 +5,7 @@
 // end-of-transition signals): dispatching their events must write the
 // inset, and cleanup must detach and clear it.
 import { describe, expect, it, vi } from "vitest";
-import { keyboardInsetPx, watchKeyboardInset } from "./keyboard-inset";
+import { keyboardInsetPx, revealScrollDelta, watchKeyboardInset } from "./keyboard-inset";
 
 function fakeViewport() {
   const listeners = new Map<string, Set<() => void>>();
@@ -279,6 +279,21 @@ describe("watchKeyboardInset reveals the focused field", () => {
     expect(revealFocused).toHaveBeenCalledTimes(2);
   });
 
+  it("doesn't reveal for a pinch-zoom pan that changes offsetTop", () => {
+    const { viewport, revealFocused } = setup();
+    viewport.height = 460;
+    viewport.offsetTop = 40;
+    viewport.dispatch("resize");
+    expect(revealFocused).toHaveBeenCalledTimes(1);
+    // Panning back up shrinks offsetTop, so the inset grows, but the
+    // keyboard didn't: a reveal here would fight the user's own scroll.
+    viewport.offsetTop = 10;
+    viewport.dispatch("scroll");
+    viewport.offsetTop = 0;
+    viewport.dispatch("scroll");
+    expect(revealFocused).toHaveBeenCalledTimes(1);
+  });
+
   it("reveals when focus moves to another field with the keyboard up", () => {
     const { viewport, target, revealFocused } = setup();
     viewport.height = 460;
@@ -315,5 +330,59 @@ describe("watchKeyboardInset reveals the focused field", () => {
     const calls = revealFocused.mock.calls.length;
     target.dispatch("focusin");
     expect(revealFocused.mock.calls.length).toBe(calls);
+  });
+});
+
+// The sheet's cap reads --kb-visible (dialog.tsx), so it holds when iOS pans
+// the visual viewport down (offsetTop > 0), where 100dvh − inset would reach
+// above the visible top by the pan.
+describe("watchKeyboardInset writes the visible height", () => {
+  it("writes the visual viewport's height while the keyboard is up, null when closed", () => {
+    const viewport = fakeViewport();
+    const setVisible = vi.fn();
+    watchKeyboardInset({ visualViewport: viewport, innerHeight: () => 800, setInset: () => {}, clearInset: () => {}, setVisible });
+    expect(setVisible).toHaveBeenLastCalledWith(null);
+    viewport.height = 460;
+    viewport.offsetTop = 30;
+    viewport.dispatch("resize");
+    expect(setVisible).toHaveBeenLastCalledWith(460);
+    viewport.height = 800;
+    viewport.offsetTop = 0;
+    viewport.dispatch("resize");
+    expect(setVisible).toHaveBeenLastCalledWith(null);
+  });
+
+  it("writes null for a toolbar-sized gap", () => {
+    const viewport = fakeViewport();
+    const setVisible = vi.fn();
+    viewport.height = 744;
+    watchKeyboardInset({ visualViewport: viewport, innerHeight: () => 800, setInset: () => {}, clearInset: () => {}, setVisible });
+    expect(setVisible).toHaveBeenLastCalledWith(null);
+  });
+});
+
+// The reveal's scroll: the band is the sheet body minus the sticky footer,
+// so a field revealed from below must land above Save/Cancel.
+describe("revealScrollDelta", () => {
+  const band = { top: 100, bottom: 400 };
+
+  it("leaves a field that's already in the band alone", () => {
+    expect(revealScrollDelta({ top: 150, bottom: 190 }, band)).toBe(0);
+  });
+
+  it("scrolls a field below the band up just to its bottom edge", () => {
+    expect(revealScrollDelta({ top: 420, bottom: 460 }, band)).toBe(60);
+  });
+
+  it("scrolls a field half under the band's bottom (the footer) clear of it", () => {
+    expect(revealScrollDelta({ top: 380, bottom: 420 }, band)).toBe(20);
+  });
+
+  it("scrolls a field above the band down to its top edge", () => {
+    expect(revealScrollDelta({ top: 40, bottom: 80 }, band)).toBe(-60);
+  });
+
+  it("lines up the top of a field taller than the band", () => {
+    expect(revealScrollDelta({ top: 300, bottom: 800 }, band)).toBe(200);
   });
 });
