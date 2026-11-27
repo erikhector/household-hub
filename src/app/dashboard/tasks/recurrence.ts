@@ -27,14 +27,18 @@
 // Weekly days: a repeat whose interval is a whole number of weeks (every
 // week, every 2 weeks) can be put on a chosen weekday in the task dialog.
 // That is only a matter of where the anchor falls, so it needs no column of
-// its own: `anchorForWeekday` sets the anchor to the next such day (today
-// when today is that day). An anchor in the future means the repeat hasn't
-// started yet, and a task that has never been done stays out of the open
-// list until that day (`isUpcoming`) rather than showing as due at once. A
-// tick in the interval just before the anchor counts as the first
-// occurrence, the same "done early" rule the windows above follow; a tick
-// longer ago than that belongs to no occurrence, so the task is next due on
-// the anchor day itself.
+// its own: `anchorForWeekday` sets it to such a day. A task that has never
+// been done gets the next one (today when today is that day): an anchor in
+// the future means the repeat hasn't started, so the task stays out of the
+// open list until that day (`isUpcoming`) rather than showing as due at
+// once, and a tick before then does it early (the tick falls in the
+// interval just before the anchor, which counts as the first occurrence).
+// A task that has been done gets the latest one instead (today, or the last
+// such day), so the windows above carry on from its real last tick: moved
+// from Mondays to Saturdays after Monday's tick, it is next due this
+// Saturday, not a week later. A tick longer ago than one interval before the
+// anchor belongs to no occurrence, so the task is next due on the anchor day
+// itself (overdue, when that is past).
 //
 // GAP-60: "Skip this time" closes a recurring task until `skippedUntil`
 // (now + one interval when skipped) without writing `completedAt`, which
@@ -186,11 +190,20 @@ export function localWeekday(instant: Date, timeZone: string): number {
   return (((localDayNumber(instant, safeTimeZone(timeZone)) + 4) % 7) + 7) % 7;
 }
 
-/** The start of the next local day on `weekday` (0 Sunday … 6 Saturday): today when today is that day. */
-export function anchorForWeekday(weekday: number, now: Date, timeZone: string): Date {
+/**
+ * The start of a local day on `weekday` (0 Sunday … 6 Saturday): the next
+ * one, or with `"latest"` the last one, today included either way.
+ */
+export function anchorForWeekday(
+  weekday: number,
+  now: Date,
+  timeZone: string,
+  which: "next" | "latest" = "next",
+): Date {
   const zone = safeTimeZone(timeZone);
   const ahead = (((weekday - localWeekday(now, zone)) % 7) + 7) % 7;
-  return startOfLocalDay(localDayNumber(now, zone) + ahead, zone);
+  const offset = which === "next" ? ahead : ahead === 0 ? 0 : ahead - 7;
+  return startOfLocalDay(localDayNumber(now, zone) + offset, zone);
 }
 
 /**

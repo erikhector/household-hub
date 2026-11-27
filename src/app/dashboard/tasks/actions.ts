@@ -52,16 +52,21 @@ const recurrenceIntervalDaysSchema = z.coerce
 const recurrenceWeekdaySchema = z.coerce.number().int().min(0).max(6).nullable().optional();
 
 /**
- * The anchor for a repeat being saved now: the next chosen weekday for a
- * whole-weeks interval when one was sent, else today (UX-144).
+ * The anchor for a repeat being saved now: for a whole-weeks interval with a
+ * weekday sent, the next such day for a task never done (so it waits until
+ * then) or the latest one for a task that has been (so its last tick still
+ * counts; see "Weekly days" in recurrence.ts). Else today (UX-144).
  */
 function anchorFor(
   recurrenceIntervalDays: number,
   weekday: number | null | undefined,
+  everDone: boolean,
   now: Date,
   timeZone: string,
 ): Date {
-  return weekday != null && keepsWeekday(recurrenceIntervalDays) ? anchorForWeekday(weekday, now, timeZone) : now;
+  return weekday != null && keepsWeekday(recurrenceIntervalDays)
+    ? anchorForWeekday(weekday, now, timeZone, everDone ? "latest" : "next")
+    : now;
 }
 
 // UX-133: an optional due day, sent as the date field's `YYYY-MM-DD`. Empty
@@ -276,7 +281,7 @@ export async function createTaskAction(
         // UX-144: a repeating task's anchor day starts as the day it is made,
         // or the next chosen weekday, before which it stays upcoming.
         recurrenceAnchorAt:
-          interval === null ? null : anchorFor(interval, parsed.data.recurrenceWeekday, new Date(), timeZone),
+          interval === null ? null : anchorFor(interval, parsed.data.recurrenceWeekday, false, new Date(), timeZone),
       },
     });
   } catch (error) {
@@ -308,7 +313,14 @@ export async function updateTaskAction(
 
   const task = await prisma.householdTask.findFirst({
     where: { id: taskId, householdId: household.id },
-    select: { id: true, recurrenceIntervalDays: true, recurrenceAnchorAt: true, createdAt: true },
+    select: {
+      id: true,
+      recurrenceIntervalDays: true,
+      recurrenceAnchorAt: true,
+      createdAt: true,
+      completedAt: true,
+      skippedUntil: true,
+    },
   });
   if (!task) return await fail("taskNotFound");
 
@@ -333,6 +345,7 @@ export async function updateTaskAction(
   const interval = resolved.data.recurrenceIntervalDays;
   const weekday = parsed.data.recurrenceWeekday;
   const timeZone = await getTimeZone();
+  const now = new Date();
   const intervalChanged = interval !== (task.recurrenceIntervalDays ?? null);
   const weekdayChanged =
     interval !== null &&
@@ -353,7 +366,11 @@ export async function updateTaskAction(
           ? // GAP-60: a one-off has no schedule to skip, so a leftover skip goes too.
             { recurrenceAnchorAt: null, skippedUntil: null }
           : (intervalChanged || weekdayChanged) && {
-              recurrenceAnchorAt: anchorFor(interval, weekday, new Date(), timeZone),
+              recurrenceAnchorAt: anchorFor(interval, weekday, task.completedAt != null, now, timeZone),
+              // A skip that has run out belonged to the old schedule. Left
+              // behind, it would stand in as a never-done task's due day and
+              // show it overdue before the new one starts.
+              ...(task.skippedUntil != null && task.skippedUntil <= now && { skippedUntil: null }),
             }),
       },
     });

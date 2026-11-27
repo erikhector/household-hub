@@ -105,6 +105,7 @@ export function TaskFormDialog({
   pantryItems,
   dict,
   trigger,
+  todayWeekday,
   onDelete,
   onSkip,
 }: {
@@ -115,6 +116,8 @@ export function TaskFormDialog({
   pantryItems: PantryItemOption[];
   dict: TasksDict;
   trigger: ReactElement;
+  /** Today's weekday (0 Sunday … 6 Saturday) in the household's zone, the server's view of "today". */
+  todayWeekday: number;
   /** Edit mode only (UX-106): adds a Delete button to the sheet. The row
    *  hands it to its own trash button, so the Undo toast is the same one
    *  the desktop icon shows. */
@@ -133,8 +136,10 @@ export function TaskFormDialog({
     mode === "edit" && task?.recurrenceIntervalDays ? String(task.recurrenceIntervalDays) : NO_REPEAT_VALUE,
   );
   // Weekly days: the task's own day, or today's for a new repeat (or one
-  // switched to whole weeks), which is the anchor the server sets anyway.
-  const initialWeekday = () => String(mode === "edit" ? (task?.recurrenceWeekday ?? new Date().getDay()) : new Date().getDay());
+  // switched to whole weeks). Today as the server counts it, in the
+  // household's zone: the browser's clock can be on another day near
+  // midnight, and the default would then file a new task as upcoming.
+  const initialWeekday = () => String(mode === "edit" ? (task?.recurrenceWeekday ?? todayWeekday) : todayWeekday);
   const [weekday, setWeekday] = useState(initialWeekday);
   const [rotation, setRotation] = useState<string[]>(mode === "edit" ? (task?.rotationMemberIds ?? []) : []);
   const [dueDate, setDueDate] = useState(mode === "edit" ? (task?.dueDate ?? "") : "");

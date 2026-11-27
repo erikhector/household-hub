@@ -218,6 +218,22 @@ describe("weekly days", () => {
     expect(anchorForWeekday(6, wednesday, STOCKHOLM)).toEqual(new Date("2026-11-27T23:00:00.000Z"));
   });
 
+  it("anchorForWeekday 'latest' is the last such day, or today when it is that day", () => {
+    expect(anchorForWeekday(6, wednesday, "UTC", "latest")).toEqual(new Date("2026-11-21T00:00:00.000Z"));
+    expect(anchorForWeekday(3, wednesday, "UTC", "latest")).toEqual(new Date("2026-11-25T00:00:00.000Z"));
+    expect(anchorForWeekday(1, wednesday, "UTC", "latest")).toEqual(new Date("2026-11-23T00:00:00.000Z"));
+  });
+
+  it("a task done on Monday and moved to Saturdays (latest anchor) is next due this Saturday", () => {
+    const t = task(new Date("2026-11-23T10:00:00.000Z"), 7, createdAt, new Date("2026-11-21T00:00:00.000Z"));
+    expect(getNextDueDate(t)).toEqual(saturday);
+  });
+
+  it("a Monday task done Monday and moved to every 2 weeks stays two weeks from that tick", () => {
+    const t = task(new Date("2026-11-23T10:00:00.000Z"), 14, createdAt, new Date("2026-11-23T00:00:00.000Z"));
+    expect(getNextDueDate(t)).toEqual(new Date("2026-12-07T00:00:00.000Z"));
+  });
+
   it("keepsWeekday is true for whole weeks only", () => {
     expect([7, 14].every(keepsWeekday)).toBe(true);
     expect([null, 1, 3, 30, 365].some(keepsWeekday)).toBe(false);

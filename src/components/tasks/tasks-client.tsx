@@ -15,7 +15,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useTickFeedback } from "@/lib/tick-feedback";
 import { Badge } from "@/components/ui/badge";
 import { deleteTaskAction, skipTaskAction, toggleTaskCompletedAction, unskipTaskAction } from "@/app/dashboard/tasks/actions";
-import { getNextDueDate, isUpcoming, withLocalSkip } from "@/app/dashboard/tasks/recurrence";
+import { getNextDueDate, isUpcoming, localWeekday, withLocalSkip } from "@/app/dashboard/tasks/recurrence";
 import { WEEKDAY_KEYS, recurrenceText } from "@/app/dashboard/tasks/recurrence-label";
 import { daysOverdue, getTaskUrgency, sortByUrgency, todayDayNumber } from "@/app/dashboard/tasks/task-due";
 import { TaskOverdueBadge } from "@/components/tasks/overdue-badge";
@@ -576,6 +576,7 @@ function TaskItemRow({
           <TaskFormDialog
             mode="edit"
             task={task}
+            todayWeekday={localWeekday(new Date(today * 24 * 60 * 60 * 1000), "UTC")}
             members={members}
             pantryItems={pantryItems}
             dict={dict}

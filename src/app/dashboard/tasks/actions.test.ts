@@ -330,7 +330,14 @@ describe("updateTaskAction", () => {
 
     expect(householdTaskFindFirstMock).toHaveBeenCalledWith({
       where: { id: "task-in-other-household", householdId: "household-1" },
-      select: { id: true, recurrenceIntervalDays: true, recurrenceAnchorAt: true, createdAt: true },
+      select: {
+        id: true,
+        recurrenceIntervalDays: true,
+        recurrenceAnchorAt: true,
+        createdAt: true,
+        completedAt: true,
+        skippedUntil: true,
+      },
     });
     expect(result.error).toBe("Task not found");
     expect(householdTaskUpdateMock).not.toHaveBeenCalled();
@@ -406,6 +413,45 @@ describe("updateTaskAction", () => {
         where: { id: "task-1" },
         data: expect.objectContaining({ recurrenceAnchorAt: new Date("2026-11-28T00:00:00.000Z") }),
       });
+    });
+
+    it("anchors a task that has been done on the latest such day, so its last tick still counts", async () => {
+      requireHouseholdMock.mockResolvedValue({ household });
+      householdTaskFindFirstMock.mockResolvedValue({
+        ...weeklyOnMonday,
+        completedAt: new Date("2026-11-23T10:00:00.000Z"),
+      });
+
+      await updateTaskAction("task-1", {
+        assignedToMemberId: null,
+        recurrenceIntervalDays: 7,
+        recurrenceWeekday: 6,
+        rotationMemberIds: [],
+      });
+
+      expect(householdTaskUpdateMock).toHaveBeenCalledWith({
+        where: { id: "task-1" },
+        data: expect.objectContaining({ recurrenceAnchorAt: new Date("2026-11-21T00:00:00.000Z") }),
+      });
+    });
+
+    it("drops a skip that has run out when it re-anchors, and keeps one still running", async () => {
+      requireHouseholdMock.mockResolvedValue({ household });
+      householdTaskFindFirstMock.mockResolvedValueOnce({
+        ...weeklyOnMonday,
+        skippedUntil: new Date("2026-11-18T00:00:00.000Z"),
+      });
+      const input = { assignedToMemberId: null, recurrenceIntervalDays: 7, recurrenceWeekday: 6, rotationMemberIds: [] };
+
+      await updateTaskAction("task-1", input);
+      expect(householdTaskUpdateMock.mock.calls[0][0].data).toMatchObject({ skippedUntil: null });
+
+      householdTaskFindFirstMock.mockResolvedValueOnce({
+        ...weeklyOnMonday,
+        skippedUntil: new Date("2026-11-30T00:00:00.000Z"),
+      });
+      await updateTaskAction("task-1", input);
+      expect(householdTaskUpdateMock.mock.calls[1][0].data).not.toHaveProperty("skippedUntil");
     });
 
     it("leaves the anchor alone when the interval and weekday are unchanged", async () => {

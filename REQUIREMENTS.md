@@ -7824,12 +7824,19 @@ co-managers, not kids earning rewards.
   gets a "Day" picker (Monday to Sunday) under Repeat in the Add/Edit
   dialog, so "every Thursday" is picked instead of being a matter of
   editing the task on a Thursday. It starts on the task's own day, or on
-  today's for a new repeat or one switched to whole weeks. There is no
-  weekday column: `anchorForWeekday` (`recurrence.ts`) sets
-  `recurrenceAnchorAt` to the start of the next local day on that weekday
-  (today when today is that day), on create, when the interval changes, or
-  when only the day changes (saving the same interval and day leaves the
-  anchor alone). The weekday a task shows is its anchor's local weekday
+  today's for a new repeat or one switched to whole weeks ("today" in the
+  household's zone, passed from the server, so a browser on another day
+  near midnight can't shift it). There is no weekday column:
+  `anchorForWeekday` (`recurrence.ts`) sets `recurrenceAnchorAt` on create,
+  when the interval changes, or when only the day changes (saving the same
+  interval and day leaves the anchor alone). A task never done gets the
+  start of the next local day on that weekday (today when today is that
+  day); a task that has been done gets the latest one, so its last tick
+  still counts: moved from Mondays to Saturdays after Monday's tick, it is
+  next due this Saturday, and a Monday task done Monday and switched to
+  every 2 weeks is due two weeks from that tick. Re-anchoring also drops a
+  skip that has run out, which would otherwise stand in as a never-done
+  task's due day. The weekday a task shows is its anchor's local weekday
   (`localWeekday`), on the badge as "Repeats every 7 days on Saturdays"
   ("… på lördagar"). Other intervals ignore a weekday the server is sent.
   An anchor in the future means the repeat hasn't started: a task never
@@ -7840,8 +7847,9 @@ co-managers, not kids earning rewards.
   the list from that day."). A tick on an upcoming task completes it early:
   a tick in the interval before the anchor counts as the first occurrence,
   so it next opens one interval after the anchor. A tick from longer ago
-  than that belongs to no occurrence, so moving an old task to a new day
-  has it next due on that day (`getNextDueDate`). `task-weekday.spec.ts`
+  than that belongs to no occurrence, so a task last done long ago and
+  moved to a new day is due (overdue, if it has passed) on its latest such
+  day (`getNextDueDate`). `task-weekday.spec.ts`
   covers picking a day, the Upcoming group, the edit dialog and the early
   tick.
   `task-anchor-day.spec.ts` covers the edit (it waits for the tick's

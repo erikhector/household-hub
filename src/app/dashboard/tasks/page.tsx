@@ -49,6 +49,8 @@ const getTasksData = cache(async (householdId: string) => {
 
   return {
     timeZone,
+    // Weekly days: the dialog's default day.
+    todayWeekday: localWeekday(now, timeZone),
     memberOptions,
     pantryItems,
     memberIdByUserId: new Map(householdMembers.map((m) => [m.userId, m.id])),
@@ -111,10 +113,12 @@ function addTaskDialog(
   memberOptions: { id: string; displayName: string }[],
   pantryItems: PantryItemOption[],
   dict: Dictionary["tasks"],
+  todayWeekday: number,
 ) {
   return (
     <TaskFormDialog
       mode="create"
+      todayWeekday={todayWeekday}
       members={memberOptions}
       pantryItems={pantryItems}
       dict={dict}
@@ -133,9 +137,9 @@ function addTaskDialog(
 // UX-50: with no tasks at all the empty state below holds "Add task" (see
 // TasksClient), so the header leaves it out: one primary on screen, not two.
 async function AddTaskButton({ householdId, dict }: { householdId: string; dict: Dictionary["tasks"] }) {
-  const { memberOptions, pantryItems, tasks } = await getTasksData(householdId);
+  const { memberOptions, pantryItems, tasks, todayWeekday } = await getTasksData(householdId);
   if (tasks.length === 0) return null;
-  return <PrimaryAction>{addTaskDialog(memberOptions, pantryItems, dict)}</PrimaryAction>;
+  return <PrimaryAction>{addTaskDialog(memberOptions, pantryItems, dict, todayWeekday)}</PrimaryAction>;
 }
 
 function TasksListSkeleton({ label }: { label: string }) {
@@ -159,7 +163,8 @@ async function TasksSection({
   dict: Dictionary["tasks"];
   locale: Locale;
 }) {
-  const { tasks, memberOptions, pantryItems, memberIdByUserId, now, timeZone } = await getTasksData(householdId);
+  const { tasks, memberOptions, pantryItems, memberIdByUserId, now, timeZone, todayWeekday } =
+    await getTasksData(householdId);
   return (
     <TasksClient
       dict={dict}
@@ -170,7 +175,7 @@ async function TasksSection({
       now={now}
       timeZone={timeZone}
       locale={locale}
-      emptyAction={tasks.length === 0 ? addTaskDialog(memberOptions, pantryItems, dict) : undefined}
+      emptyAction={tasks.length === 0 ? addTaskDialog(memberOptions, pantryItems, dict, todayWeekday) : undefined}
     />
   );
 }
