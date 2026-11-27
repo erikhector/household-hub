@@ -437,12 +437,17 @@ function DialogContent({
             // bottom-[var(--kb-inset)]: the iOS keyboard's height (0 when
             // closed or on Android, where interactiveWidget resizes the layout
             // viewport instead) — without it the fixed sheet sits behind the
-            // keyboard (UX-12).
+            // keyboard (UX-12). The max height subtracts it too: iOS keeps
+            // dvh at the full screen with the keyboard up, so a lifted sheet
+            // still 85dvh tall pushed its top — and the field being typed
+            // in — off the top of the screen. Capped at the space above the
+            // keyboard, less the status bar and a 1rem peek of the page so
+            // it still reads as a sheet; 85dvh still applies with no keyboard.
             // The sheet is a column: the grabber, then the body below, which
             // is the one scroller (dialog-scroll.test.ts). overflow-hidden
             // clips the body to the rounded corners.
             // sm+: the original centered modal.
-            "fixed inset-x-0 top-auto bottom-[var(--kb-inset,0px)] z-50 flex flex-col max-h-[85dvh] w-full max-w-none translate-x-0 translate-y-0 overflow-hidden rounded-t-2xl bg-popover text-sm text-popover-foreground ring-1 ring-foreground/10 duration-150 outline-none data-open:animate-in data-open:slide-in-from-bottom data-open:fade-in-0 data-closed:animate-out data-closed:slide-out-to-bottom data-closed:fade-out-0",
+            "fixed inset-x-0 top-auto bottom-[var(--kb-inset,0px)] z-50 flex flex-col max-h-[min(85dvh,calc(100dvh-var(--kb-inset,0px)-env(safe-area-inset-top)-1rem))] w-full max-w-none translate-x-0 translate-y-0 overflow-hidden rounded-t-2xl bg-popover text-sm text-popover-foreground ring-1 ring-foreground/10 duration-150 outline-none data-open:animate-in data-open:slide-in-from-bottom data-open:fade-in-0 data-closed:animate-out data-closed:slide-out-to-bottom data-closed:fade-out-0",
             // UX-34, the drag: Base UI writes the finger's travel to
             // --drawer-swipe-movement-y (rubber-banded past the top) and a
             // resting snap point to --drawer-snap-point-offset. `transform`,

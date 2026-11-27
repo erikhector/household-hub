@@ -35,15 +35,15 @@ function fakeWindow() {
   // real window: resize/orientationchange for layout settles, focusout for
   // keyboard dismissal.
   const target = {
-    addEventListener: (type: "resize" | "orientationchange" | "focusout", listener: () => void) => {
+    addEventListener: (type: "resize" | "orientationchange" | "focusout" | "focusin", listener: () => void) => {
       let set = listeners.get(type);
       if (!set) listeners.set(type, (set = new Set()));
       set.add(listener);
     },
-    removeEventListener: (type: "resize" | "orientationchange" | "focusout", listener: () => void) => {
+    removeEventListener: (type: "resize" | "orientationchange" | "focusout" | "focusin", listener: () => void) => {
       listeners.get(type)?.delete(listener);
     },
-    dispatch: (type: "resize" | "orientationchange" | "focusout") => {
+    dispatch: (type: "resize" | "orientationchange" | "focusout" | "focusin") => {
       for (const listener of listeners.get(type) ?? []) listener();
     },
   };
@@ -227,5 +227,93 @@ describe("watchKeyboardInset", () => {
     cleanup();
     expect(setInset).not.toHaveBeenCalled();
     expect(clearInset).not.toHaveBeenCalled();
+  });
+});
+
+// The lift alone isn't enough: when the keyboard opens, iOS has already
+// scrolled for the focused field against the un-lifted sheet, so a field
+// low in the body ends up behind the keyboard or, in a tall sheet, above
+// the screen. Each time the keyboard opens (or focus moves while it's up),
+// the watcher asks for the focused field to be revealed again.
+describe("watchKeyboardInset reveals the focused field", () => {
+  function setup() {
+    const viewport = fakeViewport();
+    const target = fakeWindow();
+    const revealFocused = vi.fn();
+    watchKeyboardInset({
+      visualViewport: viewport,
+      windowTarget: target,
+      innerHeight: () => 800,
+      setInset: () => {},
+      clearInset: () => {},
+      revealFocused,
+    });
+    return { viewport, target, revealFocused };
+  }
+
+  it("does nothing while the keyboard is closed", () => {
+    const { viewport, target, revealFocused } = setup();
+    viewport.dispatch("resize");
+    target.dispatch("focusin");
+    expect(revealFocused).not.toHaveBeenCalled();
+  });
+
+  it("reveals once when the keyboard opens, not on every event after", () => {
+    const { viewport, revealFocused } = setup();
+    viewport.height = 460;
+    viewport.dispatch("resize");
+    expect(revealFocused).toHaveBeenCalledTimes(1);
+    // A pinch-zoom pan or a repeat resize at the same height isn't a new
+    // keyboard: re-revealing would fight the user's own scrolling.
+    viewport.dispatch("resize");
+    viewport.dispatch("scroll");
+    expect(revealFocused).toHaveBeenCalledTimes(1);
+  });
+
+  it("reveals when the keyboard grows (suggestion bar appears)", () => {
+    const { viewport, revealFocused } = setup();
+    viewport.height = 460;
+    viewport.dispatch("resize");
+    viewport.height = 420;
+    viewport.dispatch("resize");
+    expect(revealFocused).toHaveBeenCalledTimes(2);
+  });
+
+  it("reveals when focus moves to another field with the keyboard up", () => {
+    const { viewport, target, revealFocused } = setup();
+    viewport.height = 460;
+    viewport.dispatch("resize");
+    target.dispatch("focusin");
+    expect(revealFocused).toHaveBeenCalledTimes(2);
+  });
+
+  it("reveals again after the keyboard closes and reopens", () => {
+    const { viewport, revealFocused } = setup();
+    viewport.height = 460;
+    viewport.dispatch("resize");
+    viewport.height = 800;
+    viewport.dispatch("resize");
+    viewport.height = 460;
+    viewport.dispatch("resize");
+    expect(revealFocused).toHaveBeenCalledTimes(2);
+  });
+
+  it("stops listening for focusin on cleanup", () => {
+    const viewport = fakeViewport();
+    const target = fakeWindow();
+    const revealFocused = vi.fn();
+    viewport.height = 460;
+    const cleanup = watchKeyboardInset({
+      visualViewport: viewport,
+      windowTarget: target,
+      innerHeight: () => 800,
+      setInset: () => {},
+      clearInset: () => {},
+      revealFocused,
+    });
+    cleanup();
+    const calls = revealFocused.mock.calls.length;
+    target.dispatch("focusin");
+    expect(revealFocused.mock.calls.length).toBe(calls);
   });
 });

@@ -37,6 +37,17 @@
 // survives until the next signal or unmount; the threshold above at least
 // keeps partial-transition gaps from lifting the sheet.
 //
+// Lifting isn't enough on its own, either. iOS scrolls the focused field
+// into view the moment it's tapped, measured against the sheet as it was
+// *before* the keyboard (and so before the lift and the max-height cap in
+// dialog.tsx that keeps a lifted sheet's top on screen). A field low in a
+// tall sheet's body then ends up behind the keyboard or above the screen,
+// so you type blind. `revealFocused` re-reveals the focused field once the
+// keyboard is up: when it opens or grows (a new, larger inset), and when
+// focus moves to another field while it's up. Not on every event: a
+// pinch-zoom pan or a repeat resize at the same height isn't a new
+// keyboard, and re-revealing then would fight the user's own scrolling.
+//
 // A CSS variable, not storage: nothing persists in the browser, so there's
 // no cookie-inventory entry for this (AGENTS.md).
 
@@ -76,8 +87,8 @@ export type KeyboardViewport = {
 // resize is dropped. Same structural trick as KeyboardViewport so the
 // node-environment test drives it with a fake.
 export type KeyboardWindow = {
-  addEventListener(type: "resize" | "orientationchange" | "focusout", listener: () => void): void;
-  removeEventListener(type: "resize" | "orientationchange" | "focusout", listener: () => void): void;
+  addEventListener(type: "resize" | "orientationchange" | "focusout" | "focusin", listener: () => void): void;
+  removeEventListener(type: "resize" | "orientationchange" | "focusout" | "focusin", listener: () => void): void;
 };
 
 export function watchKeyboardInset(deps: {
@@ -86,12 +97,27 @@ export function watchKeyboardInset(deps: {
   innerHeight: () => number;
   setInset: (px: number) => void;
   clearInset: () => void;
+  // Bring the focused field back into view (see the header comment).
+  revealFocused?: () => void;
 }): () => void {
   const { visualViewport, windowTarget } = deps;
   // Desktops and browsers without the API: nothing to lift.
   if (!visualViewport) return () => {};
-  const update = () =>
-    deps.setInset(keyboardInsetPx(deps.innerHeight(), visualViewport.height, visualViewport.offsetTop));
+  // The last inset written, so a reveal fires only when the keyboard opens
+  // or grows, not on every event while it's up.
+  let inset = 0;
+  const update = () => {
+    const next = keyboardInsetPx(deps.innerHeight(), visualViewport.height, visualViewport.offsetTop);
+    const grew = next > inset;
+    inset = next;
+    deps.setInset(next);
+    if (grew) deps.revealFocused?.();
+  };
+  // Focus moving between fields with the keyboard already up: no viewport
+  // event fires, but the new field may sit behind the keyboard.
+  const onFocusIn = () => {
+    if (inset > 0) deps.revealFocused?.();
+  };
   // Set once up front (a keyboard already open when the dialog mounts) and
   // on every change after: `resize` for the keyboard opening/closing,
   // `scroll` for pinch-zoom pans, which move offsetTop.
@@ -103,12 +129,14 @@ export function watchKeyboardInset(deps: {
   windowTarget?.addEventListener("resize", update);
   windowTarget?.addEventListener("orientationchange", update);
   windowTarget?.addEventListener("focusout", update);
+  windowTarget?.addEventListener("focusin", onFocusIn);
   return () => {
     visualViewport.removeEventListener("resize", update);
     visualViewport.removeEventListener("scroll", update);
     windowTarget?.removeEventListener("resize", update);
     windowTarget?.removeEventListener("orientationchange", update);
     windowTarget?.removeEventListener("focusout", update);
+    windowTarget?.removeEventListener("focusin", onFocusIn);
     deps.clearInset();
   };
 }
@@ -124,7 +152,23 @@ export function useKeyboardInset(): void {
         innerHeight: () => window.innerHeight,
         setInset: (px) => document.documentElement.style.setProperty("--kb-inset", `${px}px`),
         clearInset: () => document.documentElement.style.removeProperty("--kb-inset"),
+        revealFocused,
       }),
     [],
   );
+}
+
+// Scrolls the focused field into the sheet's visible part. On the next
+// frame, so the browser has applied the new --kb-inset (the sheet's lift
+// and its max-height) before measuring. Only for a field inside a dialog:
+// this hook exists for sheets, and a stray focus elsewhere isn't ours to
+// scroll. `block: "nearest"` scrolls only as far as needed, so a field
+// that's already visible doesn't move.
+function revealFocused(): void {
+  requestAnimationFrame(() => {
+    const el = document.activeElement;
+    if (!(el instanceof HTMLElement) || el.matches('[data-slot="dialog-content"]')) return;
+    if (!el.closest('[data-slot="dialog-content"]')) return;
+    el.scrollIntoView({ block: "nearest", inline: "nearest" });
+  });
 }

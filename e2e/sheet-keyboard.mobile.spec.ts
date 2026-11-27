@@ -55,3 +55,42 @@ test("a filled recipe form keeps its submit in view on a phone", async ({ page, 
   const alpha = footer?.background.match(/rgba?\(([^)]+)\)/)?.[1].split(",").map(Number) ?? [];
   expect(alpha.length >= 4 ? alpha[3] : 1).toBe(1);
 });
+
+// The iOS half of the lift: Safari keeps the layout viewport (and dvh) full
+// height behind the keyboard, and useKeyboardInset writes the keyboard's
+// height to --kb-inset. A tall sheet lifted by it but still 85dvh tall had
+// its top, and the field being typed in, pushed off the top of the screen.
+// Chromium has no on-screen keyboard, so this writes the inset the way the
+// hook would and checks the sheet then fits in the space above it.
+test("a tall sheet lifted above the iOS keyboard keeps its top on screen", async ({ page, context, baseURL }) => {
+  await dismissCookieNotice(context, baseURL!);
+  await page.goto("/dashboard/meal-planning");
+  await openRecipesTab(page);
+  await page.getByRole("button", { name: "New recipe" }).click();
+  const dialog = page.getByRole("dialog", { name: "New recipe" });
+  await expect(dialog).toBeVisible();
+
+  // Enough rows that the sheet reaches its 85dvh cap.
+  const add = dialog.getByRole("button", { name: "Add ingredient" });
+  for (let i = 0; i < 6; i++) await add.click();
+  const name = dialog.getByRole("textbox", { name: "Name" });
+  await name.click();
+
+  const KEYBOARD = 340;
+  await page.evaluate((px) => document.documentElement.style.setProperty("--kb-inset", `${px}px`), KEYBOARD);
+
+  // max-height animates (the full-screen morph), so poll until it settles.
+  const visibleBottom = page.viewportSize()!.height - KEYBOARD;
+  await expect
+    .poll(async () => {
+      const box = await dialog.boundingBox();
+      return box ? { top: box.y >= 0, bottom: box.y + box.height <= visibleBottom + 1 } : null;
+    })
+    .toEqual({ top: true, bottom: true });
+
+  // And the field being typed in is in that visible band, not under the
+  // keyboard or above the screen.
+  const field = await name.boundingBox();
+  expect(field!.y).toBeGreaterThanOrEqual(0);
+  expect(field!.y + field!.height).toBeLessThanOrEqual(visibleBottom + 1);
+});
