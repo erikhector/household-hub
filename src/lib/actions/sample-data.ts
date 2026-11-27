@@ -94,6 +94,10 @@ export async function clearSampleDataAction(): Promise<void> {
     // take the pick with it), untagged like a week that gained a meal.
     prisma.recipe.deleteMany({ where: { householdId, sample: tagged, mealPlanPicks: { none: {} } } }),
     prisma.recipe.updateMany({ where: { householdId, sample: tagged }, data: { sample: null } }),
+    // Acorn stash: a tick of a sample task wrote a completion, and deleting
+    // the task would only null its taskId (SetNull), leaving acorns earned
+    // on chores the household never had. They go with the task.
+    prisma.taskCompletion.deleteMany({ where: { householdId, task: { householdId, sample: tagged } } }),
     prisma.householdTask.deleteMany({ where: { householdId, sample: tagged } }),
     prisma.inventoryItem.deleteMany({ where: { householdId, sample: tagged } }),
   ]);

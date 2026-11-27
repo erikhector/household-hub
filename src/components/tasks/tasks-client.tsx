@@ -30,6 +30,9 @@ import { filterTasks, parseTaskFilter, type TaskFilter } from "@/app/dashboard/t
 import { TASKS_FILTER_STORAGE_KEY } from "@/lib/cookie-inventory";
 import { startUndoableDelete } from "@/components/shared/start-undoable-delete";
 import { TasksWeeklyRecap } from "@/components/tasks/tasks-weekly-recap";
+import { AcornStashCard, type AcornStashRow } from "@/components/tasks/acorn-stash-card";
+import { TASK_DONE_TOAST_MS } from "@/lib/tasks/undo-window";
+import { capUndoToast } from "@/components/tasks/undo-toast-cap";
 import { applyLocalRowChanges, settleDelete, useLocalRowChanges } from "@/components/shared/local-row-changes";
 import { useFlipList } from "@/components/shared/use-flip-list";
 import { computeWeeklyTaskRecap } from "@/app/dashboard/tasks/weekly-recap-calc";
@@ -82,6 +85,7 @@ export function TasksClient({
   timeZone,
   locale,
   emptyAction,
+  acornStash,
 }: {
   dict: TasksDict;
   /** UX-50: the page's "Add task" trigger, passed only while the household
@@ -99,6 +103,9 @@ export function TasksClient({
   /** The visitor's zone: the local day a repeating chore reopens on. */
   timeZone: string;
   locale: Locale;
+  /** Acorn stash: each current member's pile, or null while the household
+   * has the game off (then nothing of it renders). */
+  acornStash: AcornStashRow[] | null;
 }) {
   const memberNameById = new Map(members.map((m) => [m.id, m.displayName]));
   const unitLabel = useUnitLabel();
@@ -124,14 +131,23 @@ export function TasksClient({
   const tasks = filterTasks(allTasks, filter, currentMemberId);
   // UX-105: older completed one-offs stay behind "Show N older" until asked.
   const [showOlder, setShowOlder] = useState(false);
+  // Acorn stash: bumped when the server says one of this person's ticks
+  // earned an acorn, to drop it on their pile (see AcornStashCard). So not
+  // at tap time but once the save answers (usually well under a second):
+  // only then is it known that the tick landed, and that it wasn't a
+  // re-tick earning nothing. Never by an untick or Undo.
+  const [acornDrops, setAcornDrops] = useState(0);
   const toggleCompleted = (task: TaskRow) => {
     const completing = !task.completed;
     const settle = local.markDone(task.id, completing);
     let toastId: string | number | undefined;
     let undone = false;
+    // Undo never outlives the server's undo window (undo-toast-cap.ts).
+    const cap = capUndoToast();
     const doneText = format(dict.doneToast, { title: task.title });
     const doneOptions = {
-      duration: 5000,
+      duration: TASK_DONE_TOAST_MS,
+      ...cap.closeHandlers,
       action: {
         label: dict.swipe.undo,
         onClick: () => {
@@ -145,14 +161,17 @@ export function TasksClient({
       // happened and offer the way back (M5, User control). Undo is the
       // same toggle, from the state this tick left the task in.
       toastId = toast(doneText, doneOptions);
+      cap.start(toastId);
     }
     void (async () => {
       const result = await settleOptimisticAction(() => toggleTaskCompletedAction(task.id), dict.saveFailedToast);
       settle(result !== null);
+      if (result?.earnedAcorn) setAcornDrops((count) => count + 1);
       // GAP-87: the same toast names what the tick took off the pantry, once
       // the server says how much (less than asked when stock ran out). Its
-      // Undo puts that back too. Not after an Undo, which closed it.
-      if (toastId !== undefined && result?.used && !undone) {
+      // Undo puts that back too. Not once it has closed (an Undo, its own
+      // time, or the cap), which would show it again.
+      if (toastId !== undefined && result?.used && !undone && !cap.closed) {
         toast(doneText, {
           ...doneOptions,
           id: toastId,
@@ -167,6 +186,9 @@ export function TasksClient({
   const skipTask = (task: TaskRow) => {
     const previousSkippedUntil = task.skippedUntil;
     const settle = local.markSkipped(task.id, true);
+    // The app's usual 5 s toast, deliberately not TASK_DONE_TOAST_MS: a skip
+    // earns no acorn and its Undo (unskipTaskAction) works at any age, so no
+    // server window ties its length to the "Done" toast's, and no cap.
     toast(format(dict.skippedToast, { title: task.title }), {
       duration: 5000,
       action: {
@@ -239,6 +261,15 @@ export function TasksClient({
     })),
   );
 
+  // Acorn stash (DESIGN.md M6): secondary to the chores, so it sits below
+  // the open tasks (or below the empty state) as a collapsed card, never
+  // above them where it would push them down on a phone. Inside the flip
+  // list with its own key, so it glides up when a ticked row leaves, and
+  // rendered once at a fixed place in it (see the list below).
+  const stashCard = acornStash && (
+    <AcornStashCard rows={acornStash} currentMemberId={currentMemberId} dropKey={acornDrops} dict={dict.acornStash} />
+  );
+
   return (
     <div ref={containerRef} className="relative flex flex-col gap-6">
       {recapGroups.length > 0 && <TasksWeeklyRecap groups={recapGroups} dict={dict} />}
@@ -260,6 +291,11 @@ export function TasksClient({
 
       {/* Keyed too, so the list glides down when the recap above grows. */}
       <div data-flip-key="tasks" className="relative flex flex-col gap-2">
+        {/* The acorn stash card is one child at a fixed place in this list
+            (after the open section, before the rest), not a copy inside each
+            branch of the ternary: React then keeps the same <details> when
+            the list goes from empty to full or "Mine" empties, where a copy
+            per branch remounted it, folding it shut and replaying the drop. */}
         {allTasks.length === 0 ? (
           <MascotEmptyState alt={dict.mascotAlt} action={emptyAction}>
             <p className="text-sm text-muted-foreground">{dict.emptyState}</p>
@@ -305,61 +341,63 @@ export function TasksClient({
                 <p className="font-heading text-xl font-semibold">{dict.caughtUpTitle}</p>
               </div>
             )}
-            {upcomingTasks.length > 0 && (
-              <p data-flip-key="label:upcoming" className="mt-4 text-xs font-medium uppercase text-muted-foreground">
-                {dict.upcomingSectionLabel}
-              </p>
-            )}
-            {upcomingTasks.map((task) => (
-              <TaskItemRow
-                key={task.id}
-                task={task}
-                upcoming
-                members={members}
-                pantryItems={pantryItems}
-                memberNameById={memberNameById}
-                onToggleCompleted={toggleCompleted}
-                onDelete={deleteTask}
-                onSkip={skipTask}
-                dict={dict}
-                locale={locale}
-                timeZone={timeZone}
-                today={today}
-              />
-            ))}
-            {completedTasks.length > 0 && (
-              <p data-flip-key="label:completed" className="mt-4 text-xs font-medium uppercase text-muted-foreground">
-                {dict.completedSectionLabel}
-              </p>
-            )}
-            {shownCompletedTasks.map((task) => (
-              <TaskItemRow
-                key={task.id}
-                task={task}
-                members={members}
-                pantryItems={pantryItems}
-                memberNameById={memberNameById}
-                onToggleCompleted={toggleCompleted}
-                onDelete={deleteTask}
-                onSkip={skipTask}
-                dict={dict}
-                locale={locale}
-                timeZone={timeZone}
-                today={today}
-              />
-            ))}
-            {olderTasks.length > 0 && (
-              <Button
-                variant="ghost"
-                data-flip-key="older-toggle"
-                className="self-start text-muted-foreground max-sm:min-h-11 pointer-coarse:min-h-11"
-                aria-expanded={showOlder}
-                onClick={() => setShowOlder((v) => !v)}
-              >
-                {showOlder ? dict.hideOlder : format(dict.showOlder, { count: olderTasks.length })}
-              </Button>
-            )}
           </>
+        )}
+        {stashCard}
+        {/* Empty whenever the filtered list is, so no branch is needed. */}
+        {upcomingTasks.length > 0 && (
+          <p data-flip-key="label:upcoming" className="mt-4 text-xs font-medium uppercase text-muted-foreground">
+            {dict.upcomingSectionLabel}
+          </p>
+        )}
+        {upcomingTasks.map((task) => (
+          <TaskItemRow
+            key={task.id}
+            task={task}
+            upcoming
+            members={members}
+            pantryItems={pantryItems}
+            memberNameById={memberNameById}
+            onToggleCompleted={toggleCompleted}
+            onDelete={deleteTask}
+            onSkip={skipTask}
+            dict={dict}
+            locale={locale}
+            timeZone={timeZone}
+            today={today}
+          />
+        ))}
+        {completedTasks.length > 0 && (
+          <p data-flip-key="label:completed" className="mt-4 text-xs font-medium uppercase text-muted-foreground">
+            {dict.completedSectionLabel}
+          </p>
+        )}
+        {shownCompletedTasks.map((task) => (
+          <TaskItemRow
+            key={task.id}
+            task={task}
+            members={members}
+            pantryItems={pantryItems}
+            memberNameById={memberNameById}
+            onToggleCompleted={toggleCompleted}
+            onDelete={deleteTask}
+            onSkip={skipTask}
+            dict={dict}
+            locale={locale}
+            timeZone={timeZone}
+            today={today}
+          />
+        ))}
+        {olderTasks.length > 0 && (
+          <Button
+            variant="ghost"
+            data-flip-key="older-toggle"
+            className="self-start text-muted-foreground max-sm:min-h-11 pointer-coarse:min-h-11"
+            aria-expanded={showOlder}
+            onClick={() => setShowOlder((v) => !v)}
+          >
+            {showOlder ? dict.hideOlder : format(dict.showOlder, { count: olderTasks.length })}
+          </Button>
         )}
       </div>
     </div>

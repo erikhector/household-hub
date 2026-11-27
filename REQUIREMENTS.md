@@ -7750,13 +7750,17 @@ custom one alike.
 `/dashboard/tasks` (`TasksClient`) — "Household Tasks v1", built from
 [`docs/archive/JOY_GAP_BACKLOG.md`](./docs/archive/JOY_GAP_BACKLOG.md) item 6, the one Joy Gap ticket
 that closes an actual product gap (a shared task list) rather than a tone
-change. One flat, shared `HouseholdTask` list per household — deliberately
-**not** a chore-chart/points/rewards system like Tody or OurHome: no fixed
-due dates or calendar schedule, no per-person scoring, counts, streaks or
-leaderboard, in v1 or planned. Tasks can repeat on a simple interval and a
+change. One flat, shared `HouseholdTask` list per household. By default it
+is **not** a chore-chart/points/rewards system like Tody or OurHome: no
+fixed due dates or calendar schedule, and no per-person scoring, counts,
+streaks or leaderboard. Tasks can repeat on a simple interval and a
 repeating task can rotate between people (both below), but that's only ever
 "whose turn is it", never a tally. Squirrel's audience is adult household
-co-managers, not kids earning rewards.
+co-managers, not kids earning rewards. The one exception is the **Acorn
+stash** (below, TASKS-GAME): a light per-person game a household can switch
+on, off by default. The owner decided on it on 2026-11-27, reversing the
+earlier "no scoring, in v1 or planned" rule; with it off, everything in
+this section still holds.
 
 - **Model**: `HouseholdTask` (`householdId`, `title`, nullable
   `assignedToMemberId`, nullable `completedAt`, nullable
@@ -7917,7 +7921,8 @@ co-managers, not kids earning rewards.
     `rotationPreviousAssigneeId` to whoever the edit assigned, so undo never
     reverts a human's choice.
   - Deliberately no counts, streaks, "done most" or member-vs-member
-    comparison anywhere — the row only says "Next: <name>".
+    comparison on the rows — the row only says "Next: <name>". Counts and
+    streaks exist only inside the opt-in Acorn stash card.
 - **Actions** (`src/app/dashboard/tasks/actions.ts`): `createTaskAction`
   (form action), `updateTaskAction` (assignee, recurrence and rotation;
   title isn't editable), `toggleTaskCompletedAction` (flips `completedAt`
@@ -7944,6 +7949,40 @@ co-managers, not kids earning rewards.
   rotating one "Next: <name>" — for an open task the person after the
   current assignee, for a completed one the person it has already passed
   to.
+- **Acorn stash (TASKS-GAME, opt-in)**: a household setting,
+  `Household.acornStashEnabled` (default `false`), that any member can
+  switch in household settings (`setAcornStashEnabledAction`, the same rule
+  as the low-stock auto-add switch). While it's on, every tick writes a
+  `TaskCompletion` row (household, task, member, `completedAt`, `acorns`) in
+  the tick's transaction. While it's off, nothing is recorded, so switching
+  it on starts everyone from zero. The rows stay when a task or member is
+  deleted (both ids set to null) and go with the household.
+  - **Earning**: one acorn per tick; a recurring task earns each time it's
+    done. An untick within the undo window (`TASK_UNDO_WINDOW_MS` in
+    `src/lib/tasks/undo-window.ts`: the 5 s Done toast plus 10 s grace)
+    deletes that tick's row. The toast is dismissed before the window
+    ends, so Undo is never offered after the server would ignore it. A later
+    untick reopens the task but keeps the acorn. A re-tick after such an
+    untick is recorded with 0 acorns, so tick, untick, tick can't farm
+    acorns.
+  - **Card**: a collapsed `<details>` "Acorn stash" card below the open
+    tasks (M6). Its 44 px summary shows your own weekly pile. Opened, it
+    lists each current member, in join order and never sorted by count,
+    with this week's acorns (Monday start, the visitor's time zone), their
+    streak (consecutive days with an acorn, ending today or yesterday,
+    capped at 365) and all-time total. A "Busiest this week" badge marks
+    the week's leaders, but only in households with more than one member. An acorn drops on
+    the summary when a tick earns one, and not under reduced motion.
+  - **Reads**: all-time totals come from a household-scoped `groupBy`, and
+    rows only from the last 367 days (`loadAcornStash`,
+    `src/lib/tasks/acorn-stash.ts`).
+  - **Guardrails**: no notifications, push or email, nothing on money
+    screens, and no loss framing; a streak that has ended simply isn't
+    shown. The profile data export includes the member's own completions,
+    and clearing sample data removes the completions of sample tasks.
+  - Design notes: `docs/superpowers/specs/2026-11-27-acorn-stash-design.md`.
+    Tests: `src/lib/tasks/acorn-stash.test.ts`, the tasks and household
+    action tests, and `e2e/acorn-stash.spec.ts`.
 - **Weekly recap**: `src/app/dashboard/tasks/weekly-recap-calc.ts`
   (`computeWeeklyTaskRecap`) groups the current Monday-start week's
   completed tasks by completer, in first-appearance order — **never** sorted

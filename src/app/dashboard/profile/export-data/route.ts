@@ -37,6 +37,7 @@ export async function GET() {
     personalPlannedExpenses,
     notes,
     tasks,
+    taskCompletions,
     events,
     transactionSplits,
     recurringTemplateSplits,
@@ -72,6 +73,12 @@ export async function GET() {
         completedByMember: { select: { userId: true } },
       },
       orderBy: { createdAt: "asc" },
+    }),
+    // Acorn stash: every task this user ticked (TaskCompletion).
+    prisma.taskCompletion.findMany({
+      where: { member: mine },
+      include: { household: { select: { name: true } }, task: { select: { title: true } } },
+      orderBy: { completedAt: "asc" },
     }),
     // GAP-35: calendar events that are for this user or that they added.
     prisma.householdEvent.findMany({
@@ -237,8 +244,8 @@ export async function GET() {
       createdAt: note.createdAt,
     })),
     // Tasks assigned to or last completed by this user. A task only keeps
-    // its latest completion (see HouseholdTask's doc comment), so this is
-    // all the task history there is. The rotation's other members are left
+    // its latest completion (see HouseholdTask's doc comment); every tick
+    // made while the acorn stash was on is in taskCompletions below. The rotation's other members are left
     // out: that's the household's schedule, not this user's data.
     householdTasks: tasks.map((task) => ({
       householdName: task.household.name,
@@ -250,6 +257,14 @@ export async function GET() {
       recurrenceIntervalDays: task.recurrenceIntervalDays,
       dueDate: task.dueDate,
       createdAt: task.createdAt,
+    })),
+    // Acorn stash: each task this user ticked, and the acorns it earned. The
+    // title is null once the task itself has been deleted.
+    taskCompletions: taskCompletions.map((completion) => ({
+      householdName: completion.household.name,
+      taskTitle: completion.task?.title ?? null,
+      completedAt: completion.completedAt,
+      acorns: completion.acorns,
     })),
     // GAP-35: calendar events for this user or added by them. Who else an
     // event is for isn't this user's data, so it's a flag, not a name.

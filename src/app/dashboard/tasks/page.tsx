@@ -7,6 +7,8 @@ import { getDictionary, getLocale, type Dictionary, type Locale } from "@/lib/i1
 import { Button } from "@/components/ui/button";
 import { TaskFormDialog, type PantryItemOption } from "@/components/tasks/task-form-dialog";
 import { TasksClient } from "@/components/tasks/tasks-client";
+import type { AcornStashRow } from "@/components/tasks/acorn-stash-card";
+import { loadAcornStash } from "@/lib/tasks/acorn-stash";
 import { isTaskOpen, isUpcoming, keepsWeekday, localWeekday } from "@/app/dashboard/tasks/recurrence";
 import { formatDueDateInput, getTaskDueDay } from "@/app/dashboard/tasks/task-due";
 import { activeRotationMembers, isRotating, nextAssigneeInRotation } from "@/lib/task-rotation";
@@ -109,6 +111,24 @@ const getTasksData = cache(async (householdId: string) => {
   };
 });
 
+// Acorn stash: each current member's pile, only while the household has the
+// game on (Household.acornStashEnabled); otherwise not even queried. The
+// reads are bounded (database-side all-time sums, a year of rows for the
+// streak): see loadAcornStash.
+async function getAcornStash(
+  householdId: string,
+  memberOptions: { id: string; displayName: string }[],
+  now: Date,
+  timeZone: string,
+): Promise<AcornStashRow[]> {
+  const memberIds = memberOptions.map((m) => m.id);
+  const nameById = new Map(memberOptions.map((m) => [m.id, m.displayName]));
+  return (await loadAcornStash({ householdId, memberIds, now, timeZone })).map((row) => ({
+    ...row,
+    name: nameById.get(row.memberId) ?? "",
+  }));
+}
+
 function addTaskDialog(
   memberOptions: { id: string; displayName: string }[],
   pantryItems: PantryItemOption[],
@@ -157,14 +177,17 @@ async function TasksSection({
   userId,
   dict,
   locale,
+  acornStashEnabled,
 }: {
   householdId: string;
   userId: string;
   dict: Dictionary["tasks"];
   locale: Locale;
+  acornStashEnabled: boolean;
 }) {
   const { tasks, memberOptions, pantryItems, memberIdByUserId, now, timeZone, todayWeekday } =
     await getTasksData(householdId);
+  const acornStash = acornStashEnabled ? await getAcornStash(householdId, memberOptions, now, timeZone) : null;
   return (
     <TasksClient
       dict={dict}
@@ -176,6 +199,7 @@ async function TasksSection({
       timeZone={timeZone}
       locale={locale}
       emptyAction={tasks.length === 0 ? addTaskDialog(memberOptions, pantryItems, dict, todayWeekday) : undefined}
+      acornStash={acornStash}
     />
   );
 }
@@ -188,7 +212,9 @@ export default async function TasksPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <PageTitle>{dict.tasks.title}</PageTitle>
-          <p className="text-sm text-muted-foreground">{dict.tasks.subtitle}</p>
+          <p className="text-sm text-muted-foreground">
+            {household.acornStashEnabled ? dict.tasks.subtitleWithAcornStash : dict.tasks.subtitle}
+          </p>
         </div>
         <Suspense
           fallback={
@@ -201,7 +227,13 @@ export default async function TasksPage() {
         </Suspense>
       </div>
       <Suspense fallback={<TasksListSkeleton label={dict.common.loading} />}>
-        <TasksSection householdId={household.id} userId={userId} dict={dict.tasks} locale={locale} />
+        <TasksSection
+          householdId={household.id}
+          userId={userId}
+          dict={dict.tasks}
+          locale={locale}
+          acornStashEnabled={household.acornStashEnabled}
+        />
       </Suspense>
     </div>
   );

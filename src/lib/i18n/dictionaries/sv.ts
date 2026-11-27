@@ -500,6 +500,14 @@ export const sv = {
       enabledToast: "Varor med lågt lager läggs till automatiskt",
       disabledToast: "Varor med lågt lager läggs inte till automatiskt",
     },
+    acornStash: {
+      title: "Ekollonförrådet",
+      label: "Visa ekollonförrådet på sidan Uppgifter",
+      description:
+        "En lätt lek: medan den är på ger varje uppgift någon bockar av dem ett ekollon, och sidan Uppgifter visar veckans högar. Alla börjar från noll när den slås på. Inställningen gäller alla i hushållet.",
+      enabledToast: "Ekollonförrådet är på",
+      disabledToast: "Ekollonförrådet är av",
+    },
     requiredDiet: {
       title: "Hushållets kost",
       description:
@@ -2868,6 +2876,7 @@ export const sv = {
   tasks: {
     title: "Uppgifter",
     subtitle: "En delad lista för hushållets vardagssysslor — inga poäng, inga streaks.",
+    subtitleWithAcornStash: "En delad lista för hushållets vardagssysslor, med ett ekollon för varje klar uppgift.",
     addTask: "Lägg till uppgift",
     addTaskDialogTitle: "Lägg till en uppgift",
     addTaskPlaceholder: "t.ex. Ta ut soporna",
@@ -2934,6 +2943,16 @@ export const sv = {
     hideOlder: "Dölj äldre",
     weeklyRecapTitle: "Den här veckan har hushållet fixat:",
     weeklyRecapDismissAriaLabel: "Stäng",
+    acornStash: {
+      title: "Ekollonförrådet",
+      weekLabel: "Den här veckan",
+      acornsThisWeek: { one: "{count} ekollon i veckan", other: "{count} ekollon i veckan" },
+      yourPile: { one: "Du har {count} ekollon i veckan", other: "Du har {count} ekollon i veckan" },
+      streak: { one: "{count} dag i rad", other: "{count} dagar i rad" },
+      allTime: "{count} totalt",
+      leaderBadge: "Flitigast i veckan",
+      you: "{name} (du)",
+    },
     recurrenceLabel: "Upprepa",
     recurrenceAriaLabel: "Upprepa",
     noRepeatOption: "Upprepas inte",
