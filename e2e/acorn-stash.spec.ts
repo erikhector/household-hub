@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { unique, uniqueId, withDb } from "./db";
-import { E2E_HOUSEHOLD } from "./seed";
-import { dismissCookieNotice, expectHydrated, expectNoHorizontalOverflow } from "./ui";
+import { E2E_HOUSEHOLD, E2E_MEMBER } from "./seed";
+import { dismissCookieNotice, expectHydrated, expectNoHorizontalOverflow, gotoRevealed } from "./ui";
 
 // Acorn stash (docs/superpowers/specs/2026-11-27-acorn-stash-design.md): the
 // opt-in chore game on the Tasks page. Turned on from Household > Settings,
@@ -35,28 +35,46 @@ async function toggleInSettings(page: Page, checked: boolean) {
 
 let taskId: string;
 let title: string;
+let seededIds: string[];
 
 test.beforeEach(async ({ context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);
   await setStash(false);
   taskId = uniqueId("e2e-acorn-task");
   title = unique("Sweep the porch");
-  await withDb((client) =>
-    client.query(`INSERT INTO "HouseholdTask" (id, "householdId", title) VALUES ($1, $2, $3)`, [
+  // Two ticks of the viewer's own from earlier today, so the pile starts
+  // above 0 (and above 1) the way it does when other specs in this worker
+  // have ticked tasks: the count must read right from any start.
+  seededIds = [uniqueId("e2e-acorn-tc"), uniqueId("e2e-acorn-tc")];
+  await withDb(async (client) => {
+    await client.query(`INSERT INTO "HouseholdTask" (id, "householdId", title) VALUES ($1, $2, $3)`, [
       taskId,
       E2E_HOUSEHOLD.id,
       title,
-    ]),
-  );
+    ]);
+    for (const id of seededIds) {
+      await client.query(
+        `INSERT INTO "TaskCompletion" (id, "householdId", "memberId", "completedAt") VALUES ($1, $2, $3, now())`,
+        [id, E2E_HOUSEHOLD.id, E2E_MEMBER],
+      );
+    }
+  });
 });
 
 test.afterEach(async () => {
   await setStash(false);
   await withDb(async (client) => {
-    await client.query(`DELETE FROM "TaskCompletion" WHERE "householdId" = $1 AND "taskId" = $2`, [E2E_HOUSEHOLD.id, taskId]);
+    await client.query(`DELETE FROM "TaskCompletion" WHERE "householdId" = $1 AND ("taskId" = $2 OR id = ANY($3))`, [
+      E2E_HOUSEHOLD.id,
+      taskId,
+      seededIds,
+    ]);
     await client.query(`DELETE FROM "HouseholdTask" WHERE "householdId" = $1 AND id = $2`, [E2E_HOUSEHOLD.id, taskId]);
   });
 });
+
+const pile = (count: number) => `${count} ${count === 1 ? "acorn" : "acorns"} this week`;
+const yourPile = (count: number) => `You have ${pile(count)}`;
 
 test("the acorn stash is off by default, earns an acorn per tick, gives it back on Undo, and hides again", async ({
   page,
@@ -70,24 +88,44 @@ test("the acorn stash is off by default, earns an acorn per tick, gives it back 
 
   await toggleInSettings(page, true);
 
-  await page.goto("/dashboard/tasks");
+  await gotoRevealed(page, "/dashboard/tasks");
   await expect(stash).toBeVisible();
-  // The viewer's own row. Other specs in this worker tick tasks too, so the
-  // pile starts wherever they left it; only the change is ours.
-  const mine = stash.getByRole("listitem").filter({ hasText: "(you)" });
-  const before = Number(/(\d+) acorns? this week/.exec((await mine.textContent()) ?? "")?.[1]);
-  expect(Number.isInteger(before)).toBe(true);
-  const pile = (count: number) => `${count} ${count === 1 ? "acorn" : "acorns"} this week`;
-  await expect(mine).toContainText(pile(before));
-  await expectNoHorizontalOverflow(page);
-
   const box = page.getByRole("checkbox", { name: `Mark ${title} as done`, exact: true });
+  // M6: below the open tasks, so it never pushes them down on a phone.
+  const rowBox = await box.boundingBox();
+  const stashBox = await stash.boundingBox();
+  expect(stashBox!.y).toBeGreaterThan(rowBox!.y + rowBox!.height);
+
+  // Collapsed, it's one row: the title and the viewer's own pile. Other
+  // specs in this worker tick tasks too, so the pile starts wherever they
+  // (and the two seeded ticks) left it; only the change is ours. Read from
+  // the screen-reader sentence, which is its own element.
+  const summaryPile = stash.getByText(/^You have \d+ acorns? this week$/);
+  const before = Number(/^You have (\d+)/.exec((await summaryPile.textContent()) ?? "")?.[1]);
+  expect(before).toBeGreaterThanOrEqual(2);
+  await expect(stash.getByRole("listitem")).toHaveCount(0);
+
+  // Opened, a row per member; the viewer's says "(you)".
+  await stash.getByText("Acorn stash", { exact: true }).click();
+  const mine = stash.getByRole("listitem").filter({ hasText: "(you)" });
+  const minePile = mine.getByText(/^\d+ acorns? this week$/);
+  await expect(minePile).toHaveText(pile(before));
+  // The visible digit is its own element too, not run into the sentence.
+  await expect(mine.getByText(String(before), { exact: true })).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+  const rowHeight = (await mine.boundingBox())!.height;
+
   await expectHydrated(box);
   const tickSaved = actionSaved(page, "/dashboard/tasks");
   await box.click();
   await tickSaved;
-  await expect(mine).toContainText(pile(before + 1));
+  await expect(minePile).toHaveText(pile(before + 1));
+  await expect(summaryPile).toHaveText(yourPile(before + 1));
+  await expect(mine.getByText(String(before + 1), { exact: true })).toBeVisible();
   await expect(mine).toContainText("in all");
+  // M5: the row keeps its height when the leader badge comes or goes; the
+  // name truncates rather than wrapping onto a second line.
+  expect((await mine.boundingBox())!.height).toBe(rowHeight);
 
   // Undo takes back exactly that acorn, and it stays gone after a reload.
   const undoSaved = actionSaved(page, "/dashboard/tasks");
@@ -98,9 +136,12 @@ test("the acorn stash is off by default, earns an acorn per tick, gives it back 
     .click();
   await undoSaved;
   await expect(page.getByRole("checkbox", { name: `Mark ${title} as done`, exact: true })).not.toBeChecked();
-  await expect(mine).toContainText(pile(before));
+  await expect(minePile).toHaveText(pile(before));
+  await expect(summaryPile).toHaveText(yourPile(before));
   await page.reload();
-  await expect(stash.getByRole("listitem").filter({ hasText: "(you)" })).toContainText(pile(before));
+  await expect(summaryPile).toHaveText(yourPile(before));
+  await stash.getByText("Acorn stash", { exact: true }).click();
+  await expect(minePile).toHaveText(pile(before));
 
   // Off again: the card goes.
   await toggleInSettings(page, false);

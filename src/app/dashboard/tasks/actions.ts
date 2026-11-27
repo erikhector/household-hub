@@ -18,6 +18,7 @@ import { isClosedBySkipOnly, isTaskOpen, skippedUntilFor } from "@/app/dashboard
 import { parseDueDateInput } from "@/app/dashboard/tasks/task-due";
 import { consumeTaskItem, restoreTaskItem, type TaskItemUse } from "@/app/dashboard/tasks/task-item-use";
 import { INTERACTIVE_TX_OPTIONS } from "@/lib/db-transaction";
+import { TASK_UNDO_WINDOW_MS } from "@/lib/tasks/undo-window";
 import { revalidateAutoAdded, type AutoAddedItem } from "@/lib/shopping/default-list";
 import {
   MAX_ROTATION_MEMBERS,
@@ -482,12 +483,15 @@ export async function toggleTaskCompletedAction(taskId: string): Promise<ActionS
       stockMoved = await prisma.$transaction(async (tx) => {
         const { count } = await tx.householdTask.updateMany({ where: unchangedSinceRead, data: restoreData });
         if (count === 0) return false;
-        // Acorn stash: take back the acorn the tick being undone earned. The
-        // tick wrote its row with the task's `completedAt`, so matching on it
-        // removes that one completion and none of the task's earlier ones.
+        // Acorn stash: the toast's Undo takes back the acorn the tick earned;
+        // an untick later keeps it (the owner's rule: only the Undo of a
+        // recent tick counts as never having done it). Both arrive here, so
+        // the tick's age tells them apart (TASK_UNDO_WINDOW_MS, undo-window.ts).
+        // The tick wrote its row with the task's `completedAt`, so matching on
+        // it removes that one completion and none of the task's earlier ones.
         // A tick from before completions were recorded has no row; nothing
         // matches and nothing is lost.
-        if (task.completedAt) {
+        if (task.completedAt && now.getTime() - task.completedAt.getTime() <= TASK_UNDO_WINDOW_MS) {
           await tx.taskCompletion.deleteMany({
             where: { householdId: household.id, taskId: task.id, completedAt: task.completedAt },
           });

@@ -63,41 +63,83 @@ anywhere.
     every completion, whether or not the stash is on**, so turning it on
     shows real history. Only a tick whose compare-and-set write matched
     writes a row (a double tap earns once).
-  - **Undo** (an un-tick, which is the same action) deletes the row matched
-    by household, task and the task's current `completedAt`, which the tick
-    wrote with the same instant. That removes exactly the completion being
-    undone and none of the task's earlier ones, whoever presses Undo. An
-    undo that lost a race deletes nothing; reopening a task closed only by
-    "Skip this time" leaves history alone (a skip never wrote one).
+  - **Undo** (owner's rule): an un-tick takes the acorn back **only within
+    the undo window**, i.e. when it is the toast's Undo of a recent tick.
+    Unticking or reopening a task later still puts the task back as before
+    (UX-102), but keeps the acorn the earlier completion earned. The toast's
+    Undo and a manual untick are the same `toggleTaskCompletedAction` call,
+    so the server tells them apart by the tick's age: the row is deleted
+    only when `now - task.completedAt <= TASK_UNDO_WINDOW_MS`
+    (`src/lib/tasks/undo-window.ts`), which is the "Done" toast's
+    `TASK_DONE_TOAST_MS` (5 s, shared by the Tasks page and Home's Today
+    block) plus a 10 s grace, because Sonner pauses the toast's timer while
+    it's hovered or the tab is hidden and the request takes a moment. Age
+    rather than a client flag, so nothing the client sends decides it. An
+    untick inside the window that wasn't the Undo button (a quick second tap
+    on the checkbox) counts as the undo too, which is what it is. A side
+    effect of the rule: tick, untick a day later, tick again earns two
+    acorns for one chore; accepted.
+  - The deletion matches by household, task and the task's current
+    `completedAt`, which the tick wrote with the same instant. That removes
+    exactly the completion being undone and none of the task's earlier ones,
+    whoever presses Undo. An undo that lost a race deletes nothing;
+    reopening a task closed only by "Skip this time" leaves history alone (a
+    skip never wrote one).
+  - **Sample data**: "Clear sample data" deletes the completions of sample
+    tasks before the tasks (a task's delete alone would only null their
+    `taskId`), so no acorns outlive chores the household never had.
   - Recurring tasks earn every time. Deleting a task keeps its acorns.
   - Ticks made before this shipped have no rows; they earn nothing and their
     undo finds nothing to delete.
-- **Sums** (`src/lib/tasks/acorn-stash.ts`, `computeAcornStash`, pure):
-  - week: Monday-start, in the visitor's local time zone (the same
-    `localDayNumber` the task schedule uses, UX-137);
-  - all-time: every acorn;
+- **Sums** (`src/lib/tasks/acorn-stash.ts`: `computeAcornStash`, pure, and
+  `loadAcornStash`, its two reads):
+  - week: Monday-start, in the visitor's local time zone (the time-zone
+    cookie; the same local-day arithmetic the task schedule uses, UX-137),
+    with one `Intl.DateTimeFormat` per computation (`localDayNumberIn`)
+    rather than one per row;
+  - all-time: every acorn, summed in the database (`groupBy` by member,
+    `_sum.acorns`, scoped to the household and its current members);
   - streak: consecutive local days with at least one tick, ending today or
-    yesterday (so it doesn't read as gone first thing in the morning);
+    yesterday (so it doesn't read as gone first thing in the morning),
+    counted up to `ACORN_STREAK_CAP_DAYS` (365);
   - members in join order, never sorted by pile size; completions by
     members who left (`memberId` null, or not in the current list) are left
     out; the leader badge goes to everyone tied for the top, and to nobody in
     a week with no acorns.
-  - The page reads all of the current members' completions (three narrow
-    columns each) only when the stash is on. Fine for any realistic
-    household; if it ever isn't, the all-time total can move to a
-    `groupBy` without changing the calculator's contract much.
-- **Card** (`AcornStashCard`, on the Tasks page above the Mine/Everyone
-  tabs): one row per member, two lines (pile, then name + badge, then a
-  caption "3 days in a row · 27 in all"). Nothing in it is a tap target. The
-  pile number has a screen-reader label ("4 acorns this week"); the visible
-  digit is `aria-hidden`. Lucide `Nut` stands in for an acorn (no emoji).
+  - **Bounded reads**, only when the stash is on: every render of the
+    Tasks page (and every tick, which revalidates it) runs the `groupBy`
+    and fetches rows only from the last 365 + 2 days (this week and a
+    capped streak; the 2 extra days cover any zone offset or DST change on
+    the earliest day). So the cost doesn't grow with the household's
+    history. A run longer than the cap reads as "365 days in a row":
+    still true, and simpler than an unbounded walk for a number nobody
+    checks against a calendar.
+- **Card** (`AcornStashCard`, on the Tasks page **below the open tasks**,
+  above "Completed", or below the empty state): DESIGN.md M6 puts the open
+  tasks first and secondary information behind a disclosure, so the card
+  is a native `<details>`, **collapsed by default** (the ProfileDisclosure
+  pattern: no JS, a 44 px summary row). Collapsed it's one row: the title,
+  the viewer's own pile for this week ("You have 4 acorns this week" for a
+  screen reader) and a chevron. Opened, one row per member: pile, then
+  name + badge on one line, then a caption "3 days in a row · 27 in all".
+  The name line never wraps (the name truncates, with its full text in
+  `title`), so the leader badge appearing after a tick can't add a line and
+  shift anything under the thumb (M5). It sits inside the tasks' flip
+  list with its own key, so it glides up when a ticked row leaves. Each
+  pile's visible digit is `aria-hidden` and the screen-reader sentence is
+  a separate element with a space between them, so the page text never
+  reads "33 acorns" for 3. Lucide `Nut` stands in for an acorn (no emoji).
+  The open state isn't remembered between visits (no new browser storage).
 - **Page subtitle**: the Tasks page's subtitle says "no scoring, no
   streaks". While the stash is on it reads `subtitleWithAcornStash` ("...
   with an acorn for every task done") instead, so the page doesn't
   contradict itself; with it off the subtitle is unchanged.
 - **Acorn drop**: each tick by the viewer bumps a counter in `TasksClient`;
-  the card mounts a fresh absolutely-placed `Nut` over their pile that falls
-  in and fades over 900 ms (`acorn-drop` keyframes, motion tokens). It takes
+  the card mounts a fresh absolutely-placed `Nut` over their pile on the
+  summary row (so it shows collapsed or open) that falls in on
+  `duration-spring` with `ease-spring`, rests for `duration-base` and fades
+  on `duration-fast` with `ease-in` (`acorn-drop-fall` / `acorn-drop-fade`,
+  DESIGN.md's motion tokens; 720 ms in all). It takes
   no space (no layout shift), plays only under `motion-safe`, and isn't
   rendered under `prefers-reduced-motion`. The "Done" toast stays the tick's
   real feedback (M5); the count updates when the save revalidates the page.
@@ -117,14 +159,24 @@ anywhere.
 ## Tests
 
 - `src/lib/tasks/acorn-stash.test.ts`: weeks in local time vs UTC, bad
-  zones, all-time, streak (today, yesterday, gaps, week boundary, local day
-  boundary, DST), order, members who left, leader ties.
+  zones, all-time from the database sums, streak (today, yesterday, gaps,
+  week boundary, local day boundary, DST, the cap), order, members who
+  left, leader ties; `loadAcornStash`'s household-scoped `groupBy` and its
+  bounded window (mocked Prisma).
 - `src/app/dashboard/tasks/actions.test.ts`: a row on complete (same
   instant, in the transaction), recurring earns again, none on a lost race
   or a forged id, undo deletes exactly the matching row scoped to the
-  household, none on a lost undo or a skip-only reopen.
+  household (also late in the toast, within the grace), a later untick
+  keeps it, none on a lost undo or a skip-only reopen.
+- `src/lib/actions/sample-data.test.ts`: clearing sample data deletes the
+  sample tasks' completions, before the tasks.
 - `src/lib/actions/household.test.ts`: the toggle (session household only,
   any member, both directions, non-boolean rejected, no session).
-- `e2e/acorn-stash.spec.ts`: enable in settings, tick a unique task, the
-  card shows the acorn, Undo takes it away, disable hides the card. Runs on
-  desktop and mobile, sets up and restores only its own worker household.
+- `e2e/acorn-stash.spec.ts`: enable in settings; the card sits below the
+  open tasks, collapsed, showing the viewer's pile; it opens to a row per
+  member; tick a unique task, both piles go up by one and the viewer's row
+  keeps its height; Undo takes the acorn away (also after a reload);
+  disable hides the card. Two of the viewer's ticks are seeded first, so
+  the counts are read from a pile above 0 (as when other specs in the
+  worker have ticked). Runs on desktop and mobile, sets up and restores
+  only its own worker household.

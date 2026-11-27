@@ -4,6 +4,7 @@
 // database is touched. Same convention as src/lib/actions/household.test.ts
 // and src/app/dashboard/shopping-list/list-actions.test.ts.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { TASK_UNDO_WINDOW_MS } from "@/lib/tasks/undo-window";
 
 const {
   requireHouseholdMock,
@@ -1220,6 +1221,46 @@ describe("toggleTaskCompletedAction completion history (acorn stash)", () => {
       where: { householdId: "household-1", taskId: "task-1", completedAt: tickedAt },
     });
     expect(taskCompletionCreateMock).not.toHaveBeenCalled();
+  });
+
+  // The owner's rule: only the toast's Undo of a recent tick takes the acorn
+  // back. The Undo and a later untick are the same call, told apart by the
+  // tick's age against TASK_UNDO_WINDOW_MS (the toast plus a grace).
+  const oneOffDoneAgo = (ms: number) => ({
+    ...notRotating,
+    ...noHistory,
+    id: "task-1",
+    completedAt: new Date(Date.now() - ms),
+    completedByMemberId: "member-1",
+    recurrenceIntervalDays: null,
+  });
+
+  it("an Undo pressed late in the toast, within the grace, still takes the acorn back", async () => {
+    requireHouseholdMock.mockResolvedValue({ household, userId: "user-1" });
+    // After the toast's own 5 s (its timer pauses on hover or a hidden tab).
+    const task = oneOffDoneAgo(TASK_UNDO_WINDOW_MS - 2000);
+    householdTaskFindFirstMock.mockResolvedValue(task);
+
+    await toggleTaskCompletedAction("task-1");
+
+    expect(taskCompletionDeleteManyMock).toHaveBeenCalledWith({
+      where: { householdId: "household-1", taskId: "task-1", completedAt: task.completedAt },
+    });
+  });
+
+  it("unticking a task after the undo window reopens it but keeps the acorn", async () => {
+    requireHouseholdMock.mockResolvedValue({ household, userId: "user-1" });
+    householdTaskFindFirstMock.mockResolvedValue(oneOffDoneAgo(60 * 60 * 1000));
+
+    const result = await toggleTaskCompletedAction("task-1");
+
+    expect(result.error).toBeUndefined();
+    // The task itself is still put back as the untick asks...
+    expect(householdTaskUpdateManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ completedAt: null, completedByMemberId: null }) }),
+    );
+    // ...but the completion, and its acorn, stay.
+    expect(taskCompletionDeleteManyMock).not.toHaveBeenCalled();
   });
 
   it("an undo that lost the race removes nothing", async () => {

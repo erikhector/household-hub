@@ -31,6 +31,7 @@ import { TASKS_FILTER_STORAGE_KEY } from "@/lib/cookie-inventory";
 import { startUndoableDelete } from "@/components/shared/start-undoable-delete";
 import { TasksWeeklyRecap } from "@/components/tasks/tasks-weekly-recap";
 import { AcornStashCard, type AcornStashRow } from "@/components/tasks/acorn-stash-card";
+import { TASK_DONE_TOAST_MS } from "@/lib/tasks/undo-window";
 import { applyLocalRowChanges, settleDelete, useLocalRowChanges } from "@/components/shared/local-row-changes";
 import { useFlipList } from "@/components/shared/use-flip-list";
 import { computeWeeklyTaskRecap } from "@/app/dashboard/tasks/weekly-recap-calc";
@@ -138,7 +139,7 @@ export function TasksClient({
     let undone = false;
     const doneText = format(dict.doneToast, { title: task.title });
     const doneOptions = {
-      duration: 5000,
+      duration: TASK_DONE_TOAST_MS,
       action: {
         label: dict.swipe.undo,
         onClick: () => {
@@ -241,13 +242,17 @@ export function TasksClient({
     })),
   );
 
+  // Acorn stash (DESIGN.md M6): secondary to the chores, so it sits below
+  // the open tasks (or below the empty state) as a collapsed card, never
+  // above them where it would push them down on a phone. Inside the flip
+  // list with its own key, so it glides up when a ticked row leaves.
+  const stashCard = acornStash && (
+    <AcornStashCard rows={acornStash} currentMemberId={currentMemberId} dropKey={acornDrops} dict={dict.acornStash} />
+  );
+
   return (
     <div ref={containerRef} className="relative flex flex-col gap-6">
       {recapGroups.length > 0 && <TasksWeeklyRecap groups={recapGroups} dict={dict} />}
-
-      {acornStash && (
-        <AcornStashCard rows={acornStash} currentMemberId={currentMemberId} dropKey={acornDrops} dict={dict.acornStash} />
-      )}
 
       {canFilter && (
         // UX-153: a segmented track, not two buttons. The active choice is
@@ -267,13 +272,19 @@ export function TasksClient({
       {/* Keyed too, so the list glides down when the recap above grows. */}
       <div data-flip-key="tasks" className="relative flex flex-col gap-2">
         {allTasks.length === 0 ? (
-          <MascotEmptyState alt={dict.mascotAlt} action={emptyAction}>
-            <p className="text-sm text-muted-foreground">{dict.emptyState}</p>
-          </MascotEmptyState>
+          <>
+            <MascotEmptyState alt={dict.mascotAlt} action={emptyAction}>
+              <p className="text-sm text-muted-foreground">{dict.emptyState}</p>
+            </MascotEmptyState>
+            {stashCard}
+          </>
         ) : tasks.length === 0 ? (
-          <p role="status" className="text-sm text-muted-foreground">
-            {dict.mineEmpty}
-          </p>
+          <>
+            <p role="status" className="text-sm text-muted-foreground">
+              {dict.mineEmpty}
+            </p>
+            {stashCard}
+          </>
         ) : (
           <>
             {openTasks.map((task) => (
@@ -311,6 +322,7 @@ export function TasksClient({
                 <p className="font-heading text-xl font-semibold">{dict.caughtUpTitle}</p>
               </div>
             )}
+            {stashCard}
             {completedTasks.length > 0 && (
               <p data-flip-key="label:completed" className="mt-4 text-xs font-medium uppercase text-muted-foreground">
                 {dict.completedSectionLabel}

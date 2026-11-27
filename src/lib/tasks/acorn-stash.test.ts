@@ -1,5 +1,17 @@
-import { describe, expect, it } from "vitest";
-import { computeAcornStash, type AcornCompletion } from "@/lib/tasks/acorn-stash";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const { groupByMock, findManyMock } = vi.hoisted(() => ({ groupByMock: vi.fn(), findManyMock: vi.fn() }));
+// No database (AGENTS.md "Testing"): loadAcornStash's two reads are mocked.
+vi.mock("@/lib/prisma", () => ({
+  prisma: { taskCompletion: { groupBy: groupByMock, findMany: findManyMock } },
+}));
+
+import {
+  ACORN_STREAK_CAP_DAYS,
+  computeAcornStash,
+  loadAcornStash,
+  type AcornCompletion,
+} from "@/lib/tasks/acorn-stash";
 
 // Friday 27 November 2026, midday in Stockholm (UTC+1 in winter). Its
 // Monday-start week runs Mon 23 Nov 00:00 to Mon 30 Nov 00:00 local time.
@@ -12,8 +24,16 @@ const tick = (memberId: string | null, iso: string, acorns = 1): AcornCompletion
   acorns,
 });
 
+// All-time totals come from the database's sums; for the calculator's own
+// tests they're just the sum of the rows given, as the database would have.
+const sums = (completions: AcornCompletion[]) => {
+  const totals = new Map<string, number>();
+  for (const c of completions) if (c.memberId) totals.set(c.memberId, (totals.get(c.memberId) ?? 0) + c.acorns);
+  return totals;
+};
+
 const stash = (memberIds: string[], completions: AcornCompletion[], timeZone = zone, at = now) =>
-  computeAcornStash({ memberIds, completions, now: at, timeZone });
+  computeAcornStash({ memberIds, allTime: sums(completions), completions, now: at, timeZone });
 
 describe("computeAcornStash", () => {
   it("gives every current member a zero row when nobody has ticked anything", () => {
@@ -175,5 +195,79 @@ describe("computeAcornStash", () => {
       );
       expect(result.map((m) => m.leader)).toEqual([false, true]);
     });
+  });
+});
+
+describe("computeAcornStash with bounded reads", () => {
+  it("takes all-time totals from the sums given, not from the window's rows", () => {
+    const [a, b] = computeAcornStash({
+      memberIds: ["a", "b"],
+      allTime: new Map([["a", 412]]),
+      completions: [tick("a", "2026-11-26T09:00:00Z")],
+      now,
+      timeZone: zone,
+    });
+    expect(a).toMatchObject({ week: 1, allTime: 412 });
+    // A member with no sum yet reads as 0, not undefined.
+    expect(b.allTime).toBe(0);
+  });
+
+  it("counts a streak up to the cap and no further", () => {
+    // A tick every day for longer than the cap, ending today.
+    const days = ACORN_STREAK_CAP_DAYS + 10;
+    const completions = Array.from({ length: days }, (_, i) =>
+      tick("a", new Date(now.getTime() - i * 24 * 60 * 60 * 1000).toISOString()),
+    );
+    const [a] = stash(["a"], completions);
+    expect(a.streak).toBe(ACORN_STREAK_CAP_DAYS);
+  });
+});
+
+describe("loadAcornStash", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    groupByMock.mockResolvedValue([]);
+    findManyMock.mockResolvedValue([]);
+  });
+
+  it("sums all-time acorns in the database, scoped to the household and its current members", async () => {
+    groupByMock.mockResolvedValue([
+      { memberId: "a", _sum: { acorns: 40 } },
+      { memberId: "b", _sum: { acorns: null } },
+    ]);
+
+    const result = await loadAcornStash({ householdId: "h1", memberIds: ["a", "b"], now, timeZone: zone });
+
+    expect(groupByMock).toHaveBeenCalledWith({
+      by: ["memberId"],
+      where: { householdId: "h1", memberId: { in: ["a", "b"] } },
+      _sum: { acorns: true },
+    });
+    expect(result.map((m) => m.allTime)).toEqual([40, 0]);
+  });
+
+  it("fetches rows only from the streak window, which covers this week and a capped streak", async () => {
+    findManyMock.mockResolvedValue([tick("a", "2026-11-26T09:00:00Z"), tick("a", "2026-11-27T09:00:00Z")]);
+
+    const [a] = await loadAcornStash({ householdId: "h1", memberIds: ["a"], now, timeZone: zone });
+
+    const { where, select } = findManyMock.mock.calls[0][0];
+    expect(where.householdId).toBe("h1");
+    expect(where.memberId).toEqual({ in: ["a"] });
+    expect(select).toEqual({ memberId: true, completedAt: true, acorns: true });
+    const since: Date = where.completedAt.gte;
+    const daysBack = (now.getTime() - since.getTime()) / (24 * 60 * 60 * 1000);
+    // Far enough back for a capped streak in any zone, and no further than that.
+    expect(daysBack).toBeGreaterThan(ACORN_STREAK_CAP_DAYS);
+    expect(daysBack).toBeLessThanOrEqual(ACORN_STREAK_CAP_DAYS + 2);
+    expect(a).toMatchObject({ week: 2, streak: 2 });
+  });
+
+  it("ignores a sum for a member id that is null (ticks by someone who left)", async () => {
+    groupByMock.mockResolvedValue([{ memberId: null, _sum: { acorns: 9 } }]);
+
+    const [a] = await loadAcornStash({ householdId: "h1", memberIds: ["a"], now, timeZone: zone });
+
+    expect(a.allTime).toBe(0);
   });
 });

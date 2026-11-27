@@ -38,6 +38,7 @@ import { usedToastText } from "@/components/tasks/used-toast";
 import { useUnitLabel } from "@/components/units-provider";
 import { format, plural } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
+import { TASK_DONE_TOAST_MS } from "@/lib/tasks/undo-window";
 
 export type TodayTask = {
   id: string;
@@ -140,7 +141,7 @@ export function TodayBlock({
     let undone = false;
     const doneText = format(taskDict.doneToast, { title: task.title });
     const doneOptions = {
-      duration: 5000,
+      duration: TASK_DONE_TOAST_MS,
       action: {
         label: taskDict.undo,
         onClick: () => {

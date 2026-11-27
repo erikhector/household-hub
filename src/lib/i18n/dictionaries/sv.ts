@@ -2864,6 +2864,7 @@ export const sv = {
       title: "Ekollonförrådet",
       weekLabel: "Den här veckan",
       acornsThisWeek: { one: "{count} ekollon i veckan", other: "{count} ekollon i veckan" },
+      yourPile: { one: "Du har {count} ekollon i veckan", other: "Du har {count} ekollon i veckan" },
       streak: { one: "{count} dag i rad", other: "{count} dagar i rad" },
       allTime: "{count} totalt",
       leaderBadge: "Flitigast i veckan",

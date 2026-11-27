@@ -56,16 +56,28 @@ const ANCHORED_FROM_DAYS = 7;
 /** `timeZone` when it's a zone Intl knows, else UTC (a bad cookie value). */
 const safeTimeZone = (timeZone: string) => (isTimeZone(timeZone) ? timeZone : "UTC");
 
-/** The calendar day `instant` falls on in `timeZone`, as days since 1970-01-01. */
-export function localDayNumber(instant: Date, timeZone: string): number {
-  const parts = new Intl.DateTimeFormat("en-US", {
+/**
+ * localDayNumber for many instants in one zone: builds the Intl formatter
+ * once instead of once per call, which is most of the cost when it runs over
+ * a list (the acorn stash's completion rows).
+ */
+export function localDayNumberIn(timeZone: string): (instant: Date) => number {
+  const formatter = new Intl.DateTimeFormat("en-US", {
     timeZone,
     year: "numeric",
     month: "numeric",
     day: "numeric",
-  }).formatToParts(instant);
-  const part = (type: string) => Number(parts.find((p) => p.type === type)?.value);
-  return Date.UTC(part("year"), part("month") - 1, part("day")) / MS_PER_DAY;
+  });
+  return (instant) => {
+    const parts = formatter.formatToParts(instant);
+    const part = (type: string) => Number(parts.find((p) => p.type === type)?.value);
+    return Date.UTC(part("year"), part("month") - 1, part("day")) / MS_PER_DAY;
+  };
+}
+
+/** The calendar day `instant` falls on in `timeZone`, as days since 1970-01-01. */
+export function localDayNumber(instant: Date, timeZone: string): number {
+  return localDayNumberIn(timeZone)(instant);
 }
 
 /** How far `timeZone` is ahead of UTC at `instant`, in ms. */

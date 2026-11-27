@@ -3027,6 +3027,8 @@ export const en = {
       title: "Acorn stash",
       weekLabel: "This week",
       acornsThisWeek: { one: "{count} acorn this week", other: "{count} acorns this week" },
+      // The viewer's own pile, on the collapsed card's summary row.
+      yourPile: { one: "You have {count} acorn this week", other: "You have {count} acorns this week" },
       streak: { one: "{count} day in a row", other: "{count} days in a row" },
       allTime: "{count} in all",
       leaderBadge: "Busiest this week",
