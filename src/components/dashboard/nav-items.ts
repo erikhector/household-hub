@@ -124,9 +124,9 @@ export function isNavItemActive(pathname: string, href: string) {
 }
 
 // Pages reached from the "More" menu on a phone that aren't one of
-// overflowMobileNavItems: What's new and the notification centre sit in the
+// overflowMobileNavItems: What's new, Wrapped and the notification centre sit in the
 // same menu, so while one is open "More" is where you are (UX-27).
-const moreMenuExtraHrefs = ["/dashboard/whats-new", "/dashboard/notifications"];
+const moreMenuExtraHrefs = ["/dashboard/whats-new", "/dashboard/notifications", "/dashboard/wrapped"];
 
 export function isMoreMenuActive(pathname: string) {
   return (
