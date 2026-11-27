@@ -8335,6 +8335,112 @@ not built (BACKLOG.md, GAP-88b).
   on the Profile toggle, the sync claims one send and none for another
   household's event).
 
+## Squirrel Wrapped
+
+The household's year in review, told as a short full-screen story of
+cards. Design notes: `docs/superpowers/specs/2026-11-27-squirrel-wrapped-design.md`.
+No schema change: everything is counted from rows the features already
+keep, and nothing is stored, sent anywhere or kept in the browser.
+
+- **Which year** (`src/lib/wrapped/wrapped-season.ts`, pure, unit-tested):
+  `wrappedYear` is the local calendar year (the `time_zone` cookie), to
+  date, except all through January, which still shows the year that just
+  ended. Instants count from local midnight on 1 January to the end of
+  today (or 31 December once the year is over).
+- **Loader** (`src/lib/wrapped/load.ts`, server-only): seven parallel
+  queries, each scoped to the household from `requireHousehold()` (directly
+  or through the row's list, meal plan or item) and to the year, selecting
+  only the columns the calculator reads. Opt-in sample data is left out.
+  Calendar events are read as repeats that start on or before the last
+  day (an earlier year's weekly swim still lands in this one) and one-offs
+  dated inside the range; older one-offs stay unread.
+- **Calculator** (`src/lib/wrapped/wrapped-calc.ts`, pure, unit-tested):
+  `computeWrapped` turns the rows into stats and a card list. Instants
+  (completedAt, consumedAt, a tick) are read on the viewer's clock with
+  `localDayNumber`; calendar days (`HouseholdEvent.date`,
+  `Transaction.date`) by their UTC date. What it counts:
+  - **Shopping**: lists completed; rows bought (`purchased`, dated by
+    `checkedOffAt`, or `putAwayAt` for a receipt or put-away without a
+    tick); the most bought name (case- and space-insensitive, shown in its
+    most common spelling) when it repeats at least twice.
+  - **Meals**: meal plan entries with `consumedAt` ("planned meals
+    cooked"); the most cooked recipe, grouped by recipe id, from two.
+  - **Pantry**: stock journal increases (`restocked` taps and scans, and
+    `trip` put-aways). The journal keeps an item's latest 50 events
+    (`STOCK_HISTORY_CAP`), so the card says "at least". Nothing about
+    items used before expiry: the data can't say that honestly.
+  - **Tasks**: tasks whose latest `completedAt` is in the year. A task keeps
+    only its latest tick, so the card says "different tasks ticked off"
+    and that each counts once. Never per person.
+  - **Calendar**: every day an event fell on up to today, repeats expanded
+    with `expandEventOccurrences` (a weekly swim is many). Shown on its
+    card only: an occurrence isn't something anyone did (a weekly event
+    made years ago lands on every week untouched), so the calendar adds
+    nothing to the activity total, the active days, the busiest month or
+    the thin-data threshold. `calendar.planned` counts the events whose
+    own date is in the range, for the persona.
+  - **Busiest month and active days**: every countable thing above except
+    calendar occurrences lands on a local day; ties go to the earlier
+    month. A put-away trip is already an item bought, so only a hand
+    restock (`pantry.handRestocks`) adds to this total.
+  - **Money**: how many household transactions were tracked, nothing more.
+    No amounts, no "saved", and it feeds neither the activity total, the
+    threshold nor the persona.
+- **Thin data**: under 10 counted things (`WRAPPED_MIN_ACTIVITY`) or on
+  fewer than 3 distinct days, the page shows the mascot empty state, "Your
+  year is still gathering acorns", with "Back to Home" as its one action.
+- **Cards**, in order, each left out when it has nothing to say: intro,
+  shopping, meals, pantry, tasks, calendar, busiest month, money, persona.
+  The persona ("Your household was a … squirrel": Planner, Chef, Forager or
+  Stockpiler) is the feature with the most weighted activity (tasks plus
+  events dated this year ×2, meals ×4, items bought ×1 plus lists ×3,
+  hand restocks ×2), ties in that order, so the same stats always give the
+  same squirrel. Nothing scores twice or for free: a put-away trip is
+  already items bought, so it doesn't score the stocker too, and a repeat
+  scores the planner once, in the year it was dated, not once per
+  occurrence.
+- **Story player** (`src/components/wrapped/wrapped-story.tsx`): a fixed,
+  full-screen modal dialog (`role="dialog"`, `aria-modal`) over the
+  dashboard on the page's gradient, safe areas padded, the card on `card`
+  up to `max-w-md`. A card is centred while it fits and scrolls from its
+  own top once it doesn't (`justify-center-safe`: a plain `justify-center`
+  pushed the top of a tall card, on a phone in landscape or at 200% text,
+  above the scroll start, out of reach, M9). While it's open every element beside its ancestors is
+  `inert` (except Sonner's toaster), so Tab and a screen-reader swipe never
+  reach the hidden shell behind it. Progress segments at the top, a Close
+  button beside them, Back and Next at the bottom (the thumb zone); on the
+  last card Next becomes "Done" and the card's own action is Share.
+  Close, Done and Escape go back to the page the story was opened from
+  (`navigation.canGoBack`, which only counts this origin's entries), or to
+  Home when the story was the first page or the browser lacks the
+  Navigation API, so the Back gesture never reopens it (M7). Tapping the card's right or left half,
+  swiping (48 px, ignored within 24 px of a screen edge, which belongs to
+  the OS back gesture) and the arrow keys step too. Stepping back onto the
+  first card disables a focused Back, so focus moves to Next rather than
+  falling out to `<body>`. Each card starts with
+  an sr-only "Card 2 of 9"; the polite live region is the wrapper that
+  stays mounted, not the keyed card, so each new card is announced. New
+  cards slide in from the side they came from, only under `motion-safe`.
+- **Share** (persona card): the system share sheet where `canNativeShare`
+  says so (a touch device with the Web Share API), otherwise "Copy text"
+  to the clipboard with a toast; feature-detected after hydration, hidden
+  when neither exists. The text is the persona and up to three counts,
+  never the household's name or money.
+- **Navigation**: "Year in review" (`Nut` icon) in the phone's More menu
+  under What's new (which marks More active there) and in the sidebar's
+  footer. Home shows a quiet card linking to it from 1 December to 15
+  January (`isWrappedSeason`, local time), below the main cards.
+- Tests: `src/lib/wrapped/wrapped-calc.test.ts`,
+  `src/lib/wrapped/wrapped-season.test.ts`, `src/lib/wrapped/load.test.ts`,
+  `src/components/dashboard/nav-items.test.ts` (More stays active), the
+  smoke run (`e2e/routes.ts`), and `e2e/wrapped.spec.ts` (seeds ten tasks
+  completed in January and three one-off events, steps with Next, Back,
+  the arrow keys and a tap, keeps focus in the story when Back disables,
+  checks the calendar count, the persona and its share button, scrolls the
+  persona card to its top on a 393 px-tall screen, closes with Close and
+  with Escape, goes back to the page it was opened from, and keeps Tab
+  inside the story).
+
 ## Theming
 
 The app supports light, dark, and system themes via **next-themes**
@@ -8805,8 +8911,9 @@ components directly.
   sections, so the More-menu pages get no bar rather than one that reads as
   another section (UX-167, `navAccentColor`, `nav-items.test.ts`).
 - **Where you are (UX-27)**: the current page is marked in both layouts
-  (`aria-current="page"` plus the active fill). On a phone, What's new and
-  the notification centre belong to the "More" menu, so while one is open
+  (`aria-current="page"` plus the active fill). On a phone, What's new,
+  Year in review (Squirrel Wrapped) and the notification centre belong to
+  the "More" menu, so while one is open
   "More" is the highlighted tab (`isMoreMenuActive` in `nav-items.ts`). The
   bottom bar's labels and the notification badge are 12 px (`text-xs`),
   the M9 exception written into DESIGN.md.
