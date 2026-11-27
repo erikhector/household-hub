@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  anchorForWeekday,
   getNextDueDate,
   isClosedBySkipOnly,
   isTaskOpen,
+  isUpcoming,
+  keepsWeekday,
+  localWeekday,
   skippedUntilFor,
   withLocalSkip,
 } from "@/app/dashboard/tasks/recurrence";
@@ -190,6 +194,79 @@ describe("getNextDueDate", () => {
         new Date("2026-08-21T22:00:00.000Z"), // Sat 08-22 00:00 CEST
       );
     });
+  });
+});
+
+// A weekly repeat put on a chosen weekday: the anchor moves to that day.
+describe("weekly days", () => {
+  // Wednesday 2026-11-25, 12:00 UTC.
+  const wednesday = new Date("2026-11-25T12:00:00.000Z");
+  const saturday = new Date("2026-11-28T00:00:00.000Z");
+
+  it("localWeekday counts 0 Sunday … 6 Saturday, in the user's zone", () => {
+    expect(localWeekday(wednesday, "UTC")).toBe(3);
+    expect(localWeekday(saturday, "UTC")).toBe(6);
+    // Friday 23:30 UTC is already Saturday in Stockholm.
+    expect(localWeekday(new Date("2026-11-27T23:30:00.000Z"), STOCKHOLM)).toBe(6);
+  });
+
+  it("anchorForWeekday is the next such day, or today when it is that day", () => {
+    expect(anchorForWeekday(6, wednesday, "UTC")).toEqual(saturday);
+    expect(anchorForWeekday(3, wednesday, "UTC")).toEqual(new Date("2026-11-25T00:00:00.000Z"));
+    expect(anchorForWeekday(1, wednesday, "UTC")).toEqual(new Date("2026-11-30T00:00:00.000Z"));
+    // Local midnight, not UTC midnight.
+    expect(anchorForWeekday(6, wednesday, STOCKHOLM)).toEqual(new Date("2026-11-27T23:00:00.000Z"));
+  });
+
+  it("anchorForWeekday 'latest' is the last such day, or today when it is that day", () => {
+    expect(anchorForWeekday(6, wednesday, "UTC", "latest")).toEqual(new Date("2026-11-21T00:00:00.000Z"));
+    expect(anchorForWeekday(3, wednesday, "UTC", "latest")).toEqual(new Date("2026-11-25T00:00:00.000Z"));
+    expect(anchorForWeekday(1, wednesday, "UTC", "latest")).toEqual(new Date("2026-11-23T00:00:00.000Z"));
+  });
+
+  it("a task done on Monday and moved to Saturdays (anchored on the Saturday before the tick) is due the Saturday after", () => {
+    const t = task(new Date("2026-11-23T10:00:00.000Z"), 7, createdAt, new Date("2026-11-21T00:00:00.000Z"));
+    expect(getNextDueDate(t)).toEqual(saturday);
+  });
+
+  it("a Monday task done Monday and moved to every 2 weeks stays two weeks from that tick", () => {
+    const t = task(new Date("2026-11-23T10:00:00.000Z"), 14, createdAt, new Date("2026-11-23T00:00:00.000Z"));
+    expect(getNextDueDate(t)).toEqual(new Date("2026-12-07T00:00:00.000Z"));
+  });
+
+  it("keepsWeekday is true for whole weeks only", () => {
+    expect([7, 14].every(keepsWeekday)).toBe(true);
+    expect([null, 1, 3, 30, 365].some(keepsWeekday)).toBe(false);
+  });
+
+  it("a never-done task anchored on a later day is upcoming and closed until then", () => {
+    const t = task(null, 7, wednesday, saturday);
+    expect(isUpcoming(t, wednesday)).toBe(true);
+    expect(isTaskOpen(t, wednesday)).toBe(false);
+    expect(isTaskOpen(t, new Date("2026-11-27T23:59:59.000Z"))).toBe(false);
+    expect(isUpcoming(t, saturday)).toBe(false);
+    expect(isTaskOpen(t, saturday)).toBe(true);
+  });
+
+  it("is not upcoming once done, skipped, anchored today, or not repeating", () => {
+    expect(isUpcoming(task(wednesday, 7, wednesday, saturday), wednesday)).toBe(false);
+    expect(isUpcoming({ ...task(null, 7, wednesday, saturday), skippedUntil: saturday }, wednesday)).toBe(false);
+    expect(isUpcoming(task(null, 7, wednesday, wednesday), wednesday)).toBe(false);
+    expect(isUpcoming(task(null, null, wednesday, saturday), wednesday)).toBe(false);
+  });
+
+  it("an early tick on an upcoming task counts as the first occurrence", () => {
+    // Done Thursday before the first Saturday: next due the Saturday after.
+    const t = task(new Date("2026-11-26T10:00:00.000Z"), 7, wednesday, saturday);
+    expect(getNextDueDate(t)).toEqual(new Date("2026-12-05T00:00:00.000Z"));
+  });
+
+  it("a tick from before the interval ahead of the anchor waits for the anchor day", () => {
+    // Done weeks ago, then moved to Saturdays: due this Saturday, not a week later.
+    const t = task(new Date("2026-11-02T10:00:00.000Z"), 7, createdAt, saturday);
+    expect(getNextDueDate(t)).toEqual(saturday);
+    expect(isTaskOpen(t, wednesday)).toBe(false);
+    expect(isTaskOpen(t, saturday)).toBe(true);
   });
 });
 
