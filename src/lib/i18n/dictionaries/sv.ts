@@ -244,6 +244,8 @@ export const sv = {
     more: "Mer",
     whatsNew: "Nyheter",
     whatsNewUnseen: "Ny uppdatering",
+    // Squirrel Wrapped, in the More menu and the sidebar footer.
+    wrapped: "Året som gått",
   },
   // UX-41c: the single-key list shortcuts and their `?` overlay.
   shortcuts: {
@@ -287,6 +289,87 @@ export const sv = {
     breaking: "Stor ändring",
     empty: "Inga uppdateringar än.",
     showOlder: "Visa äldre uppdateringar",
+  },
+  // Squirrel Wrapped, hushållets år i sammandrag. Se en.ts.
+  wrapped: {
+    title: "Året som gått",
+    storyLabel: "Ert {year} i Squirrel",
+    close: "Stäng",
+    next: "Nästa",
+    back: "Tillbaka",
+    done: "Klar",
+    progress: "Kort {current} av {total}",
+    intro: {
+      eyebrow: "Squirrel Wrapped",
+      heading: "Ert {year} i Squirrel",
+      body: "En tillbakablick på vad {household} fick gjort tillsammans. Tryck på Nästa, eller svep, för att gå vidare.",
+    },
+    shopping: {
+      heading: "Handla",
+      lists: { one: "{count} inköpslista klar", other: "{count} inköpslistor klara" },
+      items: { one: "{count} vara köpt", other: "{count} varor köpta" },
+      top: "Köpt oftast: {name}, {count} gånger",
+    },
+    meals: {
+      heading: "I köket",
+      cooked: { one: "{count} planerad måltid lagad", other: "{count} planerade måltider lagade" },
+      top: "Lagad oftast: {name}, {count} gånger",
+    },
+    pantry: {
+      heading: "Skafferiet",
+      restocks: { one: "Påfyllt minst {count} gång", other: "Påfyllt minst {count} gånger" },
+      top: "Påfyllt oftast: {name}",
+    },
+    tasks: {
+      heading: "Uppgifter",
+      completed: { one: "{count} olika uppgift avbockad", other: "{count} olika uppgifter avbockade" },
+      note: "Varje uppgift räknas en gång, hur ofta den än kom tillbaka.",
+    },
+    calendar: {
+      heading: "I kalendern",
+      events: { one: "{count} händelse i hushållets kalender", other: "{count} händelser i hushållets kalender" },
+    },
+    busiest: {
+      heading: "Mest att göra",
+      month: "I {month} hade ni mest att göra",
+      activeDays: { one: "Squirrel användes {count} dag", other: "Squirrel användes {count} olika dagar" },
+    },
+    money: {
+      heading: "Budgeten",
+      transactions: { one: "{count} transaktion registrerad", other: "{count} transaktioner registrerade" },
+      note: "Förda i hushållets budget, hela året.",
+    },
+    persona: {
+      heading: "Ert hushåll var en",
+      mascotAlt: "Squirrels maskot som håller ett ekollon",
+      names: {
+        planner: "Planerarekorre",
+        chef: "Kockekorre",
+        forager: "Samlarekorre",
+        stocker: "Förrådsekorre",
+      },
+      descriptions: {
+        planner: "Uppgifter avbockade, tider hållna. Väldigt lite föll mellan grenarna.",
+        chef: "Spisen hade fullt upp. Planer blev riktiga middagar.",
+        forager: "Ute och samlade, med listan i tassen. Skåpen märkte det.",
+        stocker: "Ekollon gömda för varje årstid. Sällan tomt i förrådet.",
+      },
+      share: "Dela",
+      copy: "Kopiera text",
+      copiedToast: "Kopierat. Klistra in var du vill.",
+      shareFailedToast: "Det gick inte att dela. Försök igen.",
+      shareText: "Vårt {year} i Squirrel: {persona}. {highlights}",
+    },
+    thin: {
+      heading: "Ert år samlar fortfarande ekollon",
+      body: "Det finns inte tillräckligt att se tillbaka på än. Fortsätt använda Squirrel och titta in igen senare.",
+      backHome: "Tillbaka till Hem",
+    },
+    homeCard: {
+      title: "Ert {year} i Squirrel",
+      body: "En tillbakablick på hushållets år, i några kort.",
+      open: "Öppna året som gått",
+    },
   },
   theme: {
     light: "Ljust",
@@ -416,6 +499,14 @@ export const sv = {
         'När något börjar ta slut eller är slut hamnar det direkt på "Att handla". Inställningen gäller alla i hushållet.',
       enabledToast: "Varor med lågt lager läggs till automatiskt",
       disabledToast: "Varor med lågt lager läggs inte till automatiskt",
+    },
+    acornStash: {
+      title: "Ekollonförrådet",
+      label: "Visa ekollonförrådet på sidan Uppgifter",
+      description:
+        "En lätt lek: medan den är på ger varje uppgift någon bockar av dem ett ekollon, och sidan Uppgifter visar veckans högar. Alla börjar från noll när den slås på. Inställningen gäller alla i hushållet.",
+      enabledToast: "Ekollonförrådet är på",
+      disabledToast: "Ekollonförrådet är av",
     },
     requiredDiet: {
       title: "Hushållets kost",
@@ -2785,6 +2876,7 @@ export const sv = {
   tasks: {
     title: "Uppgifter",
     subtitle: "En delad lista för hushållets vardagssysslor — inga poäng, inga streaks.",
+    subtitleWithAcornStash: "En delad lista för hushållets vardagssysslor, med ett ekollon för varje klar uppgift.",
     addTask: "Lägg till uppgift",
     addTaskDialogTitle: "Lägg till en uppgift",
     addTaskPlaceholder: "t.ex. Ta ut soporna",
@@ -2851,6 +2943,16 @@ export const sv = {
     hideOlder: "Dölj äldre",
     weeklyRecapTitle: "Den här veckan har hushållet fixat:",
     weeklyRecapDismissAriaLabel: "Stäng",
+    acornStash: {
+      title: "Ekollonförrådet",
+      weekLabel: "Den här veckan",
+      acornsThisWeek: { one: "{count} ekollon i veckan", other: "{count} ekollon i veckan" },
+      yourPile: { one: "Du har {count} ekollon i veckan", other: "Du har {count} ekollon i veckan" },
+      streak: { one: "{count} dag i rad", other: "{count} dagar i rad" },
+      allTime: "{count} totalt",
+      leaderBadge: "Flitigast i veckan",
+      you: "{name} (du)",
+    },
     recurrenceLabel: "Upprepa",
     recurrenceAriaLabel: "Upprepa",
     noRepeatOption: "Upprepas inte",
@@ -2874,6 +2976,30 @@ export const sv = {
       sixMonths: "Upprepas var sjätte månad (182 dagar)",
       year: "Upprepas varje år (365 dagar)",
     },
+    // Weekly days: the weekday a whole-weeks repeat falls on.
+    weekdayLabel: "Dag",
+    weekdayHint: "Den syns i listan från den dagen.",
+    weekdayOption: {
+      mon: "Måndag",
+      tue: "Tisdag",
+      wed: "Onsdag",
+      thu: "Torsdag",
+      fri: "Fredag",
+      sat: "Lördag",
+      sun: "Söndag",
+    },
+    weekdayBadge: {
+      mon: "måndagar",
+      tue: "tisdagar",
+      wed: "onsdagar",
+      thu: "torsdagar",
+      fri: "fredagar",
+      sat: "lördagar",
+      sun: "söndagar",
+    },
+    recurrenceOnWeekday: "{repeat} på {day}",
+    upcomingSectionLabel: "Kommande",
+    startsLabel: "Börjar {date}",
     rotationLabel: "Turas om",
     rotationHint: "Lägg till två eller fler personer i ordning. Varje gång den är klar går den vidare till nästa.",
     rotationAddPlaceholder: "Lägg till en person",

@@ -255,6 +255,8 @@ export const en = {
     more: "More",
     whatsNew: "What's new",
     whatsNewUnseen: "New update",
+    // Squirrel Wrapped, in the More menu and the sidebar footer.
+    wrapped: "Year in review",
   },
   // UX-41c: the single-key list shortcuts and their `?` overlay.
   shortcuts: {
@@ -302,6 +304,92 @@ export const en = {
     empty: "No updates yet.",
     // UX-190: the link under the newest ten releases to the rest.
     showOlder: "Show older updates",
+  },
+  // Squirrel Wrapped, the household's year in review (src/lib/wrapped/,
+  // src/components/wrapped/). Money stays a neutral count: no amounts, no
+  // "you saved". No per-person numbers anywhere.
+  wrapped: {
+    title: "Year in review",
+    storyLabel: "Your {year} in Squirrel",
+    close: "Close",
+    next: "Next",
+    back: "Back",
+    done: "Done",
+    progress: "Card {current} of {total}",
+    intro: {
+      eyebrow: "Squirrel Wrapped",
+      heading: "Your {year} in Squirrel",
+      body: "A look back at what {household} got done together. Tap Next, or swipe, to go on.",
+    },
+    shopping: {
+      heading: "Shopping",
+      lists: { one: "{count} shopping list finished", other: "{count} shopping lists finished" },
+      items: { one: "{count} item bought", other: "{count} items bought" },
+      top: "Bought most often: {name}, {count} times",
+    },
+    meals: {
+      heading: "In the kitchen",
+      cooked: { one: "{count} planned meal cooked", other: "{count} planned meals cooked" },
+      top: "Cooked most often: {name}, {count} times",
+    },
+    pantry: {
+      heading: "The pantry",
+      // The stock journal keeps an item's latest 50 changes, so this is a floor.
+      restocks: { one: "Topped up at least {count} time", other: "Topped up at least {count} times" },
+      top: "Topped up most: {name}",
+    },
+    tasks: {
+      heading: "Tasks",
+      // A task keeps only its latest tick, so each counts once.
+      completed: { one: "{count} different task ticked off", other: "{count} different tasks ticked off" },
+      note: "Each task counts once, however often it came round.",
+    },
+    calendar: {
+      heading: "On the calendar",
+      events: { one: "{count} event on the household calendar", other: "{count} events on the household calendar" },
+    },
+    busiest: {
+      heading: "Busiest month",
+      month: "{month} was your busiest month",
+      activeDays: { one: "Squirrel was in use on {count} day", other: "Squirrel was in use on {count} different days" },
+    },
+    money: {
+      heading: "The budget",
+      transactions: { one: "{count} transaction tracked", other: "{count} transactions tracked" },
+      note: "Kept in the household budget, all year.",
+    },
+    persona: {
+      heading: "Your household was a",
+      mascotAlt: "The Squirrel mascot holding an acorn",
+      names: {
+        planner: "Planner squirrel",
+        chef: "Chef squirrel",
+        forager: "Forager squirrel",
+        stocker: "Stockpiler squirrel",
+      },
+      descriptions: {
+        planner: "Tasks ticked off, dates kept. Very little slipped through the branches.",
+        chef: "The stove kept busy. Plans turned into real dinners.",
+        forager: "Out gathering, list in paw. The cupboards noticed.",
+        stocker: "Acorns stashed for every season. Rarely caught short.",
+      },
+      share: "Share",
+      copy: "Copy text",
+      copiedToast: "Copied. Paste it wherever you like.",
+      shareFailedToast: "Couldn't share that. Try again.",
+      // What's shared: the persona and a few counts, never the household's name.
+      shareText: "Our {year} in Squirrel: {persona}. {highlights}",
+    },
+    thin: {
+      heading: "Your year is still gathering acorns",
+      body: "There isn't enough yet to look back on. Keep using Squirrel and check back later.",
+      backHome: "Back to Home",
+    },
+    homeCard: {
+      title: "Your {year} in Squirrel",
+      body: "A look back at your household's year, in a few cards.",
+      open: "Open your year in review",
+    },
   },
   theme: {
     light: "Light",
@@ -455,6 +543,15 @@ export const en = {
         'When something drops to low or out of stock, it goes straight onto "Next shop". This applies to everyone in the household.',
       enabledToast: "Low-stock items will be added automatically",
       disabledToast: "Low-stock items won't be added automatically",
+    },
+    // AcornStashSetting — Household.acornStashEnabled.
+    acornStash: {
+      title: "Acorn stash",
+      label: "Show the acorn stash on the Tasks page",
+      description:
+        "A light game: while it's on, every task someone ticks earns them an acorn, and the Tasks page shows this week's piles. Everyone starts from zero when it's turned on. This applies to everyone in the household.",
+      enabledToast: "The acorn stash is on",
+      disabledToast: "The acorn stash is off",
     },
     // InventorySyncSetting — Household.inventorySyncMode.
     // RequiredDietSetting — Household.requiredTags (GAP-71).
@@ -2941,6 +3038,9 @@ export const en = {
   tasks: {
     title: "Tasks",
     subtitle: "A shared list for the household's day-to-day — no scoring, no streaks.",
+    // In place of `subtitle` while the household has the acorn stash on,
+    // which `subtitle` would otherwise contradict.
+    subtitleWithAcornStash: "A shared list for the household's day-to-day, with an acorn for every task done.",
     addTask: "Add task",
     addTaskDialogTitle: "Add a task",
     addTaskPlaceholder: "e.g. Take out the bins",
@@ -3010,6 +3110,18 @@ export const en = {
     hideOlder: "Hide older",
     weeklyRecapTitle: "This week, the household handled:",
     weeklyRecapDismissAriaLabel: "Dismiss",
+    // AcornStashCard — only when Household.acornStashEnabled is on.
+    acornStash: {
+      title: "Acorn stash",
+      weekLabel: "This week",
+      acornsThisWeek: { one: "{count} acorn this week", other: "{count} acorns this week" },
+      // The viewer's own pile, on the collapsed card's summary row.
+      yourPile: { one: "You have {count} acorn this week", other: "You have {count} acorns this week" },
+      streak: { one: "{count} day in a row", other: "{count} days in a row" },
+      allTime: "{count} in all",
+      leaderBadge: "Busiest this week",
+      you: "{name} (you)",
+    },
     recurrenceLabel: "Repeat",
     recurrenceAriaLabel: "Repeat",
     noRepeatOption: "Doesn't repeat",
@@ -3035,6 +3147,30 @@ export const en = {
       sixMonths: "Repeats every 6 months (182 days)",
       year: "Repeats every year (365 days)",
     },
+    // Weekly days: the weekday a whole-weeks repeat falls on.
+    weekdayLabel: "Day",
+    weekdayHint: "It shows in the list from that day.",
+    weekdayOption: {
+      mon: "Monday",
+      tue: "Tuesday",
+      wed: "Wednesday",
+      thu: "Thursday",
+      fri: "Friday",
+      sat: "Saturday",
+      sun: "Sunday",
+    },
+    weekdayBadge: {
+      mon: "Mondays",
+      tue: "Tuesdays",
+      wed: "Wednesdays",
+      thu: "Thursdays",
+      fri: "Fridays",
+      sat: "Saturdays",
+      sun: "Sundays",
+    },
+    recurrenceOnWeekday: "{repeat} on {day}",
+    upcomingSectionLabel: "Upcoming",
+    startsLabel: "Starts {date}",
     rotationLabel: "Take turns",
     rotationHint: "Add two or more people in order. Each time it's done, it passes to the next one.",
     rotationAddPlaceholder: "Add a person",

@@ -20,6 +20,12 @@ const NAMED_INTERVALS = {
 
 export type NamedRecurrenceLabels = Record<(typeof NAMED_INTERVALS)[keyof typeof NAMED_INTERVALS], string>;
 
+/** The dictionary key of each weekday, indexed 0 Sunday … 6 Saturday (as `Date#getDay`). */
+export const WEEKDAY_KEYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
+
+/** The day picker's order: the week starts on Monday, as the meal plan's does. */
+export const WEEKDAY_PICKER_ORDER = [1, 2, 3, 4, 5, 6, 0] as const;
+
 /** "Every year (365 days)" for a named preset, else the counted form ("Every 30 days"). */
 export function recurrenceText(days: number, counted: PluralForms, named: NamedRecurrenceLabels): string {
   const key = (NAMED_INTERVALS as Record<number, keyof NamedRecurrenceLabels | undefined>)[days];

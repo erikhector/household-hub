@@ -38,6 +38,8 @@ import { usedToastText } from "@/components/tasks/used-toast";
 import { useUnitLabel } from "@/components/units-provider";
 import { format, plural } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
+import { TASK_DONE_TOAST_MS } from "@/lib/tasks/undo-window";
+import { capUndoToast } from "@/components/tasks/undo-toast-cap";
 
 export type TodayTask = {
   id: string;
@@ -138,9 +140,12 @@ export function TodayBlock({
     set(completing);
     let toastId: string | number | undefined;
     let undone = false;
+    // Undo never outlives the server's undo window (undo-toast-cap.ts).
+    const cap = capUndoToast();
     const doneText = format(taskDict.doneToast, { title: task.title });
     const doneOptions = {
-      duration: 5000,
+      duration: TASK_DONE_TOAST_MS,
+      ...cap.closeHandlers,
       action: {
         label: taskDict.undo,
         onClick: () => {
@@ -152,12 +157,14 @@ export function TodayBlock({
     if (completing) {
       // Undo is the same toggle, from the state this tick left behind.
       toastId = toast(doneText, doneOptions);
+      cap.start(toastId);
     }
     void (async () => {
       const result = await settleOptimisticAction(() => toggleTaskCompletedAction(task.id), taskDict.saveFailedToast);
       if (result === null) set(!completing);
       // GAP-87: name what the tick used up, as the tasks page does.
-      if (toastId !== undefined && result?.used && !undone) {
+      // Not once the toast has closed, which would show it again.
+      if (toastId !== undefined && result?.used && !undone && !cap.closed) {
         toast(doneText, {
           ...doneOptions,
           id: toastId,

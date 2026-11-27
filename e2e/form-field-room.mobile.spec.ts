@@ -92,7 +92,11 @@ test("the shopping edit item dialog gives every combobox room on a phone", async
   // On a phone the row's Edit sits behind its ⋯ (RowActionsMenu).
   await page.getByRole("button", { name: "More actions for Apples" }).click();
   await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
-  await expectComboboxesHaveRoom(page.getByRole("dialog"));
+  // evaluateAll doesn't wait: without this it can measure before the
+  // dialog has rendered and find no comboboxes at all.
+  const dialog = page.getByRole("dialog", { name: 'Edit "Apples"' });
+  await expect(dialog).toBeVisible();
+  await expectComboboxesHaveRoom(dialog);
 });
 
 test("the new recipe dialog gives the ingredient row room on a phone", async ({ page, context, baseURL }) => {

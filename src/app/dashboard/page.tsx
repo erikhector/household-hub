@@ -5,6 +5,8 @@ import { ShoppingPantryCard } from "@/components/dashboard/shopping-pantry-card"
 import { SafeToSpendTiles } from "@/components/dashboard/safe-to-spend-tiles";
 import { HomeAddToList } from "@/components/dashboard/home-add-to-list";
 import { ComingUpCard } from "@/components/dashboard/coming-up-card";
+import { WrappedHomeCard } from "@/components/wrapped/wrapped-home-card";
+import { isWrappedSeason, wrappedYear } from "@/lib/wrapped/wrapped-season";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import { isHouseholdStepSkipped } from "@/lib/household-step-skip";
@@ -410,6 +412,12 @@ export default async function DashboardOverviewPage(props: PageProps<"/dashboard
             />
           </div>
         </div>
+
+        {/* Squirrel Wrapped, around the turn of the year only: a quiet
+            pointer below the cards, since Home's job is "what needs me now". */}
+        {isWrappedSeason(now, timeZone) && (
+          <WrappedHomeCard year={wrappedYear(now, timeZone)} dict={dict.wrapped.homeCard} />
+        )}
 
         {!setupFirst && setup}
 

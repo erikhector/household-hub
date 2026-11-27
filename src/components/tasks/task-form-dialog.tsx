@@ -52,7 +52,13 @@ import { createTaskAction, updateTaskAction } from "@/app/dashboard/tasks/action
 import type { ActionState } from "@/lib/actions/auth";
 import { MIN_ROTATION_MEMBERS } from "@/lib/task-rotation";
 import { format } from "@/lib/i18n/format";
-import { RECURRENCE_OPTION_DAYS, recurrenceText } from "@/app/dashboard/tasks/recurrence-label";
+import {
+  RECURRENCE_OPTION_DAYS,
+  WEEKDAY_KEYS,
+  WEEKDAY_PICKER_ORDER,
+  recurrenceText,
+} from "@/app/dashboard/tasks/recurrence-label";
+import { keepsWeekday } from "@/app/dashboard/tasks/recurrence";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import { normalizeDecimal, parseDecimal } from "@/lib/decimal-input";
 
@@ -67,6 +73,10 @@ type EditableTask = {
   notes: string | null;
   assignedToMemberId: string | null;
   recurrenceIntervalDays: number | null;
+  /** The weekday (0 Sunday … 6 Saturday) a whole-weeks repeat falls on, else null. */
+  recurrenceWeekday: number | null;
+  /** The last completion, or null for a task never done (it alone waits for its new day). */
+  completedAt: Date | null;
   /** UX-133: a one-off's due date as YYYY-MM-DD. */
   dueDate: string | null;
   rotationMemberIds: string[];
@@ -97,6 +107,7 @@ export function TaskFormDialog({
   pantryItems,
   dict,
   trigger,
+  todayWeekday,
   onDelete,
   onSkip,
 }: {
@@ -107,6 +118,8 @@ export function TaskFormDialog({
   pantryItems: PantryItemOption[];
   dict: TasksDict;
   trigger: ReactElement;
+  /** Today's weekday (0 Sunday … 6 Saturday) in the household's zone, the server's view of "today". */
+  todayWeekday: number;
   /** Edit mode only (UX-106): adds a Delete button to the sheet. The row
    *  hands it to its own trash button, so the Undo toast is the same one
    *  the desktop icon shows. */
@@ -124,6 +137,12 @@ export function TaskFormDialog({
   const [recurrence, setRecurrence] = useState(
     mode === "edit" && task?.recurrenceIntervalDays ? String(task.recurrenceIntervalDays) : NO_REPEAT_VALUE,
   );
+  // Weekly days: the task's own day, or today's for a new repeat (or one
+  // switched to whole weeks). Today as the server counts it, in the
+  // household's zone: the browser's clock can be on another day near
+  // midnight, and the default would then file a new task as upcoming.
+  const initialWeekday = () => String(mode === "edit" ? (task?.recurrenceWeekday ?? todayWeekday) : todayWeekday);
+  const [weekday, setWeekday] = useState(initialWeekday);
   const [rotation, setRotation] = useState<string[]>(mode === "edit" ? (task?.rotationMemberIds ?? []) : []);
   const [dueDate, setDueDate] = useState(mode === "edit" ? (task?.dueDate ?? "") : "");
   const [notes, setNotes] = useState(mode === "edit" ? (task?.notes ?? "") : "");
@@ -168,6 +187,7 @@ export function TaskFormDialog({
       setRecurrence(
         mode === "edit" && task?.recurrenceIntervalDays ? String(task.recurrenceIntervalDays) : NO_REPEAT_VALUE,
       );
+      setWeekday(initialWeekday());
       setRotation(mode === "edit" ? (task?.rotationMemberIds ?? []) : []);
       setDueDate(mode === "edit" ? (task?.dueDate ?? "") : "");
       setNotes(mode === "edit" ? (task?.notes ?? "") : "");
@@ -178,6 +198,7 @@ export function TaskFormDialog({
 
   const memberName = (id: string) => members.find((m) => m.id === id)?.displayName ?? id;
   const repeats = recurrence !== NO_REPEAT_VALUE;
+  const picksWeekday = repeats && keepsWeekday(Number(recurrence));
   // Taking turns only makes sense on a repeating task with at least two
   // people in the household to take them.
   const canRotate = repeats && members.length >= MIN_ROTATION_MEMBERS;
@@ -230,6 +251,7 @@ export function TaskFormDialog({
             recurrenceIntervalDays: formData.has("recurrenceIntervalDays")
               ? Number(formData.get("recurrenceIntervalDays"))
               : null,
+            recurrenceWeekday: formData.has("recurrenceWeekday") ? Number(formData.get("recurrenceWeekday")) : null,
             dueDate: String(formData.get("dueDate") ?? ""),
             rotationMemberIds: formData.getAll("rotationMemberIds").map(String),
             // GAP-87: both sent only while an item is picked; none unlinks it.
@@ -378,6 +400,37 @@ export function TaskFormDialog({
               </SelectContent>
             </Select>
           </div>
+          {/* Weekly days: a repeat of whole weeks falls on a weekday, picked
+              here rather than by editing the task on that day. Its own row,
+              like every select on a phone (M1). */}
+          {picksWeekday && (
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="task-weekday">{dict.weekdayLabel}</Label>
+              <Select value={weekday} onValueChange={(v) => setWeekday(String(v))}>
+                <input type="hidden" name="recurrenceWeekday" value={weekday} />
+                <SelectTrigger
+                  id="task-weekday"
+                  aria-describedby={mode === "create" || task?.completedAt == null ? "task-weekday-hint" : undefined}
+                >
+                  <SelectValue>{(v: string) => dict.weekdayOption[WEEKDAY_KEYS[Number(v)] ?? "mon"]}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {WEEKDAY_PICKER_ORDER.map((day) => (
+                    <SelectItem key={day} value={String(day)}>
+                      {dict.weekdayOption[WEEKDAY_KEYS[day]]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {/* Only a task never done waits for its day; one that has
+                  been done carries on from its last tick and stays listed. */}
+              {(mode === "create" || task?.completedAt == null) && (
+                <p id="task-weekday-hint" className="text-xs text-muted-foreground">
+                  {dict.weekdayHint}
+                </p>
+              )}
+            </div>
+          )}
           {/* UX-133: a one-off can carry a due date. A repeat is due when its
               schedule comes round, so the field steps aside rather than
               taking a date the server would drop. */}

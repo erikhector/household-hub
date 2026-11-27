@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Suspense, use, useState } from "react";
-import { ChevronLeft, ChevronRight, Languages, LogOut, Sparkles } from "lucide-react";
+import { ChevronLeft, ChevronRight, Languages, LogOut, Nut, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Tooltip } from "@/components/ui/tooltip";
@@ -109,6 +109,7 @@ export function Sidebar({
   // The footer pages aren't in navItems, so they mark themselves (UX-27).
   const whatsNewActive = isNavItemActive(pathname, "/dashboard/whats-new");
   const notificationsActive = isNavItemActive(pathname, "/dashboard/notifications");
+  const wrappedActive = isNavItemActive(pathname, "/dashboard/wrapped");
   const { current: themeChoice, Icon: ThemeIcon, cycle: cycleTheme } = useThemeCycle();
   // UX-51: both buttons name the setting in use ("Theme: Dark", with the
   // matching icon); a click still moves to the next one.
@@ -230,6 +231,29 @@ export function Sidebar({
               <span className="ml-auto text-xs tabular-nums">v{version}</span>
             </>
           )}
+        </Tooltip>
+        {/* Squirrel Wrapped, the household's year in review: in the same
+            footer as What's new, as on the phone's More menu. */}
+        <Tooltip
+          label={dict.nav.wrapped}
+          disabled={expanded}
+          render={
+            <Link
+              href="/dashboard/wrapped"
+              aria-label={expanded ? undefined : dict.nav.wrapped}
+              aria-current={wrappedActive ? "page" : undefined}
+              className={cn(
+                "flex h-8 items-center gap-2.5 rounded-md px-2.5 text-sm font-medium transition-colors pointer-coarse:h-11",
+                !expanded && "justify-center",
+                wrappedActive
+                  ? "bg-muted text-foreground"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
+              )}
+            />
+          }
+        >
+          <Nut className="size-4" />
+          {expanded && <span className="truncate">{dict.nav.wrapped}</span>}
         </Tooltip>
         <Suspense
           fallback={<NotificationBell items={[]} dict={dict.notifications} expanded={expanded} active={notificationsActive} />}

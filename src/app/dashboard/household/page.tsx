@@ -11,6 +11,7 @@ import { PendingInvites } from "@/components/household/pending-invites";
 import { MemberList } from "@/components/household/member-list";
 import { DeleteHouseholdDialog } from "@/components/household/delete-household-dialog";
 import { AutoAddSetting } from "@/components/household/auto-add-setting";
+import { AcornStashSetting } from "@/components/household/acorn-stash-setting";
 import { RequiredDietSetting } from "@/components/household/required-diet-setting";
 import { parseRecipeTags } from "@/lib/recipe-tags";
 import { HouseholdNotes } from "@/components/household/household-notes";
@@ -237,6 +238,8 @@ export default async function HouseholdPage() {
               dict={dict.household.requiredDiet}
               tagLabels={dict.mealPlanning.recipeTags}
             />
+            {/* Not owner-gated (see setAcornStashEnabledAction). */}
+            <AcornStashSetting enabled={household.acornStashEnabled} dict={dict.household.acornStash} />
             {/* Owner-gated inside (see setInventorySyncModeAction); contributors
                 see the current value read-only. */}
             <InventorySyncSetting

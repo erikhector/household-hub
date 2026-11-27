@@ -19,6 +19,7 @@ const m = vi.hoisted(() => {
     mealPlan: model(),
     mealPlanEntry: model(),
     householdTask: model(),
+    taskCompletion: model(),
     transaction: vi.fn(async (ops: unknown[]) => ops),
     requireHousehold: vi.fn(),
     revalidatePath: vi.fn(),
@@ -34,6 +35,7 @@ vi.mock("@/lib/prisma", () => ({
     mealPlan: m.mealPlan,
     mealPlanEntry: m.mealPlanEntry,
     householdTask: m.householdTask,
+    taskCompletion: m.taskCompletion,
     $transaction: m.transaction,
   },
 }));
@@ -108,6 +110,16 @@ describe("clearSampleDataAction", () => {
     expect(m.mealPlan.deleteMany).toHaveBeenCalledWith({
       where: { householdId: "h1", sample: { not: null }, entries: { none: {} }, picks: { none: {} } },
     });
+  });
+
+  it("deletes the completions of sample tasks before the tasks, so no acorns outlive them", async () => {
+    await clearSampleDataAction();
+    expect(m.taskCompletion.deleteMany).toHaveBeenCalledWith({
+      where: { householdId: "h1", task: { householdId: "h1", sample: { not: null } } },
+    });
+    expect(m.taskCompletion.deleteMany.mock.invocationCallOrder[0]).toBeLessThan(
+      m.householdTask.deleteMany.mock.invocationCallOrder[0],
+    );
   });
 
   it("keeps a sample recipe someone picked for a week, untagging it", async () => {
