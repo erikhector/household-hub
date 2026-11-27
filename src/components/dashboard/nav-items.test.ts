@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { navAccentColor, navItemForPath, primaryMobileNavItems } from "./nav-items";
+import { isMoreMenuActive, navAccentColor, navItemForPath, primaryMobileNavItems } from "./nav-items";
 
 // navItemForPath drives PageTitle's section hue, so a wrong match tints a
 // page with another section's colour. The cases below pin the three branches
@@ -44,5 +44,19 @@ describe("navAccentColor", () => {
 
   it("draws the bar for a primary tab", () => {
     expect(navAccentColor(navItemForPath("/dashboard/inventory"))).toBe("chart-1");
+  });
+});
+
+// UX-27: a page opened from the phone's More menu marks "More" as where you are.
+describe("isMoreMenuActive", () => {
+  it("is on for the More menu's own pages, Wrapped included", () => {
+    for (const path of ["/dashboard/whats-new", "/dashboard/notifications", "/dashboard/wrapped", "/dashboard/tasks"]) {
+      expect(isMoreMenuActive(path), path).toBe(true);
+    }
+  });
+
+  it("is off for a bottom-bar tab", () => {
+    expect(isMoreMenuActive("/dashboard")).toBe(false);
+    expect(isMoreMenuActive("/dashboard/inventory")).toBe(false);
   });
 });

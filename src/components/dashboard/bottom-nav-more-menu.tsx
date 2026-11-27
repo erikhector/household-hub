@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Suspense, use, useState } from "react";
-import { Languages, LogOut, Plus, Sparkles } from "lucide-react";
+import { Languages, LogOut, Nut, Plus, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -110,6 +110,11 @@ export function BottomNavMoreMenu({
             </span>
           )}
           <span className="ml-auto text-xs text-muted-foreground tabular-nums">v{version}</span>
+        </DropdownMenuItem>
+        {/* Squirrel Wrapped, the household's year in review. */}
+        <DropdownMenuItem className="min-w-0" render={<Link href="/dashboard/wrapped" />}>
+          <Nut className="size-4" />
+          <span className="min-w-0 truncate">{dict.nav.wrapped}</span>
         </DropdownMenuItem>
         <Suspense fallback={null}>
           <NotificationMenuItemContent notifications={notifications} dict={dict.notifications} />
