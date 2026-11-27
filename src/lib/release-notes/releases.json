@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.164.1",
+    "date": "2026-11-27",
+    "pr": 1802,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "In meal planning, long recipe names and the \"ingredients needed\" list on Cook now show in full on a phone. The sheet for placing a picked meal also shows every meal already in a slot, with larger meal-slot buttons.",
+      "sv": "I måltidsplaneringen visas långa receptnamn och listan över ingredienser som behövs under Laga nu i sin helhet på mobilen. Arket där du lägger in en vald måltid visar också alla måltider som redan finns i passet, med större knappar för måltiderna."
+    }
+  },
+  {
     "version": "0.164.0",
     "date": "2026-11-26",
     "pr": 1798,
