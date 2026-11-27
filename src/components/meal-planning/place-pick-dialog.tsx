@@ -72,21 +72,31 @@ export function PlacePickDialog({
           <DialogDescription>{meta.join(" · ")}</DialogDescription>
         </DialogHeader>
 
-        <div role="group" aria-label={wp.slotLabel} className="grid grid-cols-4 gap-0.5 rounded-lg bg-muted p-0.5">
-          {MEAL_TYPES.map((type) => (
-            <button
-              key={type}
-              type="button"
-              aria-pressed={type === mealType}
-              onClick={() => setMealType(type)}
-              className={cn(
-                "min-h-10 truncate rounded-md px-1 text-xs font-semibold text-muted-foreground outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 max-sm:min-h-11 pointer-coarse:min-h-11",
-                type === mealType && "bg-card text-foreground shadow-raised ring-1 ring-foreground/10",
-              )}
-            >
-              {dict[mealTypeDictKey[type]]}
-            </button>
-          ))}
+        {/* UX-214: 14 px labels, never truncated (M9). Four across need
+            about 21rem ("Mellanmål"), so a narrower sheet (320 px, or
+            larger text) takes them 2×2. A container query in rem, so it
+            follows the sheet's width and the reader's text size. */}
+        <div className="@container">
+          <div
+            role="group"
+            aria-label={wp.slotLabel}
+            className="grid grid-cols-2 gap-0.5 rounded-lg bg-muted p-0.5 @min-[21rem]:grid-cols-4"
+          >
+            {MEAL_TYPES.map((type) => (
+              <button
+                key={type}
+                type="button"
+                aria-pressed={type === mealType}
+                onClick={() => setMealType(type)}
+                className={cn(
+                  "min-h-10 break-words rounded-md px-1 text-sm font-semibold text-muted-foreground outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 max-sm:min-h-11 pointer-coarse:min-h-11",
+                  type === mealType && "bg-card text-foreground shadow-raised ring-1 ring-foreground/10",
+                )}
+              >
+                {dict[mealTypeDictKey[type]]}
+              </button>
+            ))}
+          </div>
         </div>
 
         <ul className="flex flex-col gap-0.5">
@@ -100,16 +110,20 @@ export function PlacePickDialog({
                   className="flex min-h-13 w-full items-center gap-3 rounded-lg px-3 py-1.5 text-left outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 active:scale-[0.99]"
                 >
                   <span className="w-14 shrink-0 font-semibold">{day.label}</span>
-                  <span
-                    className={cn(
-                      "min-w-0 flex-1 truncate text-sm",
-                      there.length > 0 ? "text-muted-foreground" : "font-semibold text-success",
-                    )}
-                  >
-                    {there.length > 0
-                      ? there.map((entry) => entry.recipeName ?? entry.freeformName ?? "").join(", ")
-                      : format(wp.slotFree, { slot: slotLabel })}
-                  </span>
+                  {/* UX-214: what's already in the slot is what you check
+                      before doubling up, so every meal shows in full, one
+                      per line, wrapping rather than truncated (M9). */}
+                  {there.length > 0 ? (
+                    <span className="flex min-w-0 flex-1 flex-col gap-1 break-words text-sm text-muted-foreground">
+                      {there.map((entry) => (
+                        <span key={entry.id}>{entry.recipeName ?? entry.freeformName ?? ""}</span>
+                      ))}
+                    </span>
+                  ) : (
+                    <span className="min-w-0 flex-1 break-words text-sm font-semibold text-success">
+                      {format(wp.slotFree, { slot: slotLabel })}
+                    </span>
+                  )}
                   <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                 </button>
               </li>
