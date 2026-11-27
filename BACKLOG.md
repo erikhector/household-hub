@@ -540,26 +540,50 @@ month view; calendar import on every tier):
       ⋯ menu; the page has none yet): pick an `.ics` file
       (`accept=".ics,text/calendar"`, a size
       cap such as 256 KB), see a review list ("12 events, 3 already in
-      the calendar") with a checkbox per event, then import. A form
-      action in `src/app/dashboard/calendar/actions.ts` parses it
-      server-side with a small, unit-tested parser (VEVENT `SUMMARY`,
-      `DTSTART`/`DTEND` as a date or a local time, `DESCRIPTION` into
-      notes cut at 500, `RRULE` only where it maps exactly onto WEEKLY,
-      MONTHLY or YEARLY with no `COUNT`/`UNTIL`/`BYDAY` list, otherwise
-      imported as a one-off), runs every row through the same validation
-      as `createEventAction`, skips an event whose title and date are
-      already there, and writes them in one `createMany` scoped by
-      `requireHousehold()`. Times with a zone (`Z` or `TZID`) convert to
-      the importer's time zone cookie, since `HouseholdEvent` times are
+      the calendar") with a checkbox per event, then import. That's two
+      actions in `src/app/dashboard/calendar/actions.ts`: a preview
+      action that parses the file and returns the rows with their
+      duplicate flags, and an import action that gets the file again
+      with the ticked rows' indexes and parses it again on the server,
+      so the client's copy of the rows is never trusted. Both parse with
+      a small, unit-tested parser (VEVENT `SUMMARY`, `DTSTART`/`DTEND` as
+      a date or a local time, `DESCRIPTION` into notes cut at 500).
+      `RRULE` becomes a Squirrel repeat only where it lands on exactly
+      the same days as `expandEventOccurrences`
+      (`src/lib/household-events.ts`), which clamps a day the month
+      lacks to the month's last day where RFC 5545 skips that month: so
+      `FREQ=WEEKLY` with no `BYDAY` or a single `BYDAY` equal to
+      DTSTART's weekday (how Google and Apple write a weekly event);
+      `FREQ=MONTHLY` on day 1–28; `FREQ=YEARLY` on any date but
+      29 February; and the clamped forms Squirrel's own feed writes
+      (`eventRrule`):
+      `FREQ=MONTHLY;BYMONTHDAY=28,…,<DTSTART's day>;BYSETPOS=-1` and
+      `FREQ=YEARLY;BYMONTH=2;BYMONTHDAY=28,29;BYSETPOS=-1`. Anything else imports as a one-off on its DTSTART:
+      a `COUNT` or `UNTIL`, an `INTERVAL` above 1, any other `BY…` part,
+      a plain `FREQ=MONTHLY` starting on the 29th–31st, or a plain
+      `FREQ=YEARLY` starting on 29 February. Every row goes through the
+      same validation as `createEventAction`, an event whose title and
+      date are already there is skipped, and the rows are written in one
+      `createMany` scoped by `requireHousehold()`, with
+      `createdByMemberId` set to the importing member as
+      `createEventAction` does (from the session, never the form) and no
+      "for" member. Times with a zone (`Z` or `TZID`) convert to the
+      importer's time zone cookie, since `HouseholdEvent` times are
       floating. A one-time import only: subscribing to a URL that keeps
       syncing would need a fetch job and stored URLs, so it's a product
-      call and not part of this item. Acceptance: parser tests cover the
-      supported and refused RRULEs, all-day vs timed, and zoned times;
-      the action test covers tenancy and the duplicate skip; a new
-      `e2e/calendar-import.spec.ts` (`mobile` and `desktop`) uploads a
-      fixture with three events (one weekly), unticks one, imports, and
-      sees the other two in the agenda with the repeat badge on the
-      weekly one, and a second import of the same file adds nothing.
+      call and not part of this item. Acceptance: parser tests cover
+      each accepted RRULE above (weekly with and without a matching
+      `BYDAY`, monthly on the 15th, both BYSETPOS forms, yearly) and each
+      refused one importing as a one-off (`COUNT`, `UNTIL`, a `BYDAY`
+      list or a weekday other than DTSTART's, plain monthly on the 31st,
+      plain yearly on 29 February), all-day vs timed, and zoned times;
+      the action tests cover tenancy, `createdByMemberId` from the
+      session, the import re-parsing rather than trusting client rows,
+      and the duplicate skip; a new `e2e/calendar-import.spec.ts`
+      (`mobile` and `desktop`) uploads a fixture with three events (one
+      weekly), unticks one, imports, and sees the other two in the
+      agenda with the repeat badge on the weekly one, and a second
+      import of the same file adds nothing.
 
 ## Needs a decision before building
 
