@@ -15,8 +15,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useTickFeedback } from "@/lib/tick-feedback";
 import { Badge } from "@/components/ui/badge";
 import { deleteTaskAction, skipTaskAction, toggleTaskCompletedAction, unskipTaskAction } from "@/app/dashboard/tasks/actions";
-import { getNextDueDate, withLocalSkip } from "@/app/dashboard/tasks/recurrence";
-import { recurrenceText } from "@/app/dashboard/tasks/recurrence-label";
+import { getNextDueDate, isUpcoming, localWeekday, withLocalSkip } from "@/app/dashboard/tasks/recurrence";
+import { WEEKDAY_KEYS, recurrenceText } from "@/app/dashboard/tasks/recurrence-label";
 import { daysOverdue, getTaskUrgency, sortByUrgency, todayDayNumber } from "@/app/dashboard/tasks/task-due";
 import { TaskOverdueBadge } from "@/components/tasks/overdue-badge";
 import { isOlderCompletedOneOff } from "@/app/dashboard/tasks/older-completed";
@@ -54,6 +54,8 @@ type TaskRow = {
   completedAt: Date | null;
   createdAt: Date;
   recurrenceAnchorAt: Date | null;
+  /** The weekday (0 Sunday … 6 Saturday) a whole-weeks repeat falls on, else null. */
+  recurrenceWeekday: number | null;
   /** GAP-60: the end of a "Skip this time", when there is one. */
   skippedUntil: Date | null;
   /** GAP-60: closed by a skip that is still running (not by a tick). */
@@ -218,10 +220,15 @@ export function TasksClient({
   // UX-133: overdue, then today, then later, then undated. Each tier keeps
   // its oldest-first order, so a list with no dates reads as before.
   const today = todayDayNumber(now, timeZone);
+  // Weekly days: a repeat whose first day is still ahead waits under
+  // "Upcoming", soonest first. Worked out from the row, not a server flag, so
+  // ticking it early (and undoing that) moves it at tap time like any tick.
+  const upcoming = (t: TaskRow) => !t.completed && isUpcoming(t, now, timeZone);
   const openTasks = sortByUrgency(
-    tasks.filter((t) => !t.completed),
+    tasks.filter((t) => !t.completed && !upcoming(t)),
     today,
   );
+  const upcomingTasks = sortByUrgency(tasks.filter(upcoming), today);
   // UX-105: a one-off ticked over a week ago collapses behind "Show N older".
   const completedTasks = tasks.filter((t) => t.completed);
   const olderTasks = completedTasks.filter((t) => isOlderCompletedOneOff(t, now));
@@ -323,6 +330,28 @@ export function TasksClient({
               </div>
             )}
             {stashCard}
+            {upcomingTasks.length > 0 && (
+              <p data-flip-key="label:upcoming" className="mt-4 text-xs font-medium uppercase text-muted-foreground">
+                {dict.upcomingSectionLabel}
+              </p>
+            )}
+            {upcomingTasks.map((task) => (
+              <TaskItemRow
+                key={task.id}
+                task={task}
+                upcoming
+                members={members}
+                pantryItems={pantryItems}
+                memberNameById={memberNameById}
+                onToggleCompleted={toggleCompleted}
+                onDelete={deleteTask}
+                onSkip={skipTask}
+                dict={dict}
+                locale={locale}
+                timeZone={timeZone}
+                today={today}
+              />
+            ))}
             {completedTasks.length > 0 && (
               <p data-flip-key="label:completed" className="mt-4 text-xs font-medium uppercase text-muted-foreground">
                 {dict.completedSectionLabel}
@@ -364,6 +393,7 @@ export function TasksClient({
 
 function TaskItemRow({
   task,
+  upcoming = false,
   members,
   pantryItems,
   memberNameById,
@@ -376,6 +406,8 @@ function TaskItemRow({
   today,
 }: {
   task: TaskRow;
+  /** Weekly days: never done and its first day still ahead (see TasksClient). */
+  upcoming?: boolean;
   members: MemberOption[];
   pantryItems: PantryItemOption[];
   memberNameById: Map<string, string>;
@@ -405,9 +437,17 @@ function TaskItemRow({
   const nextInRotationName = task.nextInRotationMemberId
     ? memberNameById.get(task.nextInRotationMemberId)
     : undefined;
-  const recurrenceLabel = task.recurrenceIntervalDays
+  const repeatText = task.recurrenceIntervalDays
     ? recurrenceText(task.recurrenceIntervalDays, dict.recurrenceBadge, dict.recurrenceNamedBadge)
     : null;
+  // Weekly days: "Repeats every 7 days on Saturdays".
+  const recurrenceLabel =
+    repeatText && task.recurrenceWeekday !== null
+      ? format(dict.recurrenceOnWeekday, {
+          repeat: repeatText,
+          day: dict.weekdayBadge[WEEKDAY_KEYS[task.recurrenceWeekday] ?? "mon"],
+        })
+      : repeatText;
   // Only meaningful while the task is still shown completed — a recurring
   // task's `completedAt` also sticks around once it's auto-reopened past its
   // interval (see recurrence.ts), at which point "next due" would be a date
@@ -436,21 +476,24 @@ function TaskItemRow({
   // already names, so it only ever shows as overdue.
   const urgency = task.completed ? "none" : getTaskUrgency(task.dueDay, today);
   const overdueDays = urgency === "overdue" ? daysOverdue(task.dueDay, today) : 0;
+  // A calendar day, not an instant: format it in UTC so no zone shifts it.
+  const dayText = (day: number) =>
+    new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", timeZone: "UTC" }).format(
+      new Date(day * 24 * 60 * 60 * 1000),
+    );
+  // Weekly days: an upcoming repeat says when it starts.
+  const startsLabel = upcoming && task.dueDay !== null ? format(dict.startsLabel, { date: dayText(task.dueDay) }) : null;
   const dueLabel =
     task.completed || urgency === "overdue" || task.dueDate === null || task.dueDay === null
       ? null
       : urgency === "today"
         ? dict.dueTodayLabel
-        : format(dict.dueLabel, {
-            // A calendar day, not an instant: format it in UTC so no zone shifts it.
-            date: new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", timeZone: "UTC" }).format(
-              new Date(task.dueDay * 24 * 60 * 60 * 1000),
-            ),
-          });
+        : format(dict.dueLabel, { date: dayText(task.dueDay) });
 
   const hasDetails =
     overdueDays > 0 ||
     dueLabel !== null ||
+    startsLabel !== null ||
     recurrenceLabel !== null ||
     nextDueLabel !== null ||
     nextInRotationName !== undefined ||
@@ -458,7 +501,8 @@ function TaskItemRow({
     completerName !== undefined;
   const deleteButtonRef = useRef<HTMLButtonElement>(null);
   const skipButtonRef = useRef<HTMLButtonElement>(null);
-  const canSkip = !task.completed && task.recurrenceIntervalDays !== null;
+  // Nothing to skip before an upcoming repeat has started.
+  const canSkip = !task.completed && !upcoming && task.recurrenceIntervalDays !== null;
 
   return (
     <SwipeRow
@@ -512,6 +556,7 @@ function TaskItemRow({
             <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 pb-1 text-xs text-muted-foreground sm:pb-0">
               {overdueDays > 0 && <TaskOverdueBadge days={overdueDays} label={dict.overdueLabel} />}
               {dueLabel && <span>{dueLabel}</span>}
+              {startsLabel && <span>{startsLabel}</span>}
               {recurrenceLabel && (
                 <Badge variant="outline" className="shrink-0 gap-1 text-muted-foreground">
                   <Repeat className="size-3" />
@@ -556,6 +601,7 @@ function TaskItemRow({
           <TaskFormDialog
             mode="edit"
             task={task}
+            todayWeekday={localWeekday(new Date(today * 24 * 60 * 60 * 1000), "UTC")}
             members={members}
             pantryItems={pantryItems}
             dict={dict}

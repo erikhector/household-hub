@@ -1765,7 +1765,9 @@ model PersonalPlannedExpense {
 // removing a household member unassigns/un-attributes their tasks rather
 // than deleting task history.
 // `recurrenceIntervalDays` (nullable) is the whole recurrence model: no
-// rrule/weekday schedule, just "reopen N days after it was last completed".
+// rrule schedule, just "reopen N days after it was last completed". A
+// weekday for a whole-weeks repeat is where `recurrenceAnchorAt` falls, not
+// a column of its own (see recurrence.ts, "Weekly days").
 // See src/app/dashboard/tasks/recurrence.ts for how a recurring task's
 // open/completed state is derived lazily from `completedAt` + this interval
 // at read time — completing it again simply overwrites `completedAt`, so no

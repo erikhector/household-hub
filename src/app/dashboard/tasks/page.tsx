@@ -9,7 +9,7 @@ import { TaskFormDialog, type PantryItemOption } from "@/components/tasks/task-f
 import { TasksClient } from "@/components/tasks/tasks-client";
 import type { AcornStashRow } from "@/components/tasks/acorn-stash-card";
 import { loadAcornStash } from "@/lib/tasks/acorn-stash";
-import { isTaskOpen } from "@/app/dashboard/tasks/recurrence";
+import { isTaskOpen, isUpcoming, keepsWeekday, localWeekday } from "@/app/dashboard/tasks/recurrence";
 import { formatDueDateInput, getTaskDueDay } from "@/app/dashboard/tasks/task-due";
 import { activeRotationMembers, isRotating, nextAssigneeInRotation } from "@/lib/task-rotation";
 import { PageTitle } from "@/components/dashboard/page-title";
@@ -51,6 +51,8 @@ const getTasksData = cache(async (householdId: string) => {
 
   return {
     timeZone,
+    // Weekly days: the dialog's default day.
+    todayWeekday: localWeekday(now, timeZone),
     memberOptions,
     pantryItems,
     memberIdByUserId: new Map(householdMembers.map((m) => [m.userId, m.id])),
@@ -58,7 +60,10 @@ const getTasksData = cache(async (householdId: string) => {
     // in it at tap time), against the server's clock for the week.
     now,
     tasks: tasks.map((t) => {
-      const completed = !isTaskOpen(t, now, timeZone);
+      // Weekly days: an upcoming task (first day still ahead) is closed but
+      // not done, so it isn't shown as completed; the list gives it its own
+      // "Upcoming" group.
+      const completed = !isTaskOpen(t, now, timeZone) && !isUpcoming(t, now, timeZone);
       // GAP-38: who's up after the current turn. A completed rotating task
       // has already been passed on (toggleTaskCompletedAction advances on
       // completion), so its assignee *is* who's next; an open one is still
@@ -82,6 +87,10 @@ const getTasksData = cache(async (householdId: string) => {
         recurrenceIntervalDays: t.recurrenceIntervalDays,
         completedAt: t.completedAt,
         recurrenceAnchorAt: t.recurrenceAnchorAt,
+        // Weekly days: the day the dialog's picker and the Repeat badge show.
+        recurrenceWeekday: keepsWeekday(t.recurrenceIntervalDays)
+          ? localWeekday(t.recurrenceAnchorAt ?? t.createdAt, timeZone)
+          : null,
         // GAP-60: closed by "Skip this time" and still within it, so the row
         // says "Skipped" instead of naming a completer.
         skippedUntil: t.skippedUntil,
@@ -124,10 +133,12 @@ function addTaskDialog(
   memberOptions: { id: string; displayName: string }[],
   pantryItems: PantryItemOption[],
   dict: Dictionary["tasks"],
+  todayWeekday: number,
 ) {
   return (
     <TaskFormDialog
       mode="create"
+      todayWeekday={todayWeekday}
       members={memberOptions}
       pantryItems={pantryItems}
       dict={dict}
@@ -146,9 +157,9 @@ function addTaskDialog(
 // UX-50: with no tasks at all the empty state below holds "Add task" (see
 // TasksClient), so the header leaves it out: one primary on screen, not two.
 async function AddTaskButton({ householdId, dict }: { householdId: string; dict: Dictionary["tasks"] }) {
-  const { memberOptions, pantryItems, tasks } = await getTasksData(householdId);
+  const { memberOptions, pantryItems, tasks, todayWeekday } = await getTasksData(householdId);
   if (tasks.length === 0) return null;
-  return <PrimaryAction>{addTaskDialog(memberOptions, pantryItems, dict)}</PrimaryAction>;
+  return <PrimaryAction>{addTaskDialog(memberOptions, pantryItems, dict, todayWeekday)}</PrimaryAction>;
 }
 
 function TasksListSkeleton({ label }: { label: string }) {
@@ -174,7 +185,8 @@ async function TasksSection({
   locale: Locale;
   acornStashEnabled: boolean;
 }) {
-  const { tasks, memberOptions, pantryItems, memberIdByUserId, now, timeZone } = await getTasksData(householdId);
+  const { tasks, memberOptions, pantryItems, memberIdByUserId, now, timeZone, todayWeekday } =
+    await getTasksData(householdId);
   const acornStash = acornStashEnabled ? await getAcornStash(householdId, memberOptions, now, timeZone) : null;
   return (
     <TasksClient
@@ -186,7 +198,7 @@ async function TasksSection({
       now={now}
       timeZone={timeZone}
       locale={locale}
-      emptyAction={tasks.length === 0 ? addTaskDialog(memberOptions, pantryItems, dict) : undefined}
+      emptyAction={tasks.length === 0 ? addTaskDialog(memberOptions, pantryItems, dict, todayWeekday) : undefined}
       acornStash={acornStash}
     />
   );

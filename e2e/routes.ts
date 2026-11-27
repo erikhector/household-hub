@@ -41,6 +41,7 @@ export const DASHBOARD_ROUTES: UiRoute[] = [
   { pattern: "/dashboard/notifications", path: "/dashboard/notifications" },
   { pattern: "/dashboard/profile", path: "/dashboard/profile" },
   { pattern: "/dashboard/whats-new", path: "/dashboard/whats-new" },
+  { pattern: "/dashboard/wrapped", path: "/dashboard/wrapped" },
 ];
 
 // Pages reachable without an account. Visited logged out.
