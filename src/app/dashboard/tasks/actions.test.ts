@@ -21,6 +21,8 @@ const {
   consumeTaskItemMock,
   restoreTaskItemMock,
   revalidateAutoAddedMock,
+  taskCompletionCreateMock,
+  taskCompletionDeleteManyMock,
 } = vi.hoisted(() => ({
   requireHouseholdMock: vi.fn(),
   householdTaskCreateMock: vi.fn(),
@@ -37,6 +39,8 @@ const {
   consumeTaskItemMock: vi.fn(),
   restoreTaskItemMock: vi.fn(),
   revalidateAutoAddedMock: vi.fn(),
+  taskCompletionCreateMock: vi.fn(),
+  taskCompletionDeleteManyMock: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => {
@@ -51,6 +55,7 @@ vi.mock("@/lib/prisma", () => {
     },
     householdMember: { findFirst: householdMemberFindFirstMock, findMany: householdMemberFindManyMock },
     inventoryItem: { findFirst: inventoryItemFindFirstMock },
+    taskCompletion: { create: taskCompletionCreateMock, deleteMany: taskCompletionDeleteManyMock },
   };
   // The transaction hands the callback the same mocks, so a write inside it
   // is asserted like one outside.
@@ -1121,6 +1126,138 @@ describe("unskipTaskAction (GAP-60)", () => {
 
     expect(result.error).toBeTruthy();
     expect(householdTaskUpdateManyMock).not.toHaveBeenCalled();
+  });
+});
+
+// Acorn stash: every tick writes a TaskCompletion row in the tick's own
+// transaction, and the undo (an un-tick) removes exactly that row.
+describe("toggleTaskCompletedAction completion history (acorn stash)", () => {
+  it("writes a completion row for the caller's member, at the same instant as the tick", async () => {
+    requireHouseholdMock.mockResolvedValue({ household, userId: "user-1" });
+    householdTaskFindFirstMock.mockResolvedValue({ ...notRotating, ...noHistory, id: "task-1", completedAt: null, recurrenceIntervalDays: null });
+    householdMemberFindFirstMock.mockResolvedValue({ id: "member-1" });
+
+    const result = await toggleTaskCompletedAction("task-1");
+
+    expect(result.error).toBeUndefined();
+    expect(taskCompletionCreateMock).toHaveBeenCalledTimes(1);
+    const { data } = taskCompletionCreateMock.mock.calls[0][0];
+    expect(data).toEqual({
+      householdId: "household-1",
+      taskId: "task-1",
+      memberId: "member-1",
+      completedAt: expect.any(Date),
+    });
+    // The same instant the task's completedAt was set to, so undo can match it.
+    expect(data.completedAt).toBe(householdTaskUpdateManyMock.mock.calls[0][0].data.completedAt);
+    // Inside the tick's transaction.
+    expect(transactionMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("earns again on every tick of a recurring task", async () => {
+    requireHouseholdMock.mockResolvedValue({ household, userId: "user-1" });
+    householdMemberFindFirstMock.mockResolvedValue({ id: "member-1" });
+    // Done long enough ago that a daily repeat is open again.
+    householdTaskFindFirstMock.mockResolvedValue({
+      ...notRotating,
+      ...noHistory,
+      id: "task-1",
+      completedAt: new Date("2020-01-01T00:00:00.000Z"),
+      completedByMemberId: "member-1",
+      recurrenceIntervalDays: 1,
+      recurrenceAnchorAt: null,
+      skippedUntil: null,
+      createdAt: new Date("2019-12-01T00:00:00.000Z"),
+    });
+
+    await toggleTaskCompletedAction("task-1");
+
+    expect(taskCompletionCreateMock).toHaveBeenCalledTimes(1);
+    expect(taskCompletionDeleteManyMock).not.toHaveBeenCalled();
+  });
+
+  it("writes no row when another tick got there first", async () => {
+    requireHouseholdMock.mockResolvedValue({ household, userId: "user-1" });
+    householdTaskFindFirstMock.mockResolvedValue({ ...notRotating, ...noHistory, id: "task-1", completedAt: null, recurrenceIntervalDays: null });
+    householdMemberFindFirstMock.mockResolvedValue({ id: "member-1" });
+    householdTaskUpdateManyMock.mockResolvedValue({ count: 0 });
+
+    await toggleTaskCompletedAction("task-1");
+
+    expect(taskCompletionCreateMock).not.toHaveBeenCalled();
+  });
+
+  it("writes nothing for a task in another household", async () => {
+    requireHouseholdMock.mockResolvedValue({ household, userId: "user-1" });
+    householdTaskFindFirstMock.mockResolvedValue(null);
+
+    await toggleTaskCompletedAction("task-in-other-household");
+
+    expect(taskCompletionCreateMock).not.toHaveBeenCalled();
+    expect(taskCompletionDeleteManyMock).not.toHaveBeenCalled();
+  });
+
+  it("undo removes exactly the row the tick wrote, scoped to the household", async () => {
+    requireHouseholdMock.mockResolvedValue({ household, userId: "user-2" });
+    const tickedAt = new Date();
+    householdTaskFindFirstMock.mockResolvedValue({
+      ...notRotating,
+      id: "task-1",
+      completedAt: tickedAt,
+      completedByMemberId: "member-1",
+      previousCompletedAt: new Date("2020-01-01T00:00:00.000Z"),
+      previousCompletedByMemberId: null,
+      recurrenceIntervalDays: 3,
+      recurrenceAnchorAt: null,
+      skippedUntil: null,
+      createdAt: new Date("2019-12-01T00:00:00.000Z"),
+    });
+
+    const result = await toggleTaskCompletedAction("task-1");
+
+    expect(result.error).toBeUndefined();
+    expect(taskCompletionDeleteManyMock).toHaveBeenCalledWith({
+      where: { householdId: "household-1", taskId: "task-1", completedAt: tickedAt },
+    });
+    expect(taskCompletionCreateMock).not.toHaveBeenCalled();
+  });
+
+  it("an undo that lost the race removes nothing", async () => {
+    requireHouseholdMock.mockResolvedValue({ household, userId: "user-1" });
+    householdTaskFindFirstMock.mockResolvedValue({
+      ...notRotating,
+      ...noHistory,
+      id: "task-1",
+      completedAt: new Date(),
+      completedByMemberId: "member-1",
+      recurrenceIntervalDays: null,
+    });
+    householdTaskUpdateManyMock.mockResolvedValue({ count: 0 });
+
+    await toggleTaskCompletedAction("task-1");
+
+    expect(taskCompletionDeleteManyMock).not.toHaveBeenCalled();
+  });
+
+  it("reopening a task closed only by a skip leaves the history alone", async () => {
+    requireHouseholdMock.mockResolvedValue({ household, userId: "user-1" });
+    householdTaskFindFirstMock.mockResolvedValue({
+      ...notRotating,
+      ...noHistory,
+      id: "task-1",
+      // Done long ago, so only the running skip keeps it closed.
+      completedAt: new Date("2020-01-01T00:00:00.000Z"),
+      completedByMemberId: "member-1",
+      recurrenceIntervalDays: 1,
+      recurrenceAnchorAt: null,
+      skippedUntil: new Date(Date.now() + 60 * 60 * 1000),
+      createdAt: new Date("2019-12-01T00:00:00.000Z"),
+    });
+
+    await toggleTaskCompletedAction("task-1");
+
+    expect(taskCompletionDeleteManyMock).not.toHaveBeenCalled();
+    expect(taskCompletionCreateMock).not.toHaveBeenCalled();
   });
 });
 

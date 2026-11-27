@@ -110,6 +110,7 @@
 @theme inline {
   --animate-tick-pop: tick-pop 200ms cubic-bezier(0.34, 1.56, 0.64, 1);
   --animate-magnet-bob: magnet-bob 4s ease-in-out infinite;
+  --animate-acorn-drop: acorn-drop 900ms var(--motion-ease-out) both;
   /* UX-176: DESIGN.md's shadow and type tokens. Components use these names
      (shadow-primary, text-stat, ...) and never Tailwind's shadow-sm/md/lg or a
      bare text-3xl/4xl for a stat; src/components/design-tokens.test.ts fails on
@@ -511,6 +512,29 @@
   }
   50% {
     translate: 0 -5px;
+  }
+}
+/* Acorn stash: an acorn drops onto your pile when you tick a task
+   (AcornStashCard). It falls in, rests a moment and fades, all on an
+   absolutely placed icon, so nothing around it moves. Played only under
+   motion-safe, and the icon isn't rendered at all under reduced motion. */
+@keyframes acorn-drop {
+  0% {
+    translate: 0 -18px;
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  45% {
+    translate: 0 0;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    translate: 0 0;
+    opacity: 0;
   }
 }
 @keyframes vt-fade-in {

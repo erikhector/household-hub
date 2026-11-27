@@ -414,6 +414,13 @@ export async function toggleTaskCompletedAction(taskId: string): Promise<ActionS
         });
         // GAP-87: only the tick that really closed the task uses the item.
         if (count === 0) return { used: null, autoAdded: null };
+        // Acorn stash: the completion history (see TaskCompletion), written
+        // on every tick whether or not the household has the stash turned
+        // on, with the same `completedAt` as the task so the undo below can
+        // find exactly this row again.
+        await tx.taskCompletion.create({
+          data: { householdId: household.id, taskId: task.id, memberId: member?.id ?? null, completedAt: now },
+        });
         return consumeTaskItem(tx, {
           householdId: household.id,
           userId,
@@ -475,6 +482,16 @@ export async function toggleTaskCompletedAction(taskId: string): Promise<ActionS
       stockMoved = await prisma.$transaction(async (tx) => {
         const { count } = await tx.householdTask.updateMany({ where: unchangedSinceRead, data: restoreData });
         if (count === 0) return false;
+        // Acorn stash: take back the acorn the tick being undone earned. The
+        // tick wrote its row with the task's `completedAt`, so matching on it
+        // removes that one completion and none of the task's earlier ones.
+        // A tick from before completions were recorded has no row; nothing
+        // matches and nothing is lost.
+        if (task.completedAt) {
+          await tx.taskCompletion.deleteMany({
+            where: { householdId: household.id, taskId: task.id, completedAt: task.completedAt },
+          });
+        }
         return restoreTaskItem(tx, { householdId: household.id, userId, taskId: task.id });
       }, INTERACTIVE_TX_OPTIONS);
     }

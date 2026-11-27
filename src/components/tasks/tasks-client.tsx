@@ -30,6 +30,7 @@ import { filterTasks, parseTaskFilter, type TaskFilter } from "@/app/dashboard/t
 import { TASKS_FILTER_STORAGE_KEY } from "@/lib/cookie-inventory";
 import { startUndoableDelete } from "@/components/shared/start-undoable-delete";
 import { TasksWeeklyRecap } from "@/components/tasks/tasks-weekly-recap";
+import { AcornStashCard, type AcornStashRow } from "@/components/tasks/acorn-stash-card";
 import { applyLocalRowChanges, settleDelete, useLocalRowChanges } from "@/components/shared/local-row-changes";
 import { useFlipList } from "@/components/shared/use-flip-list";
 import { computeWeeklyTaskRecap } from "@/app/dashboard/tasks/weekly-recap-calc";
@@ -80,6 +81,7 @@ export function TasksClient({
   timeZone,
   locale,
   emptyAction,
+  acornStash,
 }: {
   dict: TasksDict;
   /** UX-50: the page's "Add task" trigger, passed only while the household
@@ -97,6 +99,9 @@ export function TasksClient({
   /** The visitor's zone: the local day a repeating chore reopens on. */
   timeZone: string;
   locale: Locale;
+  /** Acorn stash: each current member's pile, or null while the household
+   * has the game off (then nothing of it renders). */
+  acornStash: AcornStashRow[] | null;
 }) {
   const memberNameById = new Map(members.map((m) => [m.id, m.displayName]));
   const unitLabel = useUnitLabel();
@@ -122,8 +127,12 @@ export function TasksClient({
   const tasks = filterTasks(allTasks, filter, currentMemberId);
   // UX-105: older completed one-offs stay behind "Show N older" until asked.
   const [showOlder, setShowOlder] = useState(false);
+  // Acorn stash: bumped by each tick this person makes, to drop an acorn on
+  // their pile at tap time (see AcornStashCard). Never by an untick or Undo.
+  const [acornDrops, setAcornDrops] = useState(0);
   const toggleCompleted = (task: TaskRow) => {
     const completing = !task.completed;
+    if (completing) setAcornDrops((count) => count + 1);
     const settle = local.markDone(task.id, completing);
     let toastId: string | number | undefined;
     let undone = false;
@@ -235,6 +244,10 @@ export function TasksClient({
   return (
     <div ref={containerRef} className="relative flex flex-col gap-6">
       {recapGroups.length > 0 && <TasksWeeklyRecap groups={recapGroups} dict={dict} />}
+
+      {acornStash && (
+        <AcornStashCard rows={acornStash} currentMemberId={currentMemberId} dropKey={acornDrops} dict={dict.acornStash} />
+      )}
 
       {canFilter && (
         // UX-153: a segmented track, not two buttons. The active choice is

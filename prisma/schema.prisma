@@ -233,6 +233,15 @@ model Household {
   // transactions anyway.
   shoppingExpenseCategoryId String?
   shoppingExpenseCategory   BudgetCategory? @relation("ShoppingExpenseCategory", fields: [shoppingExpenseCategoryId], references: [id], onDelete: SetNull)
+  // Acorn stash: an opt-in, light chore game on the Tasks page (each tick
+  // earns the ticker an acorn; a small card shows the week's piles, streaks
+  // and all-time totals). Off by default, so a household sees nothing of it
+  // until a member turns it on from Household > Settings
+  // (setAcornStashEnabledAction). Only what renders hangs on this switch:
+  // TaskCompletion rows are written on every tick either way, so turning it
+  // on shows the household's real history instead of starting from zero.
+  // See docs/superpowers/specs/2026-11-27-acorn-stash-design.md.
+  acornStashEnabled     Boolean @default(false)
 
   members            HouseholdMember[]
   invitations        Invitation[]
@@ -251,6 +260,7 @@ model Household {
   memberSettlements  MemberSettlement[]
   notifications      Notification[]
   tasks              HouseholdTask[]
+  taskCompletions    TaskCompletion[]
   notes              HouseholdNote[]
   // GAP-35: the household calendar's own events (appointments, birthdays).
   events             HouseholdEvent[]
@@ -282,6 +292,8 @@ model HouseholdMember {
   plannedExpenseSplits    PlannedExpenseSplit[]
   assignedTasks           HouseholdTask[]          @relation("TaskAssignedTo")
   completedTasks          HouseholdTask[]          @relation("TaskCompletedBy")
+  // Acorn stash: every tick this member made (see TaskCompletion).
+  taskCompletions         TaskCompletion[]
   authoredNotes           HouseholdNote[]
   // GAP-35: events this member is the one "for", and the ones they added.
   eventsFor               HouseholdEvent[]         @relation("EventFor")
@@ -1821,10 +1833,45 @@ model HouseholdTask {
   completedByMember HouseholdMember? @relation("TaskCompletedBy", fields: [completedByMemberId], references: [id], onDelete: SetNull)
   consumesItem      InventoryItem?   @relation(fields: [consumesItemId], references: [id], onDelete: SetNull)
   stockEvents       InventoryItemEvent[]
+  completions       TaskCompletion[]
 
   @@index([householdId])
   @@index([assignedToMemberId])
   @@index([consumesItemId])
+}
+
+// Acorn stash: one row per tick of a household task, the completion history
+// HouseholdTask itself doesn't keep (it only holds the latest completedAt,
+// overwritten by every tick of a recurring task). toggleTaskCompletedAction
+// writes a row in the same transaction as the tick, on every completion and
+// whether or not Household.acornStashEnabled is on, and its undo path (an
+// un-tick) deletes exactly the row that tick wrote, matched by task and the
+// tick's own `completedAt`. A recurring task earns again each time it's done.
+// The Tasks page sums these per member (src/lib/tasks/acorn-stash.ts) for
+// the opt-in stash card: this week's acorns, the run of local days with a
+// tick, and the all-time total.
+// - householdId cascades: deleting the household deletes its history.
+// - taskId and memberId are SetNull: deleting a task keeps the acorns it
+//   earned, and a member who leaves takes their name off the rows (the card
+//   leaves anyone no longer in the household out), the same trade-off
+//   HouseholdTask.completedByMemberId makes.
+// - `acorns` is always 1 today. A column rather than a constant so a later
+//   change (say, a bigger chore earning more) doesn't rewrite history.
+// Never feeds notifications, push, email or anything on the money screens.
+model TaskCompletion {
+  id          String   @id @default(cuid())
+  householdId String
+  taskId      String?
+  memberId    String?
+  completedAt DateTime
+  acorns      Int      @default(1)
+
+  household Household        @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  task      HouseholdTask?   @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  member    HouseholdMember? @relation(fields: [memberId], references: [id], onDelete: SetNull)
+
+  @@index([householdId, completedAt])
+  @@index([taskId])
 }
 
 // GAP-16: a shared household notes board — free-text notes ("the plumber's

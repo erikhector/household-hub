@@ -456,6 +456,15 @@ export const en = {
       enabledToast: "Low-stock items will be added automatically",
       disabledToast: "Low-stock items won't be added automatically",
     },
+    // AcornStashSetting — Household.acornStashEnabled.
+    acornStash: {
+      title: "Acorn stash",
+      label: "Show the acorn stash on the Tasks page",
+      description:
+        "A light game: every task someone ticks earns them an acorn, and the Tasks page shows this week's piles. This applies to everyone in the household.",
+      enabledToast: "The acorn stash is on",
+      disabledToast: "The acorn stash is off",
+    },
     // InventorySyncSetting — Household.inventorySyncMode.
     // RequiredDietSetting — Household.requiredTags (GAP-71).
     requiredDiet: {
@@ -2941,6 +2950,9 @@ export const en = {
   tasks: {
     title: "Tasks",
     subtitle: "A shared list for the household's day-to-day — no scoring, no streaks.",
+    // In place of `subtitle` while the household has the acorn stash on,
+    // which `subtitle` would otherwise contradict.
+    subtitleWithAcornStash: "A shared list for the household's day-to-day, with an acorn for every task done.",
     addTask: "Add task",
     addTaskDialogTitle: "Add a task",
     addTaskPlaceholder: "e.g. Take out the bins",
@@ -3010,6 +3022,16 @@ export const en = {
     hideOlder: "Hide older",
     weeklyRecapTitle: "This week, the household handled:",
     weeklyRecapDismissAriaLabel: "Dismiss",
+    // AcornStashCard — only when Household.acornStashEnabled is on.
+    acornStash: {
+      title: "Acorn stash",
+      weekLabel: "This week",
+      acornsThisWeek: { one: "{count} acorn this week", other: "{count} acorns this week" },
+      streak: { one: "{count} day in a row", other: "{count} days in a row" },
+      allTime: "{count} in all",
+      leaderBadge: "Busiest this week",
+      you: "{name} (you)",
+    },
     recurrenceLabel: "Repeat",
     recurrenceAriaLabel: "Repeat",
     noRepeatOption: "Doesn't repeat",

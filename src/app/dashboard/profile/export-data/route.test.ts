@@ -19,6 +19,7 @@ const {
   pushSubscriptionFindManyMock,
   householdNoteFindManyMock,
   householdTaskFindManyMock,
+  taskCompletionFindManyMock,
   householdEventFindManyMock,
   transactionSplitFindManyMock,
   recurringTemplateSplitFindManyMock,
@@ -36,6 +37,7 @@ const {
   pushSubscriptionFindManyMock: vi.fn<() => Promise<unknown[]>>(async () => []),
   householdNoteFindManyMock: vi.fn<() => Promise<unknown[]>>(async () => []),
   householdTaskFindManyMock: vi.fn<() => Promise<unknown[]>>(async () => []),
+  taskCompletionFindManyMock: vi.fn<() => Promise<unknown[]>>(async () => []),
   householdEventFindManyMock: vi.fn<() => Promise<unknown[]>>(async () => []),
   transactionSplitFindManyMock: vi.fn<() => Promise<unknown[]>>(async () => []),
   recurringTemplateSplitFindManyMock: vi.fn<() => Promise<unknown[]>>(async () => []),
@@ -55,6 +57,7 @@ vi.mock("@/lib/prisma", () => ({
     pushSubscription: { findMany: pushSubscriptionFindManyMock },
     householdNote: { findMany: householdNoteFindManyMock },
     householdTask: { findMany: householdTaskFindManyMock },
+    taskCompletion: { findMany: taskCompletionFindManyMock },
     householdEvent: { findMany: householdEventFindManyMock },
     transactionSplit: { findMany: transactionSplitFindManyMock },
     recurringTemplateSplit: { findMany: recurringTemplateSplitFindManyMock },
@@ -297,6 +300,18 @@ describe("GET /dashboard/profile/export-data", () => {
           completedByMember: { userId: "user-1" },
         },
       ]);
+      taskCompletionFindManyMock.mockResolvedValue([
+        {
+          id: "completion-1",
+          householdId: "household-1",
+          taskId: "task-1",
+          memberId: "m-1",
+          completedAt: fixedNow,
+          acorns: 1,
+          household: { name: "The Hectors" },
+          task: { title: "Take out the bins" },
+        },
+      ]);
       householdEventFindManyMock.mockResolvedValue([
         {
           id: "event-1",
@@ -481,6 +496,11 @@ describe("GET /dashboard/profile/export-data", () => {
           "householdTasks[].completedAt",
           "householdTasks[].recurrenceIntervalDays",
           "householdTasks[].createdAt",
+          "taskCompletions",
+          "taskCompletions[].householdName",
+          "taskCompletions[].taskTitle",
+          "taskCompletions[].completedAt",
+          "taskCompletions[].acorns",
           "householdEvents",
           "householdEvents[].householdName",
           "householdEvents[].title",
