@@ -302,7 +302,7 @@ export const sv = {
     intro: {
       eyebrow: "Squirrel Wrapped",
       heading: "Ert {year} i Squirrel",
-      body: "En tillbakablick på vad {household} fick gjort tillsammans. Tryck på Nästa, eller svep, för att gå vidare.",
+      body: "En tillbakablick på vad {household} fick gjort tillsammans. Gå vidare med Nästa.",
     },
     shopping: {
       heading: "Handla",
@@ -337,7 +337,7 @@ export const sv = {
     money: {
       heading: "Budgeten",
       transactions: { one: "{count} transaktion registrerad", other: "{count} transaktioner registrerade" },
-      note: "Förda i hushållets budget, hela året.",
+      note: "Förda i hushållets budget.",
     },
     persona: {
       heading: "Ert hushåll var en",

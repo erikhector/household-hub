@@ -8446,11 +8446,23 @@ keep, and nothing is stored, sent anywhere or kept in the browser.
   Close, Done and Escape go back to the page the story was opened from
   (`navigation.canGoBack`, which only counts this origin's entries), or to
   Home when the story was the first page or the browser lacks the
-  Navigation API, so the Back gesture never reopens it (M7). Tapping the card's right or left half,
+  Navigation API, so the Back gesture never reopens it (M7). Closing runs
+  once however often it's pressed, and Done ignores presses for 400 ms
+  after the last card appears (`DONE_GUARD_MS`): it takes Next's place, so
+  the second tap of a quick double tap on Next would otherwise close the
+  story before the persona was seen. Cache Components keeps the closed
+  story alive, hidden in an `<Activity>`, so it resets to the first card as
+  it's hidden (a `useLayoutEffect` cleanup): opening it again starts afresh.
+  Tapping the card's right or left half,
   swiping (48 px, ignored within 24 px of a screen edge, which belongs to
-  the OS back gesture) and the arrow keys step too. Stepping back onto the
+  the OS back gesture) and the arrow keys step too; the keys only count
+  when focus is in the story (or on `<body>`), so arrows typed in the
+  command palette's search don't step the cards behind it. Stepping back onto the
   first card disables a focused Back, so focus moves to Next rather than
-  falling out to `<body>`. Each card starts with
+  falling out to `<body>`, and Share stays focusable while it's pending
+  (`focusableWhenDisabled`). The list pages' keyboard shortcuts
+  (`keyboard-shortcuts.tsx`) stand down only for a dialog or menu that's
+  visible, so the hidden story doesn't switch them off. Each card starts with
   an sr-only "Card 2 of 9"; the polite live region is the wrapper that
   stays mounted, not the keyed card, so each new card is announced. New
   cards slide in from the side they came from, only under `motion-safe`.
@@ -8471,8 +8483,10 @@ keep, and nothing is stored, sent anywhere or kept in the browser.
   the arrow keys and a tap, keeps focus in the story when Back disables,
   checks the calendar count, the persona and its share button, scrolls the
   persona card to its top on a 393 px-tall screen, closes with Close and
-  with Escape, goes back to the page it was opened from, and keeps Tab
-  inside the story).
+  with Escape, goes back to the page it was opened from, keeps Tab
+  inside the story, starts from the first card when opened again from the
+  sidebar or More menu, survives a double tap on Next onto the last card,
+  and, on desktop, lets `/` focus Inventory's search after it's closed).
 
 ## Theming
 
@@ -9605,7 +9619,8 @@ and Tasks (`isShortcutPath`), for people at a keyboard:
   feature, and an unmarked or hidden control is skipped.
 - Ignored while typing in a text field, combobox or editable element, with a
   modifier held (Ctrl+K stays the palette), with any dialog, alert dialog,
-  menu or listbox open, and on a touch-first device (`(hover: hover) and
+  menu or listbox visible (a page left behind stays in the document,
+  hidden, under Cache Components, so a hidden one doesn't count), and on a touch-first device (`(hover: hover) and
   (pointer: fine)` must match). Held-key repeats are ignored.
 - Never the only way to anything (M7): each key has a visible button, field
   or checkbox. No mobile UI, and nothing is stored in the browser

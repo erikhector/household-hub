@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { unique, uniqueId, withDb } from "./db";
 import { E2E_HOUSEHOLD } from "./seed";
-import { dismissCookieNotice, expectHydrated, expectNoHorizontalOverflow, expectTouchTargets } from "./ui";
+import { dismissCookieNotice, expectHydrated, expectNoHorizontalOverflow, expectTouchTargets, gotoRevealed } from "./ui";
 
 // Squirrel Wrapped: the household's year in review. The worker's household
 // gets ten tasks completed on ten days early in the year Wrapped shows,
@@ -230,4 +230,112 @@ test("Escape closes the year in review", async ({ page }) => {
   await expect(position(page)).toHaveText(/^Card 2 of \d+$/);
   await page.keyboard.press("Escape");
   await expect(page).toHaveURL(/\/dashboard$/);
+});
+
+/** Opens the year in review the way a person does once a page is up: a
+ * client-side link (the desktop sidebar's footer, or the phone's More menu),
+ * not a fresh page load, so the router keeps the pages left behind. */
+async function openFromNav(page: Page) {
+  const sidebarLink = page.getByRole("complementary").getByRole("link", { name: "Year in review" });
+  if (await sidebarLink.isVisible()) {
+    await expectHydrated(sidebarLink);
+    await sidebarLink.click();
+  } else {
+    const more = page.getByRole("navigation").getByRole("button", { name: "More" });
+    await expectHydrated(more);
+    await more.click();
+    await page.getByRole("menuitem", { name: "Year in review" }).click();
+  }
+  await expect(page).toHaveURL(/\/dashboard\/wrapped$/);
+}
+
+test("opening it again starts from the first card", async ({ page }) => {
+  // Next keeps pages left behind alive, hidden, with their state, and
+  // brings them back on the next visit (Cache Components' <Activity>).
+  // The story is a fresh look back each time it's opened, not a bookmark
+  // in the last one.
+  await page.goto("/dashboard/inventory");
+  await openFromNav(page);
+  const region = story(page);
+  const next = region.getByRole("button", { name: "Next" });
+  await expectHydrated(next);
+  await next.click();
+  await expect(position(page)).toHaveText(/^Card 2 of \d+$/);
+  await next.click();
+  await expect(position(page)).toHaveText(/^Card 3 of \d+$/);
+  await region.getByRole("button", { name: "Close" }).click();
+  await expect(page).toHaveURL(/\/dashboard\/inventory$/);
+
+  await openFromNav(page);
+  await expect(position(page)).toHaveText(/^Card 1 of \d+$/);
+  await expect(region.getByRole("button", { name: "Back" })).toBeDisabled();
+});
+
+test("keys typed in the command palette leave the story behind it alone", async ({ page }) => {
+  await page.goto("/dashboard/wrapped");
+  const region = story(page);
+  const next = region.getByRole("button", { name: "Next" });
+  await expectHydrated(next);
+  await next.click();
+  await expect(position(page)).toHaveText(/^Card 2 of \d+$/);
+
+  // Opened as in command-palette.spec.ts: a press that lands while a
+  // closing palette is still sliding out reopens it.
+  const palette = page.getByRole("dialog", { name: "Command palette" });
+  await expect(async () => {
+    if (!(await palette.isVisible())) await page.keyboard.press("ControlOrMeta+k");
+    await expect(palette).toHaveAttribute("data-open", "", { timeout: 1000 });
+  }).toPass();
+  const input = palette.getByRole("combobox", { name: "Type a command" });
+  await input.fill("go");
+  await input.press("ArrowRight");
+  await input.press("ArrowLeft");
+  await input.press("ArrowRight");
+  await input.press("Escape");
+  await expect(palette).toHaveCount(0);
+  // The story neither stepped nor closed.
+  await expect(page).toHaveURL(/\/dashboard\/wrapped$/);
+  await expect(position(page)).toHaveText(/^Card 2 of \d+$/);
+});
+
+test("the list shortcuts work again once the year in review is closed", async ({ page, isMobile }) => {
+  test.skip(isMobile, "the single-key shortcuts are a desktop feature (a keyboard and a fine pointer)");
+  // The story left behind stays in the page, hidden, and it's a dialog: the
+  // shortcuts stand down while a dialog is open, so they must only count
+  // one that can be seen.
+  await gotoRevealed(page, "/dashboard/inventory");
+  await openFromNav(page);
+  const close = story(page).getByRole("button", { name: "Close" });
+  await expectHydrated(close);
+  await close.click();
+  await expect(page).toHaveURL(/\/dashboard\/inventory$/);
+  const search = page.getByRole("searchbox");
+  // The listener re-attaches on the way back, which a press can beat.
+  await expect(async () => {
+    await page.keyboard.press("/");
+    await expect(search).toBeFocused({ timeout: 1000 });
+  }).toPass();
+  await expect(search).toHaveValue("");
+});
+
+test("a quick double tap on Next doesn't skip past the last card", async ({ page }) => {
+  // Done takes Next's place on the last card, so the second tap of a fast
+  // double tap lands on Done: it must not close the story before the
+  // household's squirrel is seen.
+  await page.goto("/dashboard/wrapped");
+  const region = story(page);
+  const next = region.getByRole("button", { name: "Next" });
+  await expectHydrated(next);
+  const total = Number((await position(page).textContent())!.match(/of (\d+)/)![1]);
+  for (let i = 1; i < total - 1; i++) {
+    await next.click();
+    await expect(position(page)).toHaveText(new RegExp(`^Card ${i + 1} of`));
+  }
+  await next.dblclick();
+  await expect(position(page)).toHaveText(new RegExp(`^Card ${total} of ${total}$`));
+  await expect(region.getByText("Your household was a")).toBeVisible();
+  // Long enough for a stray close to have navigated away.
+  await page.waitForTimeout(1000);
+  await expect(page).toHaveURL(/\/dashboard\/wrapped$/);
+  await expect(region).toBeVisible();
 });
