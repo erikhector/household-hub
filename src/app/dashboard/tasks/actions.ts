@@ -14,7 +14,15 @@ import { requireHousehold } from "@/lib/session";
 import type { ActionState } from "@/lib/actions/auth";
 import { fail, toFriendlyError, v, zodFail } from "@/lib/actions/errors";
 import { getTimeZone } from "@/lib/get-time-zone";
-import { isClosedBySkipOnly, isTaskOpen, skippedUntilFor } from "@/app/dashboard/tasks/recurrence";
+import {
+  anchorForWeekday,
+  isClosedBySkipOnly,
+  isTaskOpen,
+  isUpcoming,
+  keepsWeekday,
+  localWeekday,
+  skippedUntilFor,
+} from "@/app/dashboard/tasks/recurrence";
 import { parseDueDateInput } from "@/app/dashboard/tasks/task-due";
 import { consumeTaskItem, restoreTaskItem, type TaskItemUse } from "@/app/dashboard/tasks/task-item-use";
 import { INTERACTIVE_TX_OPTIONS } from "@/lib/db-transaction";
@@ -37,6 +45,24 @@ const recurrenceIntervalDaysSchema = z.coerce
   .max(366, v("repeatMax"))
   .nullable()
   .optional();
+
+// Weekly days: the weekday (0 Sunday … 6 Saturday) a whole-weeks repeat
+// falls on. Only used alongside such an interval (see anchorFor); missing
+// keeps the old "the day it was saved" anchor.
+const recurrenceWeekdaySchema = z.coerce.number().int().min(0).max(6).nullable().optional();
+
+/**
+ * The anchor for a repeat being saved now: the next chosen weekday for a
+ * whole-weeks interval when one was sent, else today (UX-144).
+ */
+function anchorFor(
+  recurrenceIntervalDays: number,
+  weekday: number | null | undefined,
+  now: Date,
+  timeZone: string,
+): Date {
+  return weekday != null && keepsWeekday(recurrenceIntervalDays) ? anchorForWeekday(weekday, now, timeZone) : now;
+}
 
 // UX-133: an optional due day, sent as the date field's `YYYY-MM-DD`. Empty
 // or missing means no date. Only a one-off keeps it (see dueDateFor).
@@ -94,6 +120,7 @@ const createTaskSchema = z.object({
   notes: notesSchema,
   assignedToMemberId: z.string().trim().min(1).optional(),
   recurrenceIntervalDays: recurrenceIntervalDaysSchema,
+  recurrenceWeekday: recurrenceWeekdaySchema,
   dueDate: dueDateSchema,
   rotationMemberIds: rotationMemberIdsSchema,
   consumesItemId: consumesItemIdSchema,
@@ -107,6 +134,7 @@ const updateTaskSchema = z.object({
   notes: notesSchema,
   assignedToMemberId: z.string().trim().min(1).nullable(),
   recurrenceIntervalDays: recurrenceIntervalDaysSchema,
+  recurrenceWeekday: recurrenceWeekdaySchema,
   dueDate: dueDateSchema,
   rotationMemberIds: rotationMemberIdsSchema,
   consumesItemId: consumesItemIdSchema,
@@ -209,6 +237,7 @@ export async function createTaskAction(
     notes: formData.get("notes") ?? undefined,
     assignedToMemberId: formData.get("assignedToMemberId") || undefined,
     recurrenceIntervalDays: formData.get("recurrenceIntervalDays") || undefined,
+    recurrenceWeekday: formData.get("recurrenceWeekday") || undefined,
     dueDate: formData.get("dueDate") || undefined,
     // One hidden input per person, in turn order — getAll keeps that order.
     rotationMemberIds: formData.getAll("rotationMemberIds"),
@@ -232,6 +261,8 @@ export async function createTaskAction(
     parsed.data.consumesQuantity,
   );
   if ("error" in consumes) return { error: consumes.error };
+  const interval = resolved.data.recurrenceIntervalDays;
+  const timeZone = await getTimeZone();
 
   try {
     await prisma.householdTask.create({
@@ -242,8 +273,10 @@ export async function createTaskAction(
         ...resolved.data,
         dueDate: dueDateFor(parsed.data.dueDate, resolved.data.recurrenceIntervalDays),
         ...consumes.data,
-        // UX-144: a repeating task's anchor day starts as the day it is made.
-        recurrenceAnchorAt: resolved.data.recurrenceIntervalDays === null ? null : new Date(),
+        // UX-144: a repeating task's anchor day starts as the day it is made,
+        // or the next chosen weekday, before which it stays upcoming.
+        recurrenceAnchorAt:
+          interval === null ? null : anchorFor(interval, parsed.data.recurrenceWeekday, new Date(), timeZone),
       },
     });
   } catch (error) {
@@ -262,6 +295,8 @@ export async function updateTaskAction(
     notes?: string | null;
     assignedToMemberId: string | null;
     recurrenceIntervalDays: number | null;
+    /** The weekday (0 Sunday … 6 Saturday) a whole-weeks repeat falls on; omitted keeps the anchor rule of UX-144. */
+    recurrenceWeekday?: number | null;
     dueDate?: string | null;
     rotationMemberIds: string[];
     /** GAP-87: the "Uses up" item, null for none; omitted leaves it alone. */
@@ -273,7 +308,7 @@ export async function updateTaskAction(
 
   const task = await prisma.householdTask.findFirst({
     where: { id: taskId, householdId: household.id },
-    select: { id: true, recurrenceIntervalDays: true },
+    select: { id: true, recurrenceIntervalDays: true, recurrenceAnchorAt: true, createdAt: true },
   });
   if (!task) return await fail("taskNotFound");
 
@@ -291,6 +326,20 @@ export async function updateTaskAction(
   const consumes = await resolveConsumesItem(household.id, parsed.data.consumesItemId, parsed.data.consumesQuantity);
   if ("error" in consumes) return { error: consumes.error };
 
+  // UX-144: editing the interval re-anchors the schedule on today, or on the
+  // next chosen weekday. Picking another weekday for the same interval moves
+  // the anchor too; saving the same interval and day leaves it alone, and
+  // dropping the repeat clears it.
+  const interval = resolved.data.recurrenceIntervalDays;
+  const weekday = parsed.data.recurrenceWeekday;
+  const timeZone = await getTimeZone();
+  const intervalChanged = interval !== (task.recurrenceIntervalDays ?? null);
+  const weekdayChanged =
+    interval !== null &&
+    keepsWeekday(interval) &&
+    weekday != null &&
+    weekday !== localWeekday(task.recurrenceAnchorAt ?? task.createdAt, timeZone);
+
   try {
     await prisma.householdTask.update({
       where: { id: task.id },
@@ -300,14 +349,11 @@ export async function updateTaskAction(
         dueDate: dueDateFor(parsed.data.dueDate, resolved.data.recurrenceIntervalDays),
         ...(parsed.data.title !== undefined && { title: parsed.data.title }),
         ...(parsed.data.notes !== undefined && { notes: parsed.data.notes || null }),
-        // UX-144: editing the interval re-anchors the schedule on today, which
-        // is how "every Thursday" is set (edit on a Thursday). Saving the same
-        // interval leaves the anchor alone; dropping the repeat clears it.
-        ...(resolved.data.recurrenceIntervalDays === null
+        ...(interval === null
           ? // GAP-60: a one-off has no schedule to skip, so a leftover skip goes too.
             { recurrenceAnchorAt: null, skippedUntil: null }
-          : resolved.data.recurrenceIntervalDays !== (task.recurrenceIntervalDays ?? null) && {
-              recurrenceAnchorAt: new Date(),
+          : (intervalChanged || weekdayChanged) && {
+              recurrenceAnchorAt: anchorFor(interval, weekday, new Date(), timeZone),
             }),
       },
     });
@@ -348,7 +394,9 @@ export async function toggleTaskCompletedAction(taskId: string): Promise<ActionS
 
   const now = new Date();
   const timeZone = await getTimeZone();
-  const nextCompleted = isTaskOpen(task, now, timeZone);
+  // Weekly days: an upcoming task (never done, its first day still ahead) is
+  // closed but not done, so a tick completes it early rather than reopening.
+  const nextCompleted = isTaskOpen(task, now, timeZone) || isUpcoming(task, now, timeZone);
   const rotating = isRotating(task);
   // Compare-and-set: the completion and rotating-undo writes below only
   // apply if the task still has the `completedAt` read above. Without it,

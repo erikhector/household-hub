@@ -240,6 +240,58 @@ describe("createTaskAction", () => {
     });
   });
 
+  describe("weekly days", () => {
+    // Wednesday 2026-11-25, 12:00 UTC.
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-11-25T12:00:00.000Z"));
+    });
+    afterEach(() => vi.useRealTimers());
+
+    it("anchors a weekly task on the next chosen weekday", async () => {
+      requireHouseholdMock.mockResolvedValue({ household });
+
+      await createTaskAction({}, formData({ title: "Bins", recurrenceIntervalDays: "7", recurrenceWeekday: "6" }));
+
+      expect(householdTaskCreateMock).toHaveBeenCalledWith({
+        data: expect.objectContaining({ recurrenceAnchorAt: new Date("2026-11-28T00:00:00.000Z") }),
+      });
+    });
+
+    it("uses the household's time zone for the day's start", async () => {
+      requireHouseholdMock.mockResolvedValue({ household });
+      getTimeZoneMock.mockResolvedValueOnce("Europe/Stockholm");
+
+      await createTaskAction({}, formData({ title: "Bins", recurrenceIntervalDays: "14", recurrenceWeekday: "6" }));
+
+      expect(householdTaskCreateMock).toHaveBeenCalledWith({
+        data: expect.objectContaining({ recurrenceAnchorAt: new Date("2026-11-27T23:00:00.000Z") }),
+      });
+    });
+
+    it("ignores a weekday for an interval that isn't whole weeks", async () => {
+      requireHouseholdMock.mockResolvedValue({ household });
+
+      await createTaskAction({}, formData({ title: "Plants", recurrenceIntervalDays: "3", recurrenceWeekday: "6" }));
+
+      expect(householdTaskCreateMock).toHaveBeenCalledWith({
+        data: expect.objectContaining({ recurrenceAnchorAt: new Date("2026-11-25T12:00:00.000Z") }),
+      });
+    });
+
+    it("rejects a weekday out of range", async () => {
+      requireHouseholdMock.mockResolvedValue({ household });
+
+      const result = await createTaskAction(
+        {},
+        formData({ title: "Bins", recurrenceIntervalDays: "7", recurrenceWeekday: "7" }),
+      );
+
+      expect(result.error).toBeDefined();
+      expect(householdTaskCreateMock).not.toHaveBeenCalled();
+    });
+  });
+
   it("refuses a repeat longer than 366 days (GAP-84)", async () => {
     requireHouseholdMock.mockResolvedValue({ household });
 
@@ -278,7 +330,7 @@ describe("updateTaskAction", () => {
 
     expect(householdTaskFindFirstMock).toHaveBeenCalledWith({
       where: { id: "task-in-other-household", householdId: "household-1" },
-      select: { id: true, recurrenceIntervalDays: true },
+      select: { id: true, recurrenceIntervalDays: true, recurrenceAnchorAt: true, createdAt: true },
     });
     expect(result.error).toBe("Task not found");
     expect(householdTaskUpdateMock).not.toHaveBeenCalled();
@@ -323,6 +375,70 @@ describe("updateTaskAction", () => {
       },
     });
     expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard/tasks");
+  });
+
+  describe("weekly days", () => {
+    // Wednesday 2026-11-25; the task's anchor is Monday 2026-11-23.
+    const weeklyOnMonday = {
+      id: "task-1",
+      recurrenceIntervalDays: 7,
+      recurrenceAnchorAt: new Date("2026-11-23T08:00:00.000Z"),
+      createdAt: new Date("2026-11-01T08:00:00.000Z"),
+    };
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-11-25T12:00:00.000Z"));
+    });
+    afterEach(() => vi.useRealTimers());
+
+    it("moves the anchor when only the weekday changes", async () => {
+      requireHouseholdMock.mockResolvedValue({ household });
+      householdTaskFindFirstMock.mockResolvedValue(weeklyOnMonday);
+
+      await updateTaskAction("task-1", {
+        assignedToMemberId: null,
+        recurrenceIntervalDays: 7,
+        recurrenceWeekday: 6,
+        rotationMemberIds: [],
+      });
+
+      expect(householdTaskUpdateMock).toHaveBeenCalledWith({
+        where: { id: "task-1" },
+        data: expect.objectContaining({ recurrenceAnchorAt: new Date("2026-11-28T00:00:00.000Z") }),
+      });
+    });
+
+    it("leaves the anchor alone when the interval and weekday are unchanged", async () => {
+      requireHouseholdMock.mockResolvedValue({ household });
+      householdTaskFindFirstMock.mockResolvedValue(weeklyOnMonday);
+
+      await updateTaskAction("task-1", {
+        assignedToMemberId: null,
+        recurrenceIntervalDays: 7,
+        recurrenceWeekday: 1,
+        rotationMemberIds: [],
+      });
+
+      const { data } = householdTaskUpdateMock.mock.calls[0][0];
+      expect(data).not.toHaveProperty("recurrenceAnchorAt");
+    });
+
+    it("anchors on the chosen weekday when the interval changes too", async () => {
+      requireHouseholdMock.mockResolvedValue({ household });
+      householdTaskFindFirstMock.mockResolvedValue(weeklyOnMonday);
+
+      await updateTaskAction("task-1", {
+        assignedToMemberId: null,
+        recurrenceIntervalDays: 14,
+        recurrenceWeekday: 1,
+        rotationMemberIds: [],
+      });
+
+      expect(householdTaskUpdateMock).toHaveBeenCalledWith({
+        where: { id: "task-1" },
+        data: expect.objectContaining({ recurrenceAnchorAt: new Date("2026-11-30T00:00:00.000Z") }),
+      });
+    });
   });
 
   it("renames a task with a trimmed title (UX-24)", async () => {
@@ -455,6 +571,32 @@ describe("toggleTaskCompletedAction", () => {
     });
     expect(result.error).toBe("Task not found");
     expect(householdTaskUpdateMock).not.toHaveBeenCalled();
+  });
+
+  it("completes an upcoming task (its first weekday still ahead) instead of reopening it", async () => {
+    requireHouseholdMock.mockResolvedValue({ household, userId: "user-1" });
+    householdTaskFindFirstMock.mockResolvedValue({
+      ...notRotating,
+      ...noHistory,
+      id: "task-1",
+      completedAt: null,
+      skippedUntil: null,
+      recurrenceIntervalDays: 7,
+      createdAt: new Date(),
+      recurrenceAnchorAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
+      consumesItemId: null,
+      consumesQuantity: null,
+    });
+    householdMemberFindFirstMock.mockResolvedValue({ id: "member-1" });
+
+    const result = await toggleTaskCompletedAction("task-1");
+
+    expect(result.error).toBeUndefined();
+    expect(householdTaskUpdateManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ completedAt: expect.any(Date), completedByMemberId: "member-1" }),
+      }),
+    );
   });
 
   it("completes an open task, attributing it to the caller's own member id", async () => {

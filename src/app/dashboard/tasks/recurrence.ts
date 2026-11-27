@@ -21,9 +21,20 @@
 //    it until the next occurrence, so a Saturday chore done on Thursday
 //    stays a Saturday chore. The anchor is the local day in
 //    `recurrenceAnchorAt` (UX-144): set when a repeat is created and re-set
-//    whenever the interval is edited, so "every Thursday" is a matter of
-//    editing the task on a Thursday. Rows from before the column (null) keep
-//    reading `createdAt`.
+//    whenever the interval is edited, or (weekly days, below) to a picked
+//    weekday. Rows from before the column (null) keep reading `createdAt`.
+//
+// Weekly days: a repeat whose interval is a whole number of weeks (every
+// week, every 2 weeks) can be put on a chosen weekday in the task dialog.
+// That is only a matter of where the anchor falls, so it needs no column of
+// its own: `anchorForWeekday` sets the anchor to the next such day (today
+// when today is that day). An anchor in the future means the repeat hasn't
+// started yet, and a task that has never been done stays out of the open
+// list until that day (`isUpcoming`) rather than showing as due at once. A
+// tick in the interval just before the anchor counts as the first
+// occurrence, the same "done early" rule the windows above follow; a tick
+// longer ago than that belongs to no occurrence, so the task is next due on
+// the anchor day itself.
 //
 // GAP-60: "Skip this time" closes a recurring task until `skippedUntil`
 // (now + one interval when skipped) without writing `completedAt`, which
@@ -114,6 +125,7 @@ function scheduledNextDue(task: RecurrenceFields, timeZone: string): Date | null
   // A task ticked before its anchor day (an imported row) counts as the
   // first occurrence.
   const anchorDay = localDayNumber(task.recurrenceAnchorAt ?? task.createdAt, zone);
+  if (completedDay <= anchorDay - interval) return startOfLocalDay(anchorDay, zone);
   const occurrence = Math.max(0, Math.floor((completedDay - anchorDay) / interval));
   return startOfLocalDay(anchorDay + (occurrence + 1) * interval, zone);
 }
@@ -142,11 +154,43 @@ export function getNextDueDate(task: RecurrenceFields, timeZone = "UTC"): Date |
  */
 export function isTaskOpen(task: RecurrenceFields, now: Date, timeZone = "UTC"): boolean {
   if (task.recurrenceIntervalDays === null) return task.completedAt === null;
-  if (task.completedAt === null && (task.skippedUntil ?? null) === null) return true;
+  if (task.completedAt === null && (task.skippedUntil ?? null) === null) return !isUpcoming(task, now, timeZone);
 
   const dueAgainAt = getNextDueDate(task, timeZone);
   if (dueAgainAt === null) return true;
   return now >= dueAgainAt;
+}
+
+/**
+ * Whether a repeating task has never been done (or skipped) and its anchor
+ * day is still ahead: a weekly chore put on Saturday on a Wednesday. It is
+ * closed, but not done, so the list shows it as upcoming and a tick on it
+ * completes it early (the first occurrence) instead of reopening it.
+ */
+export function isUpcoming(task: RecurrenceFields, now: Date, timeZone = "UTC"): boolean {
+  if (task.recurrenceIntervalDays === null || task.completedAt !== null || (task.skippedUntil ?? null) !== null) {
+    return false;
+  }
+  const zone = safeTimeZone(timeZone);
+  return localDayNumber(task.recurrenceAnchorAt ?? task.createdAt, zone) > localDayNumber(now, zone);
+}
+
+/** Whether an interval can be put on a weekday: a whole number of weeks. */
+export function keepsWeekday(recurrenceIntervalDays: number | null): boolean {
+  return recurrenceIntervalDays !== null && recurrenceIntervalDays % 7 === 0;
+}
+
+/** The weekday (0 Sunday … 6 Saturday, as `Date#getDay`) of `instant`'s local day. */
+export function localWeekday(instant: Date, timeZone: string): number {
+  // Day 0 (1970-01-01) was a Thursday.
+  return (((localDayNumber(instant, safeTimeZone(timeZone)) + 4) % 7) + 7) % 7;
+}
+
+/** The start of the next local day on `weekday` (0 Sunday … 6 Saturday): today when today is that day. */
+export function anchorForWeekday(weekday: number, now: Date, timeZone: string): Date {
+  const zone = safeTimeZone(timeZone);
+  const ahead = (((weekday - localWeekday(now, zone)) % 7) + 7) % 7;
+  return startOfLocalDay(localDayNumber(now, zone) + ahead, zone);
 }
 
 /**
