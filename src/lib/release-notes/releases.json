@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.164.2",
+    "date": "2026-11-27",
+    "pr": 1813,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Typing in a form that slides up from the bottom on iPhone no longer hides the field you're typing in behind the keyboard.",
+      "sv": "När du skriver i ett formulär som glider upp nerifrån på iPhone döljs inte längre fältet du skriver i bakom tangentbordet."
+    }
+  },
+  {
     "version": "0.164.1",
     "date": "2026-11-27",
     "pr": 1802,
