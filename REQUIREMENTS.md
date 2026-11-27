@@ -9306,9 +9306,25 @@ components directly.
   closed (animation transients, rounding, browser toolbars — never a
   keyboard), and window `resize`/`orientationchange`/`focusout` recompute
   the value so a missed keyboard-close event self-heals instead of leaving
-  the sheet lifted. The footer's stick offset negates its full-bleed
-  negative margin (`position: sticky` constrains the margin box), so the
-  footer sits exactly at the sheet bottom instead of that margin above it.
+  the sheet lifted. Lifting alone left the field being typed in hidden on
+  iOS, so two more pieces keep it visible. The sheet's max height is
+  `min(85dvh, --kb-visible − safe-area top − 1rem)`, where `--kb-visible`
+  is the visual viewport's height while the keyboard is up (unset, so
+  `100dvh`, otherwise): iOS keeps `dvh` at full height behind the
+  keyboard, so a lifted sheet still 85dvh tall pushed its top (and the
+  field) off the screen, and the visible height, not `100dvh − inset`,
+  also holds when iOS pans the view down. From `sm` up the centred modal
+  keeps plain `85dvh`. And when the keyboard opens or grows (its height
+  without the pan offset, so a pinch-zoom pan never counts), or focus
+  moves to another field while it's up, the focused field inside the
+  dialog is scrolled back into view, since iOS scrolled for it against
+  the sheet as it was before the lift. The reveal waits for the sheet's
+  max-height transition to finish (capped at 500ms) and scrolls the body
+  by hand (`revealScrollDelta`), keeping the field above the sticky,
+  opaque footer instead of under it. The footer's stick offset negates
+  its full-bleed negative margin (`position: sticky` constrains the margin
+  box), so the footer sits exactly at the sheet bottom instead of that
+  margin above it.
   Covered by `e2e/sheet-keyboard.mobile.spec.ts`,
   `e2e/sheet-footer.mobile.spec.ts` and `keyboard-inset.test.ts`.
 - **Native-grade bottom sheets (UX-34, DESIGN.md M2/M7)**: every `Dialog`
