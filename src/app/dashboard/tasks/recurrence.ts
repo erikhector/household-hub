@@ -1,7 +1,8 @@
 // Household task recurrence (see docs/archive/JOY_GAP_BACKLOG.md item 6, superseded for
 // recurring tasks per later request) — deliberately not an rrule/weekday
-// schedule, just a repeat interval in days. There's no completion-history
-// table, so a recurring task's open/completed state is derived lazily from
+// schedule, just a repeat interval in days. A task's state never reads
+// completion history (TaskCompletion exists only for the opt-in Acorn
+// stash), so a recurring task's open/completed state is derived lazily from
 // `completedAt` + `recurrenceIntervalDays` at read time rather than stored:
 // completing it again simply overwrites `completedAt`, the same write a
 // non-recurring task's toggle already does. This file is the one place that

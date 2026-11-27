@@ -1754,9 +1754,10 @@ model PersonalPlannedExpense {
 
 // --- Household tasks ---------------------------------------------------------
 // Shared task list for adult household co-managers (see docs/archive/JOY_GAP_BACKLOG.md
-// item 6, "Household Tasks v1") — explicitly not a chore-chart/points/rewards
-// system like Tody or OurHome (see that item's Scope note): no fixed due
-// date, no per-person scoring. `completedAt` nullable-timestamp-as-status (not a
+// item 6, "Household Tasks v1") — not a chore-chart/points/rewards system
+// like Tody or OurHome (see that item's Scope note): no fixed due date, and
+// no per-person scoring unless the household opts into the Acorn stash
+// (TASKS-GAME, Household.acornStashEnabled; history in TaskCompletion). `completedAt` nullable-timestamp-as-status (not a
 // boolean/enum) mirrors MealPlanEntry.consumedAt. `assignedToMemberId`/
 // `completedByMemberId` are two distinct, independently nullable fields — a
 // task can be completed by someone other than whoever it was assigned to,
@@ -1770,8 +1771,9 @@ model PersonalPlannedExpense {
 // a column of its own (see recurrence.ts, "Weekly days").
 // See src/app/dashboard/tasks/recurrence.ts for how a recurring task's
 // open/completed state is derived lazily from `completedAt` + this interval
-// at read time — completing it again simply overwrites `completedAt`, so no
-// separate completion-history table is needed.
+// at read time — completing it again simply overwrites `completedAt`. The
+// task's own state never needs history; the only completion history is
+// TaskCompletion, written only while a household's Acorn stash is on.
 // GAP-38: `rotationMemberIds` is an opt-in round-robin ("take turns") on a
 // recurring task — an ordered list of HouseholdMember ids; empty means no
 // rotation. Only valid alongside `recurrenceIntervalDays` and with ≥2

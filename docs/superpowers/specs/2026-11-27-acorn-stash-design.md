@@ -1,40 +1,13 @@
 # Acorn stash: design
 
-> **Conflicts with the current product rule.** REQUIREMENTS.md, "Household
-> tasks", says tasks are:
->
-> > deliberately **not** a chore-chart/points/rewards system like Tody or
-> > OurHome: no fixed due dates or calendar schedule, no per-person scoring,
-> > counts, streaks or leaderboard, in v1 or planned.
->
-> and, under rotation, "Deliberately no counts, streaks, "done most" or
-> member-vs-member comparison anywhere". The comment above `model
-> HouseholdTask` in `prisma/schema.prisma` says the same ("explicitly not a
-> chore-chart/points/rewards system ... no per-person scoring") and that "no
-> separate completion-history table is needed".
->
-> The owner asked for this feature anyway and chose to ship it as its own PR,
-> clearly marked, updating the governance docs themselves at merge time. This
-> PR does **not** edit REQUIREMENTS.md, PRODUCT.md, BACKLOG.md, AUTOPILOT.md
-> or the `HouseholdTask` comment. If it merges, the owner needs to:
->
-> 1. **REQUIREMENTS.md, "Household tasks"**: replace the "not a
->    chore-chart/points/rewards system ... in v1 or planned" sentence and the
->    rotation bullet's "Deliberately no counts, streaks ..." line with the
->    opt-in exception, and add an "Acorn stash" bullet describing the
->    behaviour below (model, toggle, card, undo, guardrails). The weekly recap
->    bullet's "never sorted or labeled by per-person count" still holds for
->    the recap itself.
-> 2. **`prisma/schema.prisma`, the comment above `model HouseholdTask`**:
->    drop "explicitly not a chore-chart/points/rewards system" / "no
->    per-person scoring", and the closing "so no separate completion-history
->    table is needed", pointing at `TaskCompletion` instead. (The same
->    sentence in the header of `src/app/dashboard/tasks/recurrence.ts` is
->    about the open/closed derivation, which this doesn't change, but its
->    "There's no completion-history table" clause becomes stale too.)
-> 3. **PRODUCT.md, Decision log**: a row recording the owner's decision to
->    allow an opt-in, default-off points/streak game on tasks, with the
->    guardrails below as its boundary.
+> **Reverses an earlier product rule (TASKS-GAME).** REQUIREMENTS.md,
+> "Household tasks", used to say tasks were "not a chore-chart/points/rewards
+> system … no per-person scoring, counts, streaks or leaderboard, in v1 or
+> planned". The owner decided on 2026-11-27 to allow this opt-in,
+> default-off game. The same PR updates REQUIREMENTS.md (the section's intro,
+> the rotation bullet, and a new "Acorn stash" bullet), the comment above
+> `model HouseholdTask`, the header of `recurrence.ts`, and adds a TASKS-GAME
+> row to PRODUCT.md's decision log.
 
 ## What it is
 
