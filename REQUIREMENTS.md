@@ -8387,14 +8387,21 @@ keep, and nothing is stored, sent anywhere or kept in the browser.
   events ×2, meals ×4, items bought ×1 plus lists ×3, restocks ×2), ties
   in that order, so the same stats always give the same squirrel.
 - **Story player** (`src/components/wrapped/wrapped-story.tsx`): a fixed,
-  full-screen region over the dashboard on the page's gradient, safe areas
-  padded, the card on `card` up to `max-w-md`. Progress segments at the
-  top, a Close link (to Home) beside them, Back and Next at the bottom (the
-  thumb zone); on the last card Next becomes "Done" (back to Home) and the
-  card's own action is Share. Tapping the card's right or left half,
+  full-screen modal dialog (`role="dialog"`, `aria-modal`) over the
+  dashboard on the page's gradient, safe areas padded, the card on `card`
+  up to `max-w-md`. While it's open every element beside its ancestors is
+  `inert` (except Sonner's toaster), so Tab and a screen-reader swipe never
+  reach the hidden shell behind it. Progress segments at the top, a Close
+  button beside them, Back and Next at the bottom (the thumb zone); on the
+  last card Next becomes "Done" and the card's own action is Share.
+  Close, Done and Escape go back to the page the story was opened from
+  (`navigation.canGoBack`, which only counts this origin's entries), or to
+  Home when the story was the first page or the browser lacks the
+  Navigation API, so the Back gesture never reopens it (M7). Tapping the card's right or left half,
   swiping (48 px, ignored within 24 px of a screen edge, which belongs to
-  the OS back gesture) and the arrow keys step too; Escape closes. Each
-  card starts with an sr-only "Card 2 of 9" in a polite live region. New
+  the OS back gesture) and the arrow keys step too. Each card starts with
+  an sr-only "Card 2 of 9"; the polite live region is the wrapper that
+  stays mounted, not the keyed card, so each new card is announced. New
   cards slide in from the side they came from, only under `motion-safe`.
 - **Share** (persona card): the system share sheet where `canNativeShare`
   says so (a touch device with the Web Share API), otherwise "Copy text"
@@ -8410,8 +8417,9 @@ keep, and nothing is stored, sent anywhere or kept in the browser.
   `src/components/dashboard/nav-items.test.ts` (More stays active), the
   smoke run (`e2e/routes.ts`), and `e2e/wrapped.spec.ts` (seeds ten past
   one-off events, steps with Next, Back, the arrow keys and a tap, checks
-  the calendar count, the persona and its share button, closes with the
-  Close link and with Escape).
+  the calendar count, the persona and its share button, closes with Close
+  and with Escape, goes back to the page it was opened from, and keeps Tab
+  inside the story).
 
 ## Theming
 

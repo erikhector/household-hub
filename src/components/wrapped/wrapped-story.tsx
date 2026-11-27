@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type PointerEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -33,10 +32,13 @@ type WrappedDict = Dictionary["wrapped"];
 // Squirrel Wrapped's story player: one full-screen card at a time, like a
 // phone "story". Every way forward has a visible twin (M7): tapping the
 // right or left half of the card, swiping, and the arrow keys all do what
-// the Next and Back buttons at the bottom (the thumb zone, M2) do. Escape
-// and the close button go back to Home. Under prefers-reduced-motion the
+// the Next and Back buttons at the bottom (the thumb zone, M2) do. Escape,
+// Done and the close button go back to where the story was opened from. Under prefers-reduced-motion the
 // card just changes, without the slide (motion-safe:, and globals.css
 // collapses every animation anyway).
+
+/** Sonner's toaster container, left out of the inert page behind the story. */
+const TOASTER = "[data-react-aria-top-layer]";
 
 /** How far a finger must travel sideways to count as a swipe, in px. */
 const SWIPE_MIN_PX = 48;
@@ -154,6 +156,19 @@ export function WrappedStory({
   const storyRef = useRef<HTMLDivElement>(null);
   const last = cards.length - 1;
 
+  // Close, Done and Escape go back to wherever the story was opened from
+  // (M7): pushing Home instead added a history entry, so the Back gesture
+  // reopened the story, and someone who opened it from Inventory's More
+  // menu landed on Home. The Navigation API's `canGoBack` only counts this
+  // origin's entries, so it is false when the story was the first page
+  // (a shared or typed URL); then, and in browsers without the API, Home
+  // is the way out.
+  const close = useCallback(() => {
+    const nav = (window as Window & { navigation?: { canGoBack?: boolean } }).navigation;
+    if (nav?.canGoBack) router.back();
+    else router.push("/dashboard");
+  }, [router]);
+
   const go = useCallback(
     (step: 1 | -1) => {
       setDirection(step === 1 ? "forward" : "back");
@@ -171,13 +186,37 @@ export function WrappedStory({
       if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey) return;
       if (event.key === "ArrowRight") go(1);
       else if (event.key === "ArrowLeft") go(-1);
-      else if (event.key === "Escape") router.push("/dashboard");
+      else if (event.key === "Escape") close();
       else return;
       event.preventDefault();
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [go, router]);
+  }, [go, close]);
+
+  // The story covers the screen but renders inside the dashboard shell, so
+  // without this the sidebar, bottom bar and page behind it stay in the tab
+  // order and the accessibility tree: Tab or a screen-reader swipe would
+  // walk onto controls nobody can see (M10). While it's open, every element
+  // beside the story's ancestors is made inert, all the way up to <body>,
+  // and restored on close. The toaster is left alone so "Copied" is still
+  // announced, and an element that was already inert stays inert.
+  useEffect(() => {
+    const story = storyRef.current;
+    if (!story) return;
+    const made: HTMLElement[] = [];
+    for (let node: HTMLElement | null = story; node && node !== document.body; node = node.parentElement) {
+      for (const sibling of Array.from(node.parentElement?.children ?? [])) {
+        if (sibling === node || !(sibling instanceof HTMLElement) || sibling.inert) continue;
+        // Sonner's <section> is always mounted (its toast list only appears
+        // with a toast), and carries this attribute.
+        if (sibling.matches(TOASTER) || sibling.querySelector(TOASTER)) continue;
+        sibling.inert = true;
+        made.push(sibling);
+      }
+    }
+    return () => made.forEach((el) => (el.inert = false));
+  }, []);
 
   function onPointerDown(event: PointerEvent<HTMLDivElement>) {
     const edge = event.clientX < EDGE_GUARD_PX || event.clientX > window.innerWidth - EDGE_GUARD_PX;
@@ -316,7 +355,8 @@ export function WrappedStory({
     <div
       ref={storyRef}
       tabIndex={-1}
-      role="region"
+      role="dialog"
+      aria-modal="true"
       aria-label={format(dict.storyLabel, { year })}
       className="fixed inset-0 z-50 flex flex-col gap-3 bg-background pt-[max(0.75rem,env(safe-area-inset-top))] pr-[max(1rem,env(safe-area-inset-right))] pb-[max(1rem,env(safe-area-inset-bottom))] pl-[max(1rem,env(safe-area-inset-left))] outline-none [background:radial-gradient(circle,var(--gradient-start),var(--gradient-end))]"
     >
@@ -329,7 +369,7 @@ export function WrappedStory({
             <span key={c.kind} className={cn("h-1 flex-1 rounded-full", i <= index ? "bg-primary" : "bg-foreground/15")} />
           ))}
         </div>
-        <Button variant="ghost" size="icon" aria-label={dict.close} render={<Link href="/dashboard" />}>
+        <Button variant="ghost" size="icon" aria-label={dict.close} onClick={close}>
           <X className="size-5" aria-hidden />
         </Button>
       </div>
@@ -339,10 +379,15 @@ export function WrappedStory({
         onPointerDown={onPointerDown}
         onPointerUp={onPointerUp}
         onPointerCancel={() => (pointerStart.current = null)}
+        // The live region sits here, on an element that stays mounted, not
+        // on the keyed article: screen readers announce what changes inside
+        // an existing live region but stay silent about one that is
+        // inserted already filled, so each new card (with its "Card 2 of 9"
+        // line) is read out after a Next press keeps focus on the button.
+        aria-live="polite"
       >
         <article
           key={index}
-          aria-live="polite"
           className={cn(
             "flex w-full flex-col justify-center overflow-y-auto rounded-xl bg-card p-6 text-card-foreground ring-1 ring-foreground/10",
             "motion-safe:animate-in motion-safe:fade-in motion-safe:duration-200",
@@ -360,7 +405,7 @@ export function WrappedStory({
           {dict.back}
         </Button>
         {isLast ? (
-          <Button variant="outline" render={<Link href="/dashboard" />}>
+          <Button variant="outline" onClick={close}>
             {dict.done}
           </Button>
         ) : (

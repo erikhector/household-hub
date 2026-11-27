@@ -9,7 +9,8 @@ import { dismissCookieNotice, expectHydrated, expectNoHorizontalOverflow, expect
 // worker's other specs have added. Past one-off events show on no agenda or
 // Home card, so nothing another spec reads changes, and they're removed
 // again afterwards. Then the story is stepped through with the buttons, the
-// keyboard and a tap, and closed back to Home.
+// keyboard and a tap, and closed: back to the page it was opened from, or
+// Home when it was the first page. It's modal, so Tab never leaves it.
 
 const EVENT_COUNT = 10;
 
@@ -45,7 +46,7 @@ test.beforeEach(async ({ context, baseURL }) => {
 });
 
 function story(page: Page) {
-  return page.getByRole("region", { name: `Your ${wrappedYear()} in Squirrel` });
+  return page.getByRole("dialog", { name: `Your ${wrappedYear()} in Squirrel` });
 }
 
 /** The current card's "Card N of M", read by screen readers. */
@@ -100,7 +101,7 @@ test("steps through the year in review with buttons, keys and a tap, then closes
   // The last card names the household's squirrel and offers to share it;
   // Next becomes Done there.
   for (let i = 0; i < total; i++) {
-    if (await region.getByRole("link", { name: "Done" }).isVisible()) break;
+    if (await region.getByRole("button", { name: "Done" }).isVisible()) break;
     await next.click();
   }
   await expect(position(page)).toHaveText(new RegExp(`^Card ${total} of ${total}$`));
@@ -109,8 +110,42 @@ test("steps through the year in review with buttons, keys and a tap, then closes
   await expect(region.getByRole("button", { name: /^(Share|Copy text)$/ })).toBeVisible();
   await expectNoHorizontalOverflow(page);
 
-  await region.getByRole("link", { name: "Close" }).click();
+  // Opened as the first page, so there's nothing of Squirrel's to go back
+  // to: Close goes Home.
+  await region.getByRole("button", { name: "Close" }).click();
   await expect(page).toHaveURL(/\/dashboard$/);
+});
+
+test("closing goes back to the page it was opened from", async ({ page }) => {
+  await page.goto("/dashboard/inventory");
+  await page.goto("/dashboard/wrapped");
+  const close = story(page).getByRole("button", { name: "Close" });
+  await expectHydrated(close);
+  await close.click();
+  await expect(page).toHaveURL(/\/dashboard\/inventory$/);
+});
+
+test("keeps keyboard focus inside the story", async ({ page }) => {
+  await page.goto("/dashboard/wrapped");
+  const region = story(page);
+  const next = region.getByRole("button", { name: "Next" });
+  await expectHydrated(next);
+  await next.focus();
+  // Tab past the last control and on round: focus never reaches the
+  // sidebar, bottom bar or page hidden behind the story. Past the last
+  // control it may leave the page for the browser's own UI (as with a
+  // native modal <dialog>), which reads as <body> here; it comes back into
+  // the story.
+  let insideAgain = false;
+  for (let i = 0; i < 8; i++) {
+    await page.keyboard.press("Tab");
+    const where = await region.evaluate((el) =>
+      el.contains(document.activeElement) ? "story" : document.activeElement === document.body ? "body" : "page",
+    );
+    expect(where).not.toBe("page");
+    if (i > 0 && where === "story") insideAgain = true;
+  }
+  expect(insideAgain).toBe(true);
 });
 
 test("Escape closes the year in review", async ({ page }) => {
