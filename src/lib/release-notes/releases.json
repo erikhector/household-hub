@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.165.0",
+    "date": "2026-11-27",
+    "pr": 1825,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "New: Year in review. Swipe through a short story of your household's year (shopping trips, meals cooked, tasks done, busiest month) and find out what kind of squirrel you were. Open it from More.",
+      "sv": "Nytt: Året som gått. Svep igenom en kort berättelse om hushållets år (inköpsrundor, lagade måltider, avklarade uppgifter, mest aktiva månaden) och se vilken sorts ekorre ni var. Öppna den under Mer."
+    }
+  },
+  {
     "version": "0.164.2",
     "date": "2026-11-27",
     "pr": 1813,
