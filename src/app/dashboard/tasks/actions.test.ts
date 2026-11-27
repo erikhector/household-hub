@@ -25,6 +25,8 @@ const {
   revalidateAutoAddedMock,
   taskCompletionCreateMock,
   taskCompletionDeleteManyMock,
+  taskCompletionFindFirstMock,
+  householdFindUniqueMock,
 } = vi.hoisted(() => ({
   requireHouseholdMock: vi.fn(),
   householdTaskCreateMock: vi.fn(),
@@ -43,6 +45,8 @@ const {
   revalidateAutoAddedMock: vi.fn(),
   taskCompletionCreateMock: vi.fn(),
   taskCompletionDeleteManyMock: vi.fn(),
+  taskCompletionFindFirstMock: vi.fn(),
+  householdFindUniqueMock: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => {
@@ -57,7 +61,12 @@ vi.mock("@/lib/prisma", () => {
     },
     householdMember: { findFirst: householdMemberFindFirstMock, findMany: householdMemberFindManyMock },
     inventoryItem: { findFirst: inventoryItemFindFirstMock },
-    taskCompletion: { create: taskCompletionCreateMock, deleteMany: taskCompletionDeleteManyMock },
+    taskCompletion: {
+      create: taskCompletionCreateMock,
+      deleteMany: taskCompletionDeleteManyMock,
+      findFirst: taskCompletionFindFirstMock,
+    },
+    household: { findUnique: householdFindUniqueMock },
   };
   // The transaction hands the callback the same mocks, so a write inside it
   // is asserted like one outside.
@@ -113,6 +122,9 @@ beforeEach(() => {
   householdTaskUpdateManyMock.mockResolvedValue({ count: 1 });
   consumeTaskItemMock.mockResolvedValue({ used: null, autoAdded: null });
   restoreTaskItemMock.mockResolvedValue(false);
+  // Acorn stash: off, as a household starts, and no earlier completion rows.
+  householdFindUniqueMock.mockResolvedValue({ acornStashEnabled: false });
+  taskCompletionFindFirstMock.mockResolvedValue(null);
 });
 
 afterEach(() => {
@@ -1340,9 +1352,34 @@ describe("unskipTaskAction (GAP-60)", () => {
   });
 });
 
-// Acorn stash: every tick writes a TaskCompletion row in the tick's own
-// transaction, and the undo (an un-tick) removes exactly that row.
+// Acorn stash: while the game is on, every tick writes a TaskCompletion row
+// in the tick's own transaction, and the undo (an un-tick) removes exactly
+// that row.
 describe("toggleTaskCompletedAction completion history (acorn stash)", () => {
+  beforeEach(() => {
+    householdFindUniqueMock.mockResolvedValue({ acornStashEnabled: true });
+  });
+
+  it("writes no row while the household has the game off", async () => {
+    householdFindUniqueMock.mockResolvedValue({ acornStashEnabled: false });
+    requireHouseholdMock.mockResolvedValue({ household, userId: "user-1" });
+    householdTaskFindFirstMock.mockResolvedValue({ ...notRotating, ...noHistory, id: "task-1", completedAt: null, recurrenceIntervalDays: null });
+    householdMemberFindFirstMock.mockResolvedValue({ id: "member-1" });
+
+    const result = await toggleTaskCompletedAction("task-1");
+
+    // The tick itself still lands...
+    expect(result).toEqual({});
+    expect(householdTaskUpdateManyMock).toHaveBeenCalledTimes(1);
+    // ...but leaves no history, so turning the game on starts from zero.
+    expect(taskCompletionCreateMock).not.toHaveBeenCalled();
+    // The switch is read for this household only, inside the tick's transaction.
+    expect(householdFindUniqueMock).toHaveBeenCalledWith({
+      where: { id: "household-1" },
+      select: { acornStashEnabled: true },
+    });
+  });
+
   it("writes a completion row for the caller's member, at the same instant as the tick", async () => {
     requireHouseholdMock.mockResolvedValue({ household, userId: "user-1" });
     householdTaskFindFirstMock.mockResolvedValue({ ...notRotating, ...noHistory, id: "task-1", completedAt: null, recurrenceIntervalDays: null });
@@ -1358,11 +1395,84 @@ describe("toggleTaskCompletedAction completion history (acorn stash)", () => {
       taskId: "task-1",
       memberId: "member-1",
       completedAt: expect.any(Date),
+      acorns: 1,
     });
     // The same instant the task's completedAt was set to, so undo can match it.
     expect(data.completedAt).toBe(householdTaskUpdateManyMock.mock.calls[0][0].data.completedAt);
     // Inside the tick's transaction.
     expect(transactionMock).toHaveBeenCalledTimes(1);
+    // The page drops an acorn on the pile only when told the tick earned one.
+    expect(result).toEqual({ earnedAcorn: true });
+  });
+
+  // A late untick keeps its row and restores the task's earlier completedAt,
+  // so the kept row is newer than it: the next tick earns nothing.
+  const lateUntickedRecurring = {
+    ...notRotating,
+    ...noHistory,
+    id: "task-1",
+    // The completion the late untick put back: long enough ago that a daily
+    // repeat reads as open.
+    completedAt: new Date("2020-01-01T00:00:00.000Z"),
+    completedByMemberId: "member-1",
+    recurrenceIntervalDays: 1,
+    recurrenceAnchorAt: null,
+    skippedUntil: null,
+    createdAt: new Date("2019-12-01T00:00:00.000Z"),
+  };
+
+  it("records a re-tick after a late untick with 0 acorns", async () => {
+    requireHouseholdMock.mockResolvedValue({ household, userId: "user-1" });
+    householdMemberFindFirstMock.mockResolvedValue({ id: "member-1" });
+    householdTaskFindFirstMock.mockResolvedValue(lateUntickedRecurring);
+    // The row the late untick kept.
+    taskCompletionFindFirstMock.mockResolvedValue({ id: "kept" });
+
+    const result = await toggleTaskCompletedAction("task-1");
+
+    // Looked for a row newer than the task's current completedAt, for this
+    // household and task only.
+    expect(taskCompletionFindFirstMock).toHaveBeenCalledWith({
+      where: {
+        householdId: "household-1",
+        taskId: "task-1",
+        completedAt: { gt: lateUntickedRecurring.completedAt },
+      },
+      select: { id: true },
+    });
+    expect(taskCompletionCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({ taskId: "task-1", memberId: "member-1", acorns: 0 }),
+    });
+    expect(result).toEqual({});
+  });
+
+  it("a later repeat of a recurring task, with no newer row, earns 1", async () => {
+    requireHouseholdMock.mockResolvedValue({ household, userId: "user-1" });
+    householdMemberFindFirstMock.mockResolvedValue({ id: "member-1" });
+    householdTaskFindFirstMock.mockResolvedValue(lateUntickedRecurring);
+    taskCompletionFindFirstMock.mockResolvedValue(null);
+
+    const result = await toggleTaskCompletedAction("task-1");
+
+    expect(taskCompletionCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({ taskId: "task-1", acorns: 1 }),
+    });
+    expect(result).toEqual({ earnedAcorn: true });
+  });
+
+  it("a first tick unticked late (completedAt back to null) makes any row for the task count as newer", async () => {
+    requireHouseholdMock.mockResolvedValue({ household, userId: "user-1" });
+    householdMemberFindFirstMock.mockResolvedValue({ id: "member-1" });
+    householdTaskFindFirstMock.mockResolvedValue({ ...notRotating, ...noHistory, id: "task-1", completedAt: null, recurrenceIntervalDays: null });
+    taskCompletionFindFirstMock.mockResolvedValue({ id: "kept" });
+
+    await toggleTaskCompletedAction("task-1");
+
+    expect(taskCompletionFindFirstMock).toHaveBeenCalledWith({
+      where: { householdId: "household-1", taskId: "task-1" },
+      select: { id: true },
+    });
+    expect(taskCompletionCreateMock).toHaveBeenCalledWith({ data: expect.objectContaining({ acorns: 0 }) });
   });
 
   it("earns again on every tick of a recurring task", async () => {

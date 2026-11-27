@@ -58,6 +58,12 @@ describe("computeAcornStash", () => {
     expect(a.allTime).toBe(3);
   });
 
+  it("adds nothing for a 0-acorn row (a re-tick after a late untick)", () => {
+    const [a] = stash(["a"], [tick("a", "2026-11-24T08:00:00Z"), tick("a", "2026-11-24T09:00:00Z", 0)]);
+    expect(a.week).toBe(1);
+    expect(a.allTime).toBe(1);
+  });
+
   it("counts the week from Monday 00:00 in the household's zone, not UTC", () => {
     const [a] = stash(
       ["a"],
@@ -123,6 +129,19 @@ describe("computeAcornStash", () => {
       expect(a.streak).toBe(3);
     });
 
+    it("doesn't count a day whose only row earned 0 acorns", () => {
+      // Thursday has an acorn; today (Friday) only a 0-acorn re-tick, so
+      // the run ends yesterday at 1 day rather than reaching today.
+      const [a] = stash(["a"], [tick("a", "2026-11-26T09:00:00Z"), tick("a", "2026-11-27T09:00:00Z", 0)]);
+      expect(a.streak).toBe(1);
+      // And a 0-acorn day in the middle breaks the run.
+      const [b] = stash(
+        ["b"],
+        [tick("b", "2026-11-25T09:00:00Z"), tick("b", "2026-11-26T09:00:00Z", 0), tick("b", "2026-11-27T09:00:00Z")],
+      );
+      expect(b.streak).toBe(1);
+    });
+
     it("runs across a week boundary", () => {
       const [a] = stash(
         ["a"],
@@ -165,7 +184,7 @@ describe("computeAcornStash", () => {
         ["a"],
         [tick(null, "2026-11-24T09:00:00Z"), tick("gone", "2026-11-24T09:00:00Z"), tick("a", "2026-11-24T09:00:00Z")],
       );
-      expect(result).toEqual([{ memberId: "a", week: 1, allTime: 1, streak: 0, leader: true }]);
+      expect(result).toEqual([{ memberId: "a", week: 1, allTime: 1, streak: 0, leader: false }]);
     });
   });
 
@@ -186,6 +205,11 @@ describe("computeAcornStash", () => {
     it("marks nobody in a week with no acorns, whatever last week held", () => {
       const result = stash(["a", "b"], [tick("a", "2026-11-18T09:00:00Z"), tick("a", "2026-11-19T09:00:00Z")]);
       expect(result.map((m) => m.leader)).toEqual([false, false]);
+    });
+
+    it("marks nobody in a household of one", () => {
+      const [a] = stash(["a"], [tick("a", "2026-11-24T09:00:00Z")]);
+      expect(a.leader).toBe(false);
     });
 
     it("goes by this week, not all time", () => {

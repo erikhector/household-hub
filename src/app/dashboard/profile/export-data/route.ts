@@ -245,7 +245,7 @@ export async function GET() {
     })),
     // Tasks assigned to or last completed by this user. A task only keeps
     // its latest completion (see HouseholdTask's doc comment); every tick
-    // is in taskCompletions below. The rotation's other members are left
+    // made while the acorn stash was on is in taskCompletions below. The rotation's other members are left
     // out: that's the household's schedule, not this user's data.
     householdTasks: tasks.map((task) => ({
       householdName: task.household.name,

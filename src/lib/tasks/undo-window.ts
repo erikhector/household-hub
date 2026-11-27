@@ -10,7 +10,9 @@
 // being the Undo, rather than trusting a flag from the client. The window is
 // the toast's lifetime plus a grace: Sonner pauses a toast's timer while it
 // is hovered or the tab is hidden, and the Undo's request takes a moment to
-// arrive, so a press near the end of the toast still lands inside it.
+// arrive, so a press near the end of the toast still lands inside it. A
+// paused toast could still outlast that, so the clients also close it a
+// margin before the window ends (src/components/tasks/undo-toast-cap.ts).
 
 /** How long the "Done" toast stays up, offering Undo. */
 export const TASK_DONE_TOAST_MS = 5000;

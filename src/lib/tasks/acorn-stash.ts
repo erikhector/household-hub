@@ -1,14 +1,20 @@
 // Acorn stash: the sums behind the opt-in chore game on the Tasks page
 // (Household.acornStashEnabled; design in
-// docs/superpowers/specs/2026-11-27-acorn-stash-design.md). Every tick of a
-// household task writes a TaskCompletion row worth one acorn; this turns
-// those rows into what the stash card shows for each current member:
+// docs/superpowers/specs/2026-11-27-acorn-stash-design.md). While the game
+// is on, every tick of a household task writes a TaskCompletion row, worth
+// one acorn or, for a re-tick after a late untick, none
+// (toggleTaskCompletedAction); this turns those rows into what the stash
+// card shows for each current member:
 //  - `week`: acorns from ticks in this Monday-start week,
 //  - `allTime`: every acorn they have,
 //  - `streak`: how many local days in a row, ending today or yesterday,
-//    they ticked at least one task. Yesterday counts so a streak doesn't read
-//    as gone first thing in the morning; a run that has ended is simply 0,
-//    never a "lost" state (no loss framing, per the design's guardrails).
+//    they earned at least one acorn. Yesterday counts so a streak doesn't
+//    read as gone first thing in the morning; a run that has ended is simply
+//    0, never a "lost" state (no loss framing, per the design's guardrails).
+// Piles and totals sum `acorns`, never count rows, so a 0-acorn row adds
+// nothing to them, and it doesn't extend a streak either: the re-tick is the
+// same chore again, already paid for, and a day holding only that chore's
+// second tick isn't a day of chores done.
 // Weeks and days are local calendar days in the visitor's time zone (the
 // time-zone cookie, getTimeZone), the same localDayNumber the task schedule
 // runs on (recurrence.ts, UX-137), so a tick at 23:40 on a Sunday counts for
@@ -17,7 +23,8 @@
 // Members come out in the order they're given (the page passes join order),
 // never sorted by count: the card is a set of piles side by side, not a
 // ranked table. `leader` marks everyone with this week's highest pile, ties
-// included, and nobody in a week with no acorns yet.
+// included, and nobody in a week with no acorns yet, nor in a household of
+// one, where "biggest pile" would only ever mean "yours".
 //
 // Rows whose member has left the household (memberId null after SetNull, or
 // an id no longer in `memberIds`) are left out entirely.
@@ -101,7 +108,8 @@ export function computeAcornStash({
   const stats = new Map(memberIds.map((id) => [id, { week: 0, days: new Set<number>() }]));
   for (const completion of completions) {
     const entry = completion.memberId === null ? undefined : stats.get(completion.memberId);
-    if (!entry) continue;
+    // A 0-acorn row (a re-tick, see the header) neither adds nor counts a day.
+    if (!entry || completion.acorns <= 0) continue;
     const day = dayOf(completion.completedAt);
     entry.days.add(day);
     if (day >= weekStart && day < weekEnd) entry.week += completion.acorns;
@@ -115,7 +123,7 @@ export function computeAcornStash({
       week: entry.week,
       allTime: allTime.get(memberId) ?? 0,
       streak: currentStreak(entry.days, today),
-      leader: topWeek > 0 && entry.week === topWeek,
+      leader: memberIds.length > 1 && topWeek > 0 && entry.week === topWeek,
     };
   });
 }

@@ -12,7 +12,8 @@
 // summary row (M3). Collapsed it is one row: the title and the viewer's own
 // pile for this week. Opened, one compact row per current member, in join
 // order rather than by count: their pile, then their name (with a quiet
-// badge when theirs is the week's biggest pile, ties included), and a
+// badge when theirs is the week's biggest pile, ties included, and only in
+// a household of more than one: computeAcornStash), and a
 // caption with their run of days and all-time total. A run that has ended
 // just isn't mentioned: no "streak lost", nothing framed as a loss.
 //
@@ -21,12 +22,18 @@
 // appearing after a tick doesn't add a line, and the drop below takes no
 // space.
 //
-// `dropKey` goes up each time the person looking ticks a task. A new key
+// `dropKey` goes up each time a tick by the person looking earns an acorn,
+// which TasksClient learns when the tick's save answers (not at tap time: a
+// failed save, or a re-tick that earns nothing, drops none). A new key
 // mounts a fresh acorn over their pile on the summary row that drops in and
-// fades (globals.css, `acorn-drop-*`), so the reward shows at tap time,
-// collapsed or not, while the count catches up from the server. It is
-// absolutely placed, and isn't rendered under reduced motion. It is
-// decoration only: the "Done" toast is the tick's real feedback (M5).
+// fades (globals.css, `acorn-drop-*`), collapsed or not, around when the
+// count catches up from the server's revalidated page. It is absolutely
+// placed, and isn't rendered under reduced motion. It is decoration only:
+// the "Done" toast, shown at tap time, is the tick's real feedback (M5).
+//
+// The card stays mounted for the visit: TasksClient renders it once, at a
+// fixed place in its list, so an open card doesn't fold shut (or replay the
+// drop) when the list empties or fills.
 
 import type { ReactNode } from "react";
 import { ChevronDown, Nut } from "lucide-react";

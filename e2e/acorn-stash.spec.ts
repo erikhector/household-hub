@@ -6,8 +6,10 @@ import { dismissCookieNotice, expectHydrated, expectNoHorizontalOverflow, gotoRe
 // Acorn stash (docs/superpowers/specs/2026-11-27-acorn-stash-design.md): the
 // opt-in chore game on the Tasks page. Turned on from Household > Settings,
 // a tick earns the ticker an acorn on the stash card, Undo takes it back,
-// and turning it off hides the card again. The worker's household gets the
-// setting back off afterwards, so other specs see the Tasks page as usual.
+// and turning it off hides the card again. Ticks are only recorded while
+// it's on, so every test turns it on before ticking, and a re-tick after a
+// late untick earns nothing. The worker's household gets the setting back
+// off afterwards, so other specs see the Tasks page as usual.
 
 const setStash = (enabled: boolean) =>
   withDb((client) =>
@@ -43,8 +45,8 @@ test.beforeEach(async ({ context, baseURL }) => {
   taskId = uniqueId("e2e-acorn-task");
   title = unique("Sweep the porch");
   // Two ticks of the viewer's own from earlier today, so the pile starts
-  // above 0 (and above 1) the way it does when other specs in this worker
-  // have ticked tasks: the count must read right from any start.
+  // above 0 (and above 1): the count must read right from any start, not
+  // only from an empty stash.
   seededIds = [uniqueId("e2e-acorn-tc"), uniqueId("e2e-acorn-tc")];
   await withDb(async (client) => {
     await client.query(`INSERT INTO "HouseholdTask" (id, "householdId", title) VALUES ($1, $2, $3)`, [
@@ -96,10 +98,10 @@ test("the acorn stash is off by default, earns an acorn per tick, gives it back 
   const stashBox = await stash.boundingBox();
   expect(stashBox!.y).toBeGreaterThan(rowBox!.y + rowBox!.height);
 
-  // Collapsed, it's one row: the title and the viewer's own pile. Other
-  // specs in this worker tick tasks too, so the pile starts wherever they
-  // (and the two seeded ticks) left it; only the change is ours. Read from
-  // the screen-reader sentence, which is its own element.
+  // Collapsed, it's one row: the title and the viewer's own pile, read from
+  // the screen-reader sentence, which is its own element. Only the change
+  // is asserted exactly, so the count can't hang on what else this week
+  // left in the worker's household.
   const summaryPile = stash.getByText(/^You have \d+ acorns? this week$/);
   const before = Number(/^You have (\d+)/.exec((await summaryPile.textContent()) ?? "")?.[1]);
   expect(before).toBeGreaterThanOrEqual(2);
@@ -148,4 +150,47 @@ test("the acorn stash is off by default, earns an acorn per tick, gives it back 
   await page.goto("/dashboard/tasks");
   await expect(page.getByRole("checkbox", { name: `Mark ${title} as done` })).toBeVisible();
   await expect(stash).toHaveCount(0);
+});
+
+test("a re-tick after a late untick is recorded but doesn't raise the pile", async ({ page }) => {
+  // What a late untick leaves behind (past the toast's undo window): the
+  // task open again with its completedAt put back (null, for a first tick),
+  // and the tick's row kept, acorn and all.
+  const keptId = uniqueId("e2e-acorn-tc");
+  seededIds.push(keptId);
+  await withDb((client) =>
+    client.query(
+      `INSERT INTO "TaskCompletion" (id, "householdId", "taskId", "memberId", "completedAt")
+       VALUES ($1, $2, $3, $4, now() - interval '1 minute')`,
+      [keptId, E2E_HOUSEHOLD.id, taskId, E2E_MEMBER],
+    ),
+  );
+  await setStash(true);
+
+  await gotoRevealed(page, "/dashboard/tasks");
+  const stash = page.getByRole("region", { name: "Acorn stash" });
+  const summaryPile = stash.getByText(/^You have \d+ acorns? this week$/);
+  const before = Number(/^You have (\d+)/.exec((await summaryPile.textContent()) ?? "")?.[1]);
+  // The two seeded ticks and the kept one.
+  expect(before).toBeGreaterThanOrEqual(3);
+
+  const box = page.getByRole("checkbox", { name: `Mark ${title} as done`, exact: true });
+  await expectHydrated(box);
+  const tickSaved = actionSaved(page, "/dashboard/tasks");
+  await box.click();
+  await tickSaved;
+
+  // The kept row already paid for this tick: the pile stays where it was,
+  // after a reload too...
+  await page.reload();
+  await expect(summaryPile).toHaveText(yourPile(before));
+  // ...though the tick itself was recorded, with no acorn.
+  const acorns = await withDb(async (client) => {
+    const { rows } = await client.query<{ acorns: number }>(
+      `SELECT acorns FROM "TaskCompletion" WHERE "householdId" = $1 AND "taskId" = $2 ORDER BY "completedAt"`,
+      [E2E_HOUSEHOLD.id, taskId],
+    );
+    return rows.map((row) => row.acorns);
+  });
+  expect(acorns).toEqual([1, 0]);
 });

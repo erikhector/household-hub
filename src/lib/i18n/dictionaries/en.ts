@@ -549,7 +549,7 @@ export const en = {
       title: "Acorn stash",
       label: "Show the acorn stash on the Tasks page",
       description:
-        "A light game: every task someone ticks earns them an acorn, and the Tasks page shows this week's piles. This applies to everyone in the household.",
+        "A light game: while it's on, every task someone ticks earns them an acorn, and the Tasks page shows this week's piles. Everyone starts from zero when it's turned on. This applies to everyone in the household.",
       enabledToast: "The acorn stash is on",
       disabledToast: "The acorn stash is off",
     },

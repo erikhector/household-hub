@@ -504,7 +504,7 @@ export const sv = {
       title: "Ekollonförrådet",
       label: "Visa ekollonförrådet på sidan Uppgifter",
       description:
-        "En lätt lek: varje uppgift någon bockar av ger dem ett ekollon, och sidan Uppgifter visar veckans högar. Inställningen gäller alla i hushållet.",
+        "En lätt lek: medan den är på ger varje uppgift någon bockar av dem ett ekollon, och sidan Uppgifter visar veckans högar. Alla börjar från noll när den slås på. Inställningen gäller alla i hushållet.",
       enabledToast: "Ekollonförrådet är på",
       disabledToast: "Ekollonförrådet är av",
     },

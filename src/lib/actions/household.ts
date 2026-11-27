@@ -714,10 +714,11 @@ export async function setAutoAddLowStockToListAction(enabled: boolean): Promise<
 // Acorn stash: the household's opt-in for the chore game on the Tasks page
 // (Household.acornStashEnabled). Open to every member, like the auto-add
 // switch above: REQUIREMENTS.md's "Roles" keeps owner-only to removing
-// members and deleting the household, and this only changes what the Tasks
-// page shows; it never touches anyone's data (completions are recorded
-// either way). A click action, so it takes the value directly; the
-// household comes from the session, never the client.
+// members and deleting the household, and this only switches the game on
+// or off; it never touches data already recorded (turning it on starts the
+// counting from zero, turning it off stops it and keeps what was earned). A
+// click action, so it takes the value directly; the household comes from
+// the session, never the client.
 export async function setAcornStashEnabledAction(enabled: boolean): Promise<ActionState> {
   const { household } = await requireHousehold();
 

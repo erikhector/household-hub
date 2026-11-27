@@ -388,7 +388,9 @@ export async function updateTaskAction(
 
 // GAP-87: `used` is set when the tick took a linked pantry item off the
 // shelf, for the toast to name it.
-export async function toggleTaskCompletedAction(taskId: string): Promise<ActionState & { used?: TaskItemUse }> {
+export async function toggleTaskCompletedAction(
+  taskId: string,
+): Promise<ActionState & { used?: TaskItemUse; earnedAcorn?: true }> {
   const { household, userId } = await requireHousehold();
 
   const task = await prisma.householdTask.findFirst({
@@ -436,6 +438,9 @@ export async function toggleTaskCompletedAction(taskId: string): Promise<ActionS
   let used: TaskItemUse | null = null;
   let autoAdded: AutoAddedItem | null = null;
   let stockMoved = false;
+  // Acorn stash: whether this tick earned an acorn, so the Tasks page drops
+  // one on the pile only for a tick that really added to it.
+  let earnedAcorn = false;
 
   try {
     if (nextCompleted) {
@@ -482,13 +487,45 @@ export async function toggleTaskCompletedAction(taskId: string): Promise<ActionS
         });
         // GAP-87: only the tick that really closed the task uses the item.
         if (count === 0) return { used: null, autoAdded: null };
-        // Acorn stash: the completion history (see TaskCompletion), written
-        // on every tick whether or not the household has the stash turned
-        // on, with the same `completedAt` as the task so the undo below can
-        // find exactly this row again.
-        await tx.taskCompletion.create({
-          data: { householdId: household.id, taskId: task.id, memberId: member?.id ?? null, completedAt: now },
+        // Acorn stash (see TaskCompletion): a row only while the household
+        // has the game on, so turning it on starts everyone from zero. Read
+        // here, in the tick's transaction, so a tick racing the switch
+        // follows whichever state it commits against.
+        const stash = await tx.household.findUnique({
+          where: { id: household.id },
+          select: { acornStashEnabled: true },
         });
+        if (stash?.acornStashEnabled) {
+          // A late untick (past the undo window, below) keeps its row and
+          // puts the task's completedAt back to the completion before it, so
+          // that kept row is newer than the completedAt read above. The next
+          // tick of the task is then recorded but earns nothing: the acorn
+          // the kept row holds already paid for it, whether the tick comes a
+          // minute later or when a recurring task next falls due. Otherwise
+          // a tick finds no newer row (every earlier row is at or before the
+          // completedAt it read) and earns its acorn. With no completedAt at
+          // all (a first tick unticked late), any row for the task is that one.
+          const reTick = await tx.taskCompletion.findFirst({
+            where: {
+              householdId: household.id,
+              taskId: task.id,
+              ...(task.completedAt ? { completedAt: { gt: task.completedAt } } : {}),
+            },
+            select: { id: true },
+          });
+          earnedAcorn = !reTick;
+          // Same `completedAt` as the task, so the undo below can find
+          // exactly this row again.
+          await tx.taskCompletion.create({
+            data: {
+              householdId: household.id,
+              taskId: task.id,
+              memberId: member?.id ?? null,
+              completedAt: now,
+              acorns: earnedAcorn ? 1 : 0,
+            },
+          });
+        }
         return consumeTaskItem(tx, {
           householdId: household.id,
           userId,
@@ -556,8 +593,9 @@ export async function toggleTaskCompletedAction(taskId: string): Promise<ActionS
         // the tick's age tells them apart (TASK_UNDO_WINDOW_MS, undo-window.ts).
         // The tick wrote its row with the task's `completedAt`, so matching on
         // it removes that one completion and none of the task's earlier ones.
-        // A tick from before completions were recorded has no row; nothing
-        // matches and nothing is lost.
+        // A tick made while the game was off wrote no row; nothing matches
+        // and nothing is lost. A kept row (a late untick) is what makes the
+        // next tick of the task earn nothing (see the tick above).
         if (task.completedAt && now.getTime() - task.completedAt.getTime() <= TASK_UNDO_WINDOW_MS) {
           await tx.taskCompletion.deleteMany({
             where: { householdId: household.id, taskId: task.id, completedAt: task.completedAt },
@@ -578,7 +616,7 @@ export async function toggleTaskCompletedAction(taskId: string): Promise<ActionS
     revalidatePath("/dashboard");
     revalidateAutoAdded([autoAdded]);
   }
-  return used ? { used } : {};
+  return { ...(used ? { used } : {}), ...(earnedAcorn ? { earnedAcorn: true as const } : {}) };
 }
 
 /**
