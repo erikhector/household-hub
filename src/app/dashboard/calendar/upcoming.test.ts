@@ -60,11 +60,52 @@ describe("loadUpcomingEvents", () => {
   });
 
   it("tells an empty calendar from one with nothing coming up", async () => {
-    expect((await loadUpcomingEvents("household-1", dayOf("2026-12-01"), 7)).hasEvents).toBe(false);
+    expect(await loadUpcomingEvents("household-1", dayOf("2026-12-01"), 7)).toEqual({
+      days: [],
+      hasEvents: false,
+      hasLater: false,
+    });
     expect(findFirstMock).toHaveBeenCalledWith({ where: { householdId: "household-1" }, select: { id: true } });
 
-    findFirstMock.mockResolvedValueOnce({ id: "old" });
-    expect((await loadUpcomingEvents("household-1", dayOf("2026-12-01"), 7)).hasEvents).toBe(true);
+    // Only a past event: something to show, nothing later.
+    findFirstMock.mockResolvedValueOnce(null).mockResolvedValueOnce({ id: "old" });
+    expect(await loadUpcomingEvents("household-1", dayOf("2026-12-01"), 7)).toMatchObject({
+      hasEvents: true,
+      hasLater: false,
+    });
+  });
+
+  // GAP-91: "Show later" only when it would show something.
+  it("says there is more after the window for an event dated past its end", async () => {
+    findFirstMock.mockResolvedValueOnce({ id: "wedding" });
+
+    expect(await loadUpcomingEvents("household-1", dayOf("2026-12-01"), 7)).toMatchObject({
+      hasEvents: true,
+      hasLater: true,
+    });
+    expect(findFirstMock).toHaveBeenCalledTimes(1);
+    expect(findFirstMock).toHaveBeenCalledWith({
+      where: { householdId: "household-1", date: { gt: d("2026-12-07") } },
+      select: { id: true },
+    });
+  });
+
+  it("counts a repeat in the window as more later without asking again", async () => {
+    findManyMock.mockResolvedValueOnce([
+      { id: "swim", title: "Swimming", date: d("2026-11-04"), startTime: null, endTime: null, notes: null, forMemberId: null, recurrence: "WEEKLY" },
+    ]);
+
+    expect((await loadUpcomingEvents("household-1", dayOf("2026-12-01"), 7)).hasLater).toBe(true);
+    expect(findFirstMock).not.toHaveBeenCalled();
+  });
+
+  it("skips both checks for Home", async () => {
+    expect(await loadUpcomingEvents("household-1", dayOf("2026-12-01"), 7, { checkAny: false })).toEqual({
+      days: [],
+      hasEvents: false,
+      hasLater: false,
+    });
+    expect(findFirstMock).not.toHaveBeenCalled();
   });
 });
 

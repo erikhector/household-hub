@@ -548,28 +548,6 @@ The two gaps left are in the household calendar, which is newer than the
 rest. Cozi charges for exactly these (Cozi Gold: events past 30 days,
 month view; calendar import on every tier):
 
-- [ ] **GAP-91. See calendar events past the 60-day agenda** (impact: med,
-      effort: S) — `/dashboard/calendar` only ever loads
-      `AGENDA_DAYS = 60` (`src/lib/household-events.ts:27`,
-      `src/app/dashboard/calendar/page.tsx:24`) and has no way to look
-      further. A one-off event saved for a date three months out (a
-      wedding, a passport renewal, next summer's trip) disappears from
-      the page as soon as the sheet closes, so the save looks like it
-      failed (DESIGN.md: every action shows its result), and the only
-      way to check it or edit it is the calendar feed. Add a
-      "Show later" / "Visa senare" button under the agenda that loads
-      the next 60 days (a `?until=` search param read by `page.tsx`,
-      capped at a year or two, passed to the existing
-      `loadUpcomingEvents(householdId, today, days)`), and make the
-      "Nothing in the next 60 days" line offer the same button when
-      later events exist. After saving an event past the loaded window,
-      the toast says which day it was saved for and offers "Show"
-      (opening the agenda far enough to include it). No schema change.
-      Acceptance: `e2e/calendar.spec.ts` (`mobile` and `desktop`) adds
-      a one-off event 90 days ahead, sees the toast with its date, taps
-      Show later and sees the row under its day heading; after a reload
-      of the extended URL it is still there.
-
 - [ ] **GAP-92. Import events from a calendar file (.ics)** (impact: med,
       effort: M) — households already have the school term, the sports
       club's fixtures or a family member's shifts as an `.ics` file or

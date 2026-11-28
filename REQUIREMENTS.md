@@ -8347,7 +8347,25 @@ not built (BACKLOG.md, GAP-88b).
   instead, and with events but none in the window the page says "Nothing
   in the next 60 days." Data loading is `loadUpcomingEvents`
   (`src/app/dashboard/calendar/upcoming.ts`): one query for one-offs in
-  the window and repeats started by its end.
+  the window and repeats started by its end, plus `hasLater` (a repeat in
+  the window, or one more query for an event dated after its end).
+- **Later events** (GAP-91): `?until=YYYY-MM-DD` (inclusive) runs the
+  agenda past the 60 days, up to two years (`AGENDA_MAX_DAYS = 730`);
+  a missing, malformed or nearer `until` is the default 60, a further one
+  is cut at the cap (`agendaWindow` in `household-events.ts`, pure). It
+  is a date rather than a number of days so a reloaded or shared URL
+  still reaches the same day tomorrow. Under the agenda (or under
+  "Nothing in the next … days"), beside "The next … days.", an outline
+  "Show later" / "Visa senare" button pushes `until` 60 days further
+  (`router.push`, `scroll: false`, a spinner while it loads). It shows
+  only while `hasLater` holds and the cap isn't reached, so it never
+  loads nothing; with a repeat in the household that is always, until
+  the cap. A save (add or edit) dated after the agenda's last day isn't
+  on the page, so the sheet's toast names the day instead, `Saved
+  "Wedding" for Saturday, February 27` / `"Bröllop" sparad på lördag 27
+  februari` (`eventDayLabel`; the year only when it isn't this year),
+  with "Show" / "Visa" opening `?until=` that day. Past the cap the toast
+  has no "Show"; the calendar feed still has the event.
 - **Sheet** (`src/components/calendar/event-form-dialog.tsx`): name, date
   (today by default), Starts and Ends (`type="time"`, side by side; "Make
   all day" clears both), Repeats (doesn't repeat, every week, month or
@@ -8402,7 +8420,9 @@ not built (BACKLOG.md, GAP-88b).
   `src/app/dashboard/calendar/actions.test.ts`,
   `src/app/dashboard/calendar/upcoming.test.ts`, `src/lib/event-reminders.test.ts`,
   the feed's tests, `e2e/calendar.spec.ts` (add, see it today and on Home,
-  edit into a weekly repeat, delete with Undo) and
+  edit into a weekly repeat, delete with Undo; an event 90 days ahead gets
+  the toast with its day, Show later brings it in and a reload of the
+  extended URL keeps it; the toast's Show for one 200 days ahead) and
   `e2e/event-reminders.spec.ts` (pick a reminder and see it on reopen, turn
   on the Profile toggle, the sync claims one send and none for another
   household's event).
