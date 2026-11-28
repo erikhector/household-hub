@@ -11914,7 +11914,13 @@ UX-14's rapid ticks and the rollback toast.
   cold WebKit on a loaded runner can take longer than 5 s to get, so the
   same test first waits for the push's RSC request (a push that never
   goes out fails there, by name) and then for the new page's heading
-  with 20 s, and only then checks the URL (MAINT-112). A page that
+  with 20 s, and only then checks the URL (MAINT-112). Confirmed on
+  GitHub: `[iphone] › e2e/flows.spec.ts:61` passed on the first attempt
+  (not flaky or retried) in every scheduled **Nightly e2e** run on `next`
+  since #1573 landed, ten in a row from 2026-11-19 to 2026-11-28 (runs
+  44504835660, 44715652293, 44891404368, 45009178585, 45158993253,
+  45394009629, 45603136238, 45805517462, 45985571767 and 46135239385),
+  so the push was only slow, never lost. A page that
   strips a hand-off query (the palette's `?add=1`) does it with
   `router.replace()`, which also writes the URL only once that server
   render arrives, so the palette's "Add to shopping list" test waits for
