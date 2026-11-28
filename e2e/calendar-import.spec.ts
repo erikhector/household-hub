@@ -8,7 +8,8 @@ import { dismissCookieNotice, expectHydrated, expectNoHorizontalOverflow, expect
 // unticked and the other two imported, and they're in the agenda after a
 // reload, the weekly one with its repeat badge. Uploading the same file
 // again offers nothing new: the two imported events are flagged as already
-// in the calendar and can't be ticked, so nothing more is added. Rows are
+// in the calendar and can't be ticked, so nothing more is added. An event
+// listed twice in one file is offered once. Rows are
 // named per run and removed afterwards, scoped to this worker's household.
 
 let tag: string;
@@ -133,6 +134,31 @@ test("imports two of three events from an .ics file, and a second import adds no
   await expect(agendaRows(page, sportsDay)).toHaveCount(1);
   await expect.poll(() => agendaRows(page, swimming).count()).toBe(swimmingRows);
   await expect(agendaRows(page, photos)).toHaveCount(0);
+});
+
+test("an event listed twice in the file is offered once", async ({ page }) => {
+  const choir = `Choir ${tag}`;
+  const file = icsFile([
+    { title: choir, lines: [`DTSTART;VALUE=DATE:${icsDay(4)}`] },
+    { title: choir, lines: [`DTSTART;VALUE=DATE:${icsDay(4)}`] },
+  ]);
+
+  await page.goto("/dashboard/calendar");
+  const dialog = await openImport(page);
+  await dialog.getByLabel("Calendar file (.ics)").setInputFiles(file);
+
+  // The later copy is flagged and can't be ticked, so the button counts
+  // what the import will really add.
+  await expect(dialog.getByText("1 already in the calendar")).toBeVisible();
+  const boxes = dialog.getByRole("checkbox", { name: new RegExp(choir) });
+  await expect(boxes.first()).toBeChecked();
+  await expect(boxes.nth(1)).toBeDisabled();
+  await dialog.getByRole("button", { name: "Import 1 event" }).click();
+  await expect(page.locator("[data-sonner-toast]").getByText("Imported 1 event")).toBeVisible();
+  await waitForDialogHistory(page);
+
+  await page.reload();
+  await expect(agendaRows(page, choir)).toHaveCount(1);
 });
 
 test("a file that isn't a calendar says so and saves nothing", async ({ page }) => {
