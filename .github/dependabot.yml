@@ -25,10 +25,12 @@ updates:
       # 9. Drop this once they support 10 (MAINT-12).
       - dependency-name: eslint
         update-types: ["version-update:semver-major"]
-      # TypeScript 7 fails `npm ci`: typescript-eslint accepts only
-      # `>=4.8.4 <6.1.0`. Drop this once it supports 7.
+      # typescript-eslint (via eslint-config-next) accepts only
+      # `>=4.8.4 <6.1.0`, so anything from 6.1.0 up fails `npm ci`. This
+      # ignore matches that upper bound exactly, as does the `~6.0.3` pin
+      # in package.json: widen both when typescript-eslint's bound moves.
       - dependency-name: typescript
-        update-types: ["version-update:semver-major"]
+        versions: [">=6.1.0"]
   - package-ecosystem: github-actions
     directory: /
     schedule:
