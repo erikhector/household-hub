@@ -608,6 +608,51 @@ month view; calendar import on every tier):
       agenda with the repeat badge on the weekly one, and a second
       import of the same file adds nothing.
 
+### 2026-11-28 scan
+
+Checked Splitwise (its October 2026 Itemize release), Out of Milk,
+OurGroceries and FamilyWall. Nearly all of it is already here or already
+filed: itemized receipt splitting (GAP-41), percentage-free absolute
+shares with partial payments, simplified debts and Swish settle-up
+(GAP-7), a running shopping-list total (`sumEstimatedPendingTotal`),
+pantry lists, barcode scanning, voice assistants (GAP-10), the notes
+board (GAP-16), the calendar (GAP-35) and the shared budget. One gap
+left, in expense splitting:
+
+- [ ] **GAP-93. A saved default split for the household's shared expenses** (impact: med,
+      effort: M) — couples who split by income (60/40, 70/30) are the
+      core of a two-person household's money setup, and Splitwise lets a
+      group save a default unequal split in its settings. In Squirrel
+      every new split starts even: `TransactionDialog`
+      (`src/components/budget/transaction-dialog.tsx:95` and `:411`) and
+      Personal Budget's `LogSharedExpenseDialog`
+      (`src/components/personal-budget/log-shared-expense-dialog.tsx:106`)
+      both seed the shares from `evenSplitAmounts`
+      (`src/components/budget/split-amounts.ts:16`), so a 60/40 couple
+      retypes every share on every bill, and a slip silently skews who
+      owes whom. Add a per-member default weight
+      (`HouseholdMember.defaultSplitWeight Int?`, null = even; migration)
+      edited by the owner in one "Default split" card in the budget's
+      settings, as whole percentages that must sum to 100 (the form
+      shows what's left, like `ShareRemainderNote`). A pure,
+      unit-tested `weightedSplitAmounts(total, weights)` beside
+      `evenSplitAmounts` (whole cents, last share takes the remainder so
+      the shares always sum to the total) seeds new splits and the
+      "Split evenly" reset becomes "Use default split" when one is set,
+      with "Split evenly" still one tap away. Saved splits (editing,
+      templates, planned bills) are never re-seeded (UX-111). Members
+      without a weight when one exists (a new joiner) get 0 % and the
+      card flags the sum is off, so nobody's share is guessed. The
+      action uses `requireHousehold()`, owner-only, and re-checks every
+      member id belongs to the household. Money and schema: ⚠️ needs
+      careful review. Acceptance: unit tests for
+      `weightedSplitAmounts` (60/40 of 99.99, three members, a 0 %
+      member) and the settings action (tenancy, owner-only, sum ≠ 100
+      rejected); `e2e/budget-default-split.spec.ts` (`mobile` and
+      `desktop`) sets 60/40, opens Add expense, ticks Split this expense
+      on 500 and sees shares 300.00 and 200.00, then after a reload the
+      card still shows 60 and 40.
+
 ## Needs a decision before building
 
 - [ ] **AUTO-13. Receipts that arrive by themselves** `[!]` needs a product
