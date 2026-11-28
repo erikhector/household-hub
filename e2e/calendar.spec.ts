@@ -159,16 +159,17 @@ test("an event 90 days ahead says where it went, and Show later brings it into t
   const heading = await addEventOn(page, title, date);
 
   // Past the 60 days on the page: the toast names the day instead.
-  await expect(page.getByText(`Saved "${title}" for ${heading}`)).toBeVisible();
+  await expect(page.locator("[data-sonner-toast]").getByText(`Saved "${title}" for ${heading}`)).toBeVisible();
   const row = dayGroup(page, heading).getByRole("button", { name: title, exact: true });
   await expect(row).toHaveCount(0);
 
   const showLater = page.getByRole("button", { name: "Show later" });
   await expectHydrated(showLater);
+  await expectRouterPatched(page);
   await showLater.click();
   await expect(page).toHaveURL(/[?&]until=\d{4}-\d{2}-\d{2}/);
   await expect(row).toBeVisible();
-  await expect(page.getByText("The next 120 days.")).toBeVisible();
+  await expect(page.getByRole("main").getByText("The next 120 days.")).toBeVisible();
   await expectNoHorizontalOverflow(page);
 
   // The extended agenda is the URL's, so it survives a reload.
