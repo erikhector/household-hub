@@ -285,18 +285,20 @@ export function agendaWindow(today: number, until: string | undefined): AgendaWi
 
 /**
  * A `YYYY-MM-DD` the way the toast after a save past the agenda names it:
- * "Saturday, February 27, 2027", "Lördag 27 februari". The year only when it
- * isn't `thisYear`; read in UTC and capitalised, like the agenda's headings.
+ * "Saturday, February 27, 2027", "lördag 27 februari". The year only when it
+ * isn't `thisYear`; read in UTC. Left as `Intl` writes it, not capitalised
+ * like the agenda's headings: the toast puts it mid-sentence ("sparad på
+ * lördag 27 februari"), where a capital weekday is wrong in Swedish. English
+ * capitalises weekdays anyway, so its toast still matches the heading.
  */
 export function eventDayLabel(dateKey: string, locale: Locale, thisYear: number): string {
   const date = parseEventDate(dateKey);
   if (!date) return dateKey;
-  const text = new Intl.DateTimeFormat(locale, {
+  return new Intl.DateTimeFormat(locale, {
     weekday: "long",
     day: "numeric",
     month: "long",
     ...(date.getUTCFullYear() !== thisYear && { year: "numeric" }),
     timeZone: "UTC",
   }).format(date);
-  return text.charAt(0).toLocaleUpperCase(locale) + text.slice(1);
 }

@@ -281,6 +281,6 @@ describe("eventDayLabel (GAP-91)", () => {
   it("names the day, with the year only when it differs", () => {
     expect(eventDayLabel("2027-02-27", "en", 2027)).toBe("Saturday, February 27");
     expect(eventDayLabel("2027-02-27", "en", 2026)).toBe("Saturday, February 27, 2027");
-    expect(eventDayLabel("2027-02-27", "sv", 2027)).toBe("Lördag 27 februari");
+    expect(eventDayLabel("2027-02-27", "sv", 2027)).toBe("lördag 27 februari");
   });
 });
