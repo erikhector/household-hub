@@ -374,6 +374,24 @@ describe("event file import", () => {
       expect(householdEventCreateManyMock).not.toHaveBeenCalled();
     });
 
+    it("flags a later copy of an event earlier in the same file, which the import would skip", async () => {
+      signedInWithDictionary();
+      householdEventFindManyMock.mockResolvedValueOnce([]);
+      const twice = ICS.replace(
+        "END:VCALENDAR",
+        ["BEGIN:VEVENT", "SUMMARY:SWIMMING ", "DTSTART;VALUE=DATE:20270312", "END:VEVENT", "END:VCALENDAR"].join("\r\n"),
+      );
+
+      const result = await previewEventFileAction({}, upload([], twice));
+
+      expect(result.preview?.rows).toEqual([
+        expect.objectContaining({ index: 0, title: "Swimming", exists: false }),
+        expect.objectContaining({ index: 1, title: "Sports day", exists: false }),
+        expect.objectContaining({ index: 3, title: "Parents' evening", exists: false }),
+        expect.objectContaining({ index: 4, title: "SWIMMING", exists: true }),
+      ]);
+    });
+
     it("refuses what isn't a calendar file, and a file over the cap without reading it", async () => {
       signedInWithDictionary();
 

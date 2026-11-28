@@ -176,6 +176,26 @@ describe("parseIcs: RRULEs that import as a one-off on DTSTART", () => {
     expect(row.date).toBe(`${dtstart.slice(0, 4)}-${dtstart.slice(4, 6)}-${dtstart.slice(6)}`);
   });
 
+  // The zone move puts the row on a later day than DTSTART as written, and
+  // Squirrel repeats from the row's day: the 29th clamps to 28 February where
+  // the source's February occurrence is 1 March in Stockholm, and 1 March
+  // yearly misses the leap years' 29 February.
+  it.each([
+    ["a monthly the move puts on the 29th", "20270128T233000Z", "FREQ=MONTHLY", "2027-01-29"],
+    ["a yearly the move puts on 1 March", "20270228T233000Z", "FREQ=YEARLY", "2027-03-01"],
+  ])("%s", (_, dtstart, rrule, date) => {
+    const row = only(calendar(["SUMMARY:Event", `DTSTART:${dtstart}`, `RRULE:${rrule}`]), "Europe/Stockholm");
+    expect(row).toMatchObject({ date, recurrence: "" });
+  });
+
+  it("but keeps a repeat the move doesn't break, on the moved day", () => {
+    const moved = (dtstart: string, rrule: string) =>
+      only(calendar(["SUMMARY:Event", `DTSTART:${dtstart}`, `RRULE:${rrule}`]), "Europe/Stockholm");
+    expect(moved("20270114T233000Z", "FREQ=MONTHLY")).toMatchObject({ date: "2027-01-15", recurrence: "MONTHLY" });
+    expect(moved("20270611T223000Z", "FREQ=YEARLY")).toMatchObject({ date: "2027-06-12", recurrence: "YEARLY" });
+    expect(moved("20270311T233000Z", "FREQ=WEEKLY")).toMatchObject({ date: "2027-03-12", recurrence: "WEEKLY" });
+  });
+
   it("a weekly series with an EXDATE, or with a moved instance, and the moved instance itself", () => {
     const result = parseIcs(
       calendar(

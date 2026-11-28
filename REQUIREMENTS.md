@@ -8387,8 +8387,8 @@ not built (BACKLOG.md, GAP-88b).
   file · 3 already in the calendar", one checkbox per event with its
   date, time and repeat badge, and a line for events that couldn't be
   read. An event whose title (ignoring case and spacing) and date are
-  already in the household is flagged "Already in the calendar" and
-  can't be ticked. Two actions in `calendar/actions.ts`, both
+  already in the household, or on a row earlier in the same file, is
+  flagged "Already in the calendar" and can't be ticked. Two actions in `calendar/actions.ts`, both
   `requireHousehold()` and rate-limited per household (30 an hour, like
   the recipe file import): `previewEventFileAction` parses the file and
   returns the rows with their duplicate flags; `importEventFileAction`
@@ -8416,7 +8416,11 @@ not built (BACKLOG.md, GAP-88b).
   `UNTIL`, a longer `INTERVAL`, any other `BY…` part, a plain monthly on
   the 29th–31st or yearly on 29 February, and a series with an `EXDATE`,
   an `RDATE` or an instance moved by a `RECURRENCE-ID` event (which
-  imports as its own one-off). A one-time import only: subscribing to a
+  imports as its own one-off). The rule is checked on DTSTART's day as
+  written, and a monthly or yearly whose day the time zone move changes
+  is kept only when no month end is near (both days 1–28 for a monthly;
+  neither date 28–29 February or 1 March for a yearly), so 28 January
+  23:30 UTC monthly, the 29th in Stockholm, imports as a one-off. A one-time import only: subscribing to a
   URL that keeps syncing is not built.
 - **Navigation**: "Calendar" (`CalendarClock`) after Tasks in the sidebar,
   the phone's "More" menu and the command palette. The bottom bar's four

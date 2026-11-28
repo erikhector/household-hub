@@ -205,7 +205,7 @@ export type EventFilePreviewRow = {
   timeLabel: string;
   /** "Weekly" and so on; null for a one-off. */
   repeatLabel: string | null;
-  /** An event with this title and date is already in the household; it won't be imported again. */
+  /** An event with this title and date is already in the household, or earlier in the file; it won't be imported again. */
   exists: boolean;
 };
 export type PreviewEventFileState = ActionState & {
@@ -304,17 +304,25 @@ export async function previewEventFileAction(
     year: "numeric",
     timeZone: "UTC",
   });
+  // A later copy of a row earlier in the file counts as there too, since
+  // importEventFileAction skips it the same way: ticked, it would make
+  // "Import 2 events" add one.
   return {
     preview: {
       skipped: parsed.skipped,
-      rows: parsed.rows.map(({ index, data }) => ({
-        index,
-        title: data.title,
-        dateLabel: dateFormat.format(data.date),
-        timeLabel: describeEventTime(data, locale, dict),
-        repeatLabel: data.recurrence ? repeatLabels[data.recurrence] : null,
-        exists: existing.has(duplicateKey(data.title, data.date)),
-      })),
+      rows: parsed.rows.map(({ index, data }) => {
+        const key = duplicateKey(data.title, data.date);
+        const exists = existing.has(key);
+        existing.add(key);
+        return {
+          index,
+          title: data.title,
+          dateLabel: dateFormat.format(data.date),
+          timeLabel: describeEventTime(data, locale, dict),
+          repeatLabel: data.recurrence ? repeatLabels[data.recurrence] : null,
+          exists,
+        };
+      }),
     },
   };
 }

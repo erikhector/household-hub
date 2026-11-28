@@ -224,8 +224,34 @@ function toRow(props: Property[], timeZone: string, changedSeries: Set<string>):
     notes: unescapeText(first(props, "DESCRIPTION")?.value ?? ""),
     // A RECURRENCE-ID instance is one day of a series, never a series itself.
     recurrence:
-      rrule && !changed && !first(props, "RECURRENCE-ID") ? squirrelRecurrence(rrule, start.date) : "",
+      rrule && !changed && !first(props, "RECURRENCE-ID")
+        ? survivesZoneMove(squirrelRecurrence(rrule, start.date), start.date, local.date)
+        : "",
   };
+}
+
+/**
+ * The repeat squirrelRecurrence found, or "" when moving DTSTART into the
+ * importer's zone changed its day in a way that breaks it. squirrelRecurrence
+ * checks the rule against DTSTART's day as written, but the row is saved on
+ * the local day and Squirrel repeats from that. A one-day move is harmless
+ * away from a month's end: the 14th at 23:30 UTC monthly is the 15th in
+ * Stockholm every month. Near one it isn't: the 28th at 23:30 UTC monthly is
+ * the 29th in Stockholm, which Squirrel clamps to 28 February, while the
+ * source's February occurrence is 1 March there. So a moved monthly is kept
+ * only when both days are 1–28, and a moved yearly only when neither date is
+ * 28 or 29 February or 1 March (a move across February's end, which a leap
+ * year shifts). A moved weekly lands on the moved weekday every week, so it
+ * is kept.
+ */
+function survivesZoneMove(recurrence: "" | EventRecurrence, start: DateParts, localDate: string): "" | EventRecurrence {
+  const [, month, day] = localDate.split("-").map(Number);
+  if (month === start.month && day === start.day) return recurrence;  if (recurrence === "MONTHLY") return start.day <= 28 && day <= 28 ? recurrence : "";
+  if (recurrence === "YEARLY") {
+    const nearLeapDay = (m: number, d: number) => (m === 2 && d >= 28) || (m === 3 && d === 1);
+    return nearLeapDay(start.month, start.day) || nearLeapDay(month, day) ? "" : recurrence;
+  }
+  return recurrence;
 }
 
 function isRealDate({ year, month, day }: DateParts): boolean {
