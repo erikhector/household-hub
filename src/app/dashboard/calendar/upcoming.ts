@@ -28,15 +28,16 @@ export type UpcomingEvent = {
  * The household's events from `today` for `days` days (local day numbers,
  * see task-due.ts), as an agenda. `hasEvents` says whether the household has
  * any event at all, so the page can tell "nothing yet" (the empty state)
- * from "nothing soon". Home has no empty state, so it passes
- * `checkAny: false` and skips that second query.
+ * from "nothing soon", and `hasLater` whether any event falls after the
+ * window (GAP-91's "Show later"). Home has neither, so it passes
+ * `checkAny: false` and skips those queries.
  */
 export async function loadUpcomingEvents(
   householdId: string,
   today: number,
   days: number,
   { checkAny = true }: { checkAny?: boolean } = {},
-): Promise<{ days: AgendaDay<UpcomingEvent>[]; hasEvents: boolean }> {
+): Promise<{ days: AgendaDay<UpcomingEvent>[]; hasEvents: boolean; hasLater: boolean }> {
   const from = dayNumberToDate(today);
   const to = dayNumberToDate(today + days - 1);
   const rows = await prisma.householdEvent.findMany({
@@ -59,11 +60,21 @@ export async function loadUpcomingEvents(
     from,
     to,
   );
+  // GAP-91: whether anything falls after the window, so "Show later" is only
+  // offered when it would show something. A repeat never ends, so one in
+  // the window settles it; otherwise it takes an event dated after the end
+  // (a one-off, or a repeat that starts later).
+  const hasLater =
+    checkAny &&
+    (rows.some((row) => row.recurrence !== null) ||
+      (await prisma.householdEvent.findFirst({ where: { householdId, date: { gt: to } }, select: { id: true } })) !==
+        null);
   const hasEvents =
     rows.length > 0 ||
+    hasLater ||
     (checkAny &&
       (await prisma.householdEvent.findFirst({ where: { householdId }, select: { id: true } })) !== null);
-  return { days: agenda, hasEvents };
+  return { days: agenda, hasEvents, hasLater };
 }
 
 /**

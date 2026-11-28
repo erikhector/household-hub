@@ -26,6 +26,12 @@ export const EVENT_NOTES_MAX_LENGTH = 500;
 // year of repeats of the same weekly class.
 export const AGENDA_DAYS = 60;
 
+// GAP-91: how far "Show later" can take the agenda (the page's `?until=`).
+// Two years covers a wedding or next summer's trip booked well ahead; past
+// that a weekly repeat alone would be a hundred rows, and the calendar feed
+// is the better place to look.
+export const AGENDA_MAX_DAYS = 730;
+
 // How far ahead Home looks for its "Coming up" line: this week's events, not
 // the whole agenda (Home is "what needs me now?").
 export const HOME_EVENT_DAYS = 7;
@@ -247,4 +253,52 @@ function compareOccurrences(a: AgendaEvent, b: AgendaEvent): number {
   if (byTime !== 0) return byTime;
   const byTitle = a.title.localeCompare(b.title);
   return byTitle !== 0 ? byTitle : a.id.localeCompare(b.id);
+}
+
+/**
+ * GAP-91: the calendar page's window, from today (a local day number) and
+ * its `?until=` search param (a `YYYY-MM-DD`, inclusive). `until` is a date
+ * rather than a count of days so an extended URL still reaches the same day
+ * when it's reloaded tomorrow. A missing, malformed or too-near `until` is
+ * the default AGENDA_DAYS; one past AGENDA_MAX_DAYS is cut there.
+ *
+ * - `days`: how many days the agenda lists.
+ * - `end`: its last day, `YYYY-MM-DD`. A save dated after it isn't on the
+ *   page, so the sheet's toast says where it went.
+ * - `maxEnd`: the furthest `until` the page will open.
+ * - `laterUntil`: "Show later"'s `until`, AGENDA_DAYS further; null at the cap.
+ */
+export type AgendaWindow = { days: number; end: string; maxEnd: string; laterUntil: string | null };
+
+export function agendaWindow(today: number, until: string | undefined): AgendaWindow {
+  const untilDate = until ? parseEventDate(until) : null;
+  const requested = untilDate ? eventDayNumber(untilDate) - today + 1 : AGENDA_DAYS;
+  const days = Math.min(Math.max(requested, AGENDA_DAYS), AGENDA_MAX_DAYS);
+  const keyOf = (day: number) => eventDateKey(dayNumberToDate(day));
+  return {
+    days,
+    end: keyOf(today + days - 1),
+    maxEnd: keyOf(today + AGENDA_MAX_DAYS - 1),
+    laterUntil: days >= AGENDA_MAX_DAYS ? null : keyOf(today + Math.min(days + AGENDA_DAYS, AGENDA_MAX_DAYS) - 1),
+  };
+}
+
+/**
+ * A `YYYY-MM-DD` the way the toast after a save past the agenda names it:
+ * "Saturday, February 27, 2027", "lördag 27 februari". The year only when it
+ * isn't `thisYear`; read in UTC. Left as `Intl` writes it, not capitalised
+ * like the agenda's headings: the toast puts it mid-sentence ("sparad på
+ * lördag 27 februari"), where a capital weekday is wrong in Swedish. English
+ * capitalises weekdays anyway, so its toast still matches the heading.
+ */
+export function eventDayLabel(dateKey: string, locale: Locale, thisYear: number): string {
+  const date = parseEventDate(dateKey);
+  if (!date) return dateKey;
+  return new Intl.DateTimeFormat(locale, {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    ...(date.getUTCFullYear() !== thisYear && { year: "numeric" }),
+    timeZone: "UTC",
+  }).format(date);
 }

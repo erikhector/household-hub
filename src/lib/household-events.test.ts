@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  AGENDA_DAYS,
+  AGENDA_MAX_DAYS,
+  agendaWindow,
   buildAgenda,
+  eventDayLabel,
   dueReminderOccurrence,
   eventDateKey,
   eventDayNumber,
@@ -235,5 +239,48 @@ describe("buildAgenda", () => {
       d("2026-12-10"),
     );
     expect(day.events.map((e) => e.title)).toEqual(["Zoe's birthday", "Dentist", "Bake sale", "Piano"]);
+  });
+});
+
+describe("agendaWindow (GAP-91)", () => {
+  const today = eventDayNumber(d("2026-12-01"));
+
+  it("is the default 60 days with no until, a malformed one or one too near", () => {
+    const standard = {
+      days: AGENDA_DAYS,
+      end: "2027-01-29",
+      maxEnd: "2028-11-29",
+      laterUntil: "2027-03-30",
+    };
+    expect(agendaWindow(today, undefined)).toEqual(standard);
+    expect(agendaWindow(today, "next-week")).toEqual(standard);
+    expect(agendaWindow(today, "2027-02-30")).toEqual(standard);
+    expect(agendaWindow(today, "2026-12-10")).toEqual(standard);
+    expect(agendaWindow(today, "2025-01-01")).toEqual(standard);
+  });
+
+  it("runs to until, inclusive, and Show later goes 60 days past it", () => {
+    expect(agendaWindow(today, "2027-03-01")).toEqual({
+      days: 91,
+      end: "2027-03-01",
+      maxEnd: "2028-11-29",
+      laterUntil: "2027-04-30",
+    });
+  });
+
+  it("stops at the cap, and Show later stops with it", () => {
+    expect(agendaWindow(today, "2028-10-15").laterUntil).toBe("2028-11-29");
+    const capped = agendaWindow(today, "2031-01-01");
+    expect(capped.days).toBe(AGENDA_MAX_DAYS);
+    expect(capped.end).toBe("2028-11-29");
+    expect(capped.laterUntil).toBeNull();
+  });
+});
+
+describe("eventDayLabel (GAP-91)", () => {
+  it("names the day, with the year only when it differs", () => {
+    expect(eventDayLabel("2027-02-27", "en", 2027)).toBe("Saturday, February 27");
+    expect(eventDayLabel("2027-02-27", "en", 2026)).toBe("Saturday, February 27, 2027");
+    expect(eventDayLabel("2027-02-27", "sv", 2027)).toBe("lördag 27 februari");
   });
 });

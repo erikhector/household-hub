@@ -1,6 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type PointerEvent, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type PointerEvent,
+  type ReactNode,
+} from "react";
 import { useRouter } from "next/navigation";
 import {
   CalendarClock,
@@ -45,6 +54,13 @@ const SWIPE_MIN_PX = 48;
 /** The screen edges belong to the OS back gesture (M7), so a touch that
  * starts this close to one is left alone. */
 const EDGE_GUARD_PX = 24;
+/** Done takes Next's place on the last card, so the second tap of a quick
+ * double tap on Next would land on it and close the story before the
+ * household's squirrel was seen. Done ignores presses this soon after the
+ * last card appears: longer than a double tap (Android and Windows count
+ * taps up to ~300-500 ms apart as one), short enough that nobody reaching
+ * for Done on purpose meets it. */
+const DONE_GUARD_MS = 400;
 
 const subscribeNever = () => () => {};
 type ShareMode = "share" | "copy" | "none";
@@ -128,7 +144,10 @@ function ShareButton({ text, dict }: { text: string; dict: WrappedDict["persona"
   }
 
   return (
-    <Button type="button" onClick={share} disabled={pending} className="gap-1.5">
+    // focusableWhenDisabled: a natively disabled button drops focus to
+    // <body> while the share sheet or clipboard call is pending, out of the
+    // story (M10). This keeps it focused and announced as disabled instead.
+    <Button type="button" onClick={share} disabled={pending} focusableWhenDisabled className="gap-1.5">
       {pending ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Share2 className="size-4" aria-hidden />}
       {mode === "share" ? dict.share : dict.copy}
     </Button>
@@ -157,7 +176,25 @@ export function WrappedStory({
   const backRef = useRef<HTMLButtonElement>(null);
   const nextRef = useRef<HTMLButtonElement>(null);
   const backHadFocus = useRef(false);
+  const closingRef = useRef(false);
+  const lastCardShownAt = useRef(0);
   const last = cards.length - 1;
+
+  // Next (Cache Components) keeps a page left behind alive in a hidden
+  // <Activity>, state and all, and shows it again on the next visit, a
+  // link's push included (node_modules/next/dist/docs/01-app/02-guides/
+  // preserving-ui-state.md). Opening the story again should start a fresh
+  // look back, not resume on the card it was closed on, so it's reset as
+  // it's hidden: a layout-effect cleanup runs then, before the page is put
+  // away, so the old card never flashes on the way back. The closing guard
+  // is re-armed on show, since a closed story is hidden, not unmounted.
+  useLayoutEffect(() => {
+    closingRef.current = false;
+    return () => {
+      setIndex(0);
+      setDirection("forward");
+    };
+  }, []);
 
   // Close, Done and Escape go back to wherever the story was opened from
   // (M7): pushing Home instead added a history entry, so the Back gesture
@@ -166,7 +203,13 @@ export function WrappedStory({
   // origin's entries, so it is false when the story was the first page
   // (a shared or typed URL); then, and in browsers without the API, Home
   // is the way out.
+  //
+  // Once only: a second press while the first is on its way (a double tap
+  // on Close, Escape held down) would call router.back() twice and leave
+  // the page the story was opened from as well.
   const close = useCallback(() => {
+    if (closingRef.current) return;
+    closingRef.current = true;
     const nav = (window as Window & { navigation?: { canGoBack?: boolean } }).navigation;
     if (nav?.canGoBack) router.back();
     else router.push("/dashboard");
@@ -184,6 +227,17 @@ export function WrappedStory({
     [last],
   );
 
+  // Stamped in a layout effect, as the last card commits, so a second tap
+  // queued right behind the first already sees it.
+  useLayoutEffect(() => {
+    if (index === last) lastCardShownAt.current = performance.now();
+  }, [index, last]);
+
+  function done() {
+    if (performance.now() - lastCardShownAt.current < DONE_GUARD_MS) return;
+    close();
+  }
+
   useEffect(() => {
     if (!backHadFocus.current) return;
     backHadFocus.current = false;
@@ -192,11 +246,17 @@ export function WrappedStory({
 
   // Arrow keys step, Escape leaves. On the window so they work wherever
   // focus is in the story; the story takes focus on open so a keyboard user
-  // starts inside it.
+  // starts inside it. Keys from anywhere else are left alone: the command
+  // palette (Ctrl+K) and the toaster sit outside the story, and keys
+  // pressed there must not step or close the story behind them. <body>
+  // counts as the story's: the rest of the page is inert while it's open,
+  // and a focused control that goes away leaves focus there.
   useEffect(() => {
     storyRef.current?.focus({ preventScroll: true });
     function onKey(event: KeyboardEvent) {
       if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey) return;
+      const target = event.target as Node;
+      if (target !== document.body && !storyRef.current?.contains(target)) return;
       if (event.key === "ArrowRight") go(1);
       else if (event.key === "ArrowLeft") go(-1);
       else if (event.key === "Escape") close();
@@ -421,7 +481,7 @@ export function WrappedStory({
           {dict.back}
         </Button>
         {isLast ? (
-          <Button variant="outline" onClick={close}>
+          <Button variant="outline" onClick={done}>
             {dict.done}
           </Button>
         ) : (

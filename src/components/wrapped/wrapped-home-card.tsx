@@ -22,11 +22,11 @@ export function WrappedHomeCard({
         {/* Decorative: the heading beside it says what the card is. */}
         <MascotMark alt="" className="size-12 rounded-xl" />
         <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <h2 className="font-heading text-base font-semibold text-foreground">{format(dict.title, { year })}</h2>
-          <p className="text-sm text-muted-foreground">{dict.body}</p>
+          <h2 className="font-heading text-item-title font-semibold text-foreground">{format(dict.title, { year })}</h2>
+          <p className="text-body text-muted-foreground">{dict.body}</p>
           <Link
             href="/dashboard/wrapped"
-            className="touch-target inline-flex items-center gap-1 self-start rounded-md text-sm font-medium text-primary hover:underline focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+            className="touch-target inline-flex items-center gap-1 self-start rounded-md text-body font-medium text-primary hover:underline focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
           >
             {dict.open}
             <ChevronRight className="size-4 shrink-0" aria-hidden />

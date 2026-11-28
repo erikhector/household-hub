@@ -6,10 +6,13 @@
 // list's row: the title opens the edit sheet (which has Delete), a left
 // swipe shows Edit and Delete, and from `sm` up both are icons too. Deleting
 // takes the event out at tap time, every day it falls on, with an Undo toast
-// (UX-49); the server hears of it when the toast closes.
+// (UX-49); the server hears of it when the toast closes. GAP-91: "Show
+// later" under the list runs the agenda AGENDA_DAYS further (`?until=`)
+// while anything falls after it.
 
-import { useRef, useState, type ReactNode } from "react";
-import { Pencil, Repeat, Trash2 } from "lucide-react";
+import { useRef, useState, useTransition, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
+import { Loader2, Pencil, Repeat, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SwipeRow } from "@/components/shared/swipe-row";
@@ -24,6 +27,7 @@ import {
 } from "@/components/calendar/event-form-dialog";
 import { deleteEventAction } from "@/app/dashboard/calendar/actions";
 import { format } from "@/lib/i18n/format";
+import type { AgendaWindow } from "@/lib/household-events";
 
 type AgendaRow = {
   event: EditableEvent;
@@ -46,7 +50,8 @@ export type AgendaDayView = {
 export function CalendarAgenda({
   days,
   hasEvents,
-  windowDays,
+  hasLater,
+  agendaWindow,
   members,
   dict,
   emptyAction,
@@ -54,7 +59,9 @@ export function CalendarAgenda({
   days: AgendaDayView[];
   /** Whether the household has any event at all, inside the window or not. */
   hasEvents: boolean;
-  windowDays: number;
+  /** Whether any event falls after the window. */
+  hasLater: boolean;
+  agendaWindow: AgendaWindow;
   members: MemberOption[];
   dict: CalendarDict;
   /** "Add event" for the empty state, which then holds the page's primary. */
@@ -99,7 +106,7 @@ export function CalendarAgenda({
     <div className="flex flex-col gap-6">
       {shownDays.length === 0 ? (
         <p role="status" className="text-sm text-muted-foreground">
-          {format(dict.emptyWindow, { days: windowDays })}
+          {format(dict.emptyWindow, { days: agendaWindow.days })}
         </p>
       ) : (
         <div className="flex flex-col gap-6" role="list" aria-label={dict.agendaAriaLabel}>
@@ -111,7 +118,13 @@ export function CalendarAgenda({
               <ul className="flex flex-col gap-2">
                 {day.rows.map((row) => (
                   <li key={`${row.event.id}-${day.key}`}>
-                    <EventRow row={row} members={members} dict={dict} onDelete={deleteEvent} />
+                    <EventRow
+                      row={row}
+                      members={members}
+                      agendaWindow={agendaWindow}
+                      dict={dict}
+                      onDelete={deleteEvent}
+                    />
                   </li>
                 ))}
               </ul>
@@ -119,19 +132,46 @@ export function CalendarAgenda({
           ))}
         </div>
       )}
-      <p className="text-xs text-muted-foreground">{format(dict.windowNote, { days: windowDays })}</p>
+      {/* Under the list, or under "Nothing in the next 60 days", and only
+          while something lies past the window and under the cap. */}
+      <div className="flex flex-col items-start gap-2">
+        <p className="text-xs text-muted-foreground">{format(dict.windowNote, { days: agendaWindow.days })}</p>
+        {hasLater && agendaWindow.laterUntil && <ShowLaterButton until={agendaWindow.laterUntil} label={dict.showLater} />}
+      </div>
     </div>
+  );
+}
+
+function ShowLaterButton({ until, label }: { until: string; label: string }) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      className="gap-1.5 max-sm:min-h-11 pointer-coarse:min-h-11"
+      disabled={pending}
+      aria-busy={pending || undefined}
+      // scroll: false keeps the reader where they were; the new days land
+      // below the ones they've seen.
+      onClick={() => startTransition(() => router.push(`/dashboard/calendar?until=${until}`, { scroll: false }))}
+    >
+      {pending && <Loader2 className="size-4 animate-spin" aria-hidden />}
+      {label}
+    </Button>
   );
 }
 
 function EventRow({
   row,
   members,
+  agendaWindow,
   dict,
   onDelete,
 }: {
   row: AgendaRow;
   members: MemberOption[];
+  agendaWindow: AgendaWindow;
   dict: CalendarDict;
   onDelete: (event: EditableEvent) => void;
 }) {
@@ -190,6 +230,7 @@ function EventRow({
             mode="edit"
             event={event}
             members={members}
+            agendaWindow={agendaWindow}
             dict={dict}
             onDelete={() => deleteButtonRef.current?.click()}
             trigger={

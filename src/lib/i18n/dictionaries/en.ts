@@ -319,7 +319,7 @@ export const en = {
     intro: {
       eyebrow: "Squirrel Wrapped",
       heading: "Your {year} in Squirrel",
-      body: "A look back at what {household} got done together. Tap Next, or swipe, to go on.",
+      body: "A look back at what {household} got done together. Use Next to go on.",
     },
     shopping: {
       heading: "Shopping",
@@ -356,7 +356,7 @@ export const en = {
     money: {
       heading: "The budget",
       transactions: { one: "{count} transaction tracked", other: "{count} transactions tracked" },
-      note: "Kept in the household budget, all year.",
+      note: "Kept in the household budget.",
     },
     persona: {
       heading: "Your household was a",
@@ -3026,6 +3026,11 @@ export const en = {
     windowNote: "The next {days} days.",
     emptyState: "Nothing on the calendar yet. Add an appointment, a birthday or a school event and everyone in the household sees it.",
     emptyWindow: "Nothing in the next {days} days.",
+    // GAP-91: loads the next 60 days under the agenda, and the toast after a
+    // save dated past what's loaded, whose "Show" opens the agenda that far.
+    showLater: "Show later",
+    savedLaterToast: 'Saved "{name}" for {date}',
+    showSaved: "Show",
     editAriaLabel: "Edit {title}",
     deleteAriaLabel: "Delete {title}",
     moreAriaLabel: "More for {title}",
