@@ -99,6 +99,45 @@ Parallel-safe except where noted.
 
 ### Dependencies
 
+- [ ] **DEPS-12. Bump the in-range patch/minor versions** (impact: low, effort: S) —
+      `npm outdated` on a clean `npm ci` of `next` (2026-11-27) lists 10
+      bumps that `package.json`'s ranges already allow: `@sentry/nextjs`
+      11.17.0 → 11.20.0, `lucide-react` 1.79.0 → 1.82.0, `resend` 6.39.0 →
+      6.41.0, `@vercel/functions` 3.11.3 → 3.12.0, `vitest` 5.1.1 → 5.1.2,
+      `@types/node` 22.20.5 → 22.20.7, `@types/react` 19.3.0 → 19.3.3,
+      `@upstash/redis` 1.41.0 → 1.41.1, `barcode-detector` 3.2.4 → 3.2.5,
+      `shadcn` 4.23.0 → 4.23.1. (`knip` and `axe-core` are exact pins
+      already at the versions DEPS-11 chose, so they're out of scope.)
+      `npm audit --omit=dev` is clean (0 advisories), so this is upkeep,
+      not a fix. Sentry moves three minors, so re-check that DEPS-5's
+      send-only-error-details config (REQUIREMENTS.md, "Sentry sends error
+      details only") still holds.
+      Acceptance: `npm outdated` shows none of the above with
+      `current < wanted`; `npm run check && npm run build` pass;
+      `npm audit --omit=dev --audit-level=high` stays clean.
+- [ ] **DEPS-13. TypeScript 6.0** (impact: low, effort: S, own PR — touches
+      `package.json`/lockfile) — `typescript` is on 5.9.3. typescript-eslint
+      8.70 (via `eslint-config-next`) accepts `>=4.8.4 <6.1.0`, so 6.0.x is
+      the newest TypeScript it installs with; 7 is blocked, and
+      `.github/dependabot.yml:28` ignores every TS major for that reason.
+      A trial on 2026-11-27 (`npm i -D typescript@6.0.3`, `prisma
+      generate`, `next typegen`, `tsc --noEmit`) gave 0 errors with the
+      current `tsconfig.json`, and ESLint ran on `src/lib` with no new
+      errors. Moving to 6 now also surfaces TS 6's deprecation warnings
+      before 7 removes those options. Keep anything typescript-eslint
+      rejects out: pin `"typescript": "~6.0.3"` in `package.json` (not
+      `^6`, which would admit a 6.1), and replace the dependabot ignore's
+      `update-types: [major]` with `versions: [">=6.1.0"]`, its comment
+      tied to typescript-eslint's actual upper bound (widen both when that
+      bound moves). There is no 6.1 on npm today (6.0.3 is the last 6.x and
+      7 follows), but the bound is typescript-eslint's, not ours, so the
+      pin and ignore follow it exactly. Update REQUIREMENTS.md's CI
+      paragraph that says TS majors are skipped to say what's skipped now.
+      Acceptance: `npx tsc -v` prints 6.0.x; `package.json` has
+      `~6.0.3`; `npm run check && npm run build` pass with no new TS
+      deprecation warnings; dependabot still skips any TypeScript version
+      typescript-eslint doesn't accept (`>=6.1.0`).
+
 ### Performance
 
 ### Maintainability
