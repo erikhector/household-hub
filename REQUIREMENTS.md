@@ -8377,6 +8377,51 @@ not built (BACKLOG.md, GAP-88b).
   member) and Notes. An empty name or date is worded under the field
   (`useRequiredFields`); a dropped request shows the save-failed line
   (`guardFormAction`) and keeps what was typed.
+- **Import from file** (GAP-92): the page's ⋯ menu ("More calendar
+  actions", `src/components/calendar/calendar-more-menu.tsx`; beside the
+  title on a phone, after Add event from `sm`, there with no events too)
+  holds "Import from file" / "Importera från fil". Its sheet
+  (`event-file-import-dialog.tsx`, loaded on first use) takes one `.ics`
+  file (`accept=".ics,text/calendar"`, at most 256 KB and 500 VEVENTs)
+  and shows a review list before anything is saved: "12 events in the
+  file · 3 already in the calendar", one checkbox per event with its
+  date, time and repeat badge, and a line for events that couldn't be
+  read. An event whose title (ignoring case and spacing) and date are
+  already in the household, or on a row earlier in the same file, is
+  flagged "Already in the calendar" and can't be ticked. Two actions in `calendar/actions.ts`, both
+  `requireHousehold()` and rate-limited per household (30 an hour, like
+  the recipe file import): `previewEventFileAction` parses the file and
+  returns the rows with their duplicate flags; `importEventFileAction`
+  gets the file again with the ticked rows' indexes and parses it again,
+  so the client's copy of the rows is never trusted. Every row goes
+  through `createEventAction`'s schema, an event already there (or
+  earlier in the same file) is skipped, so a second import of a file adds
+  nothing ("Those events are already in the calendar."), and the rest are
+  written in one `createMany` with the household from the session,
+  `createdByMemberId` the importing member's and no "for" member or
+  reminder. The parser (`src/lib/ics-import.ts`, pure) reads VEVENT
+  `SUMMARY` (one line, cut at 120), `DTSTART` as a date (all day) or a
+  time, `DTEND` or `DURATION` as the end only when it's later the same
+  day, and `DESCRIPTION` as notes (cut at 500 by the schema); it skips a
+  `STATUS:CANCELLED` event and one with no readable `DTSTART`. Floating
+  times stay as written; a `Z` or `TZID` time moves into the importer's
+  time zone cookie (a TZID no browser knows, such as Outlook's Windows
+  names, keeps its wall clock). An `RRULE` becomes a Squirrel repeat only
+  where it lands on exactly the days `expandEventOccurrences` does:
+  `FREQ=WEEKLY` with no `BYDAY` or a single `BYDAY` of DTSTART's weekday,
+  `FREQ=MONTHLY` on day 1–28, `FREQ=YEARLY` on any date but 29 February,
+  and `eventRrule`'s clamped forms (`BYMONTHDAY=28,…,<day>;BYSETPOS=-1`,
+  `BYMONTH=2;BYMONTHDAY=28,29;BYSETPOS=-1`); `INTERVAL=1` and `WKST` are
+  allowed. Anything else imports as a one-off on its DTSTART: `COUNT`,
+  `UNTIL`, a longer `INTERVAL`, any other `BY…` part, a plain monthly on
+  the 29th–31st or yearly on 29 February, and a series with an `EXDATE`,
+  an `RDATE` or an instance moved by a `RECURRENCE-ID` event (which
+  imports as its own one-off). The rule is checked on DTSTART's day as
+  written, and a monthly or yearly whose day the time zone move changes
+  is kept only when no month end is near (both days 1–28 for a monthly;
+  neither date 28–29 February or 1 March for a yearly), so 28 January
+  23:30 UTC monthly, the 29th in Stockholm, imports as a one-off. A one-time import only: subscribing to a
+  URL that keeps syncing is not built.
 - **Navigation**: "Calendar" (`CalendarClock`) after Tasks in the sidebar,
   the phone's "More" menu and the command palette. The bottom bar's four
   slots stay the hands-on Home, Inventory, Shopping, Meals.
@@ -8427,7 +8472,13 @@ not built (BACKLOG.md, GAP-88b).
   extended URL keeps it; the toast's Show for one 200 days ahead) and
   `e2e/event-reminders.spec.ts` (pick a reminder and see it on reopen, turn
   on the Profile toggle, the sync claims one send and none for another
-  household's event).
+  household's event). The file import (GAP-92): `src/lib/ics-import.test.ts`
+  (each accepted and refused RRULE, all day vs timed, zoned times, the
+  file's limits), the import tests in `calendar/actions.test.ts` (tenancy,
+  `createdByMemberId` from the session, re-parsing instead of trusting the
+  client, the duplicate skip) and `e2e/calendar-import.spec.ts` (three
+  events, one weekly, one unticked; the other two in the agenda with the
+  weekly one's badge; the same file again adds nothing).
 
 ## Squirrel Wrapped
 

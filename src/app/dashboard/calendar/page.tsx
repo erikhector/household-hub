@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { PageTitle } from "@/components/dashboard/page-title";
 import { PrimaryAction } from "@/components/dashboard/primary-action";
 import { EventFormDialog, type MemberOption } from "@/components/calendar/event-form-dialog";
+import { CalendarMoreMenu } from "@/components/calendar/calendar-more-menu";
 import { CalendarAgenda, type AgendaDayView } from "@/components/calendar/calendar-agenda";
 import { todayDayNumber } from "@/app/dashboard/tasks/task-due";
 import { loadUpcomingEvents, upcomingDayHeading } from "@/app/dashboard/calendar/upcoming";
@@ -144,8 +145,11 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
+      {/* GAP-92: one row at every width: the title takes the room, and the
+          ⋯ menu sits at its end, beside the title on a phone (where Add
+          event floats in the thumb zone) and after Add event from `sm`. */}
+      <div className="flex items-start gap-3 sm:items-center">
+        <div className="min-w-0 flex-1">
           <PageTitle>{dict.calendar.title}</PageTitle>
           <p className="text-sm text-muted-foreground">{dict.calendar.subtitle}</p>
         </div>
@@ -158,6 +162,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
         >
           <AddEventButton householdId={household.id} until={until} dict={dict.calendar} />
         </Suspense>
+        <CalendarMoreMenu dict={dict.calendar} />
       </div>
       <Suspense fallback={<AgendaSkeleton label={dict.common.loading} />}>
         <AgendaSection householdId={household.id} until={until} dict={dict.calendar} locale={locale} />
