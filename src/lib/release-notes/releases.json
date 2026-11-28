@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.166.0",
+    "date": "2026-11-28",
+    "pr": 1830,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Weekly and every-2-weeks tasks can now be set to a specific day, such as Saturday. A new task waits under \"Upcoming\" until its day comes round.\n\nNew: Acorn stash. Switch it on in household settings to collect an acorn for every task you finish, with weekly piles and streaks on the Tasks page. It's off unless your household turns it on.",
+      "sv": "Uppgifter som upprepas varje eller varannan vecka kan nu läggas på en viss veckodag, till exempel lördag. En ny uppgift väntar under \"Kommande\" tills dagen kommer.\n\nNytt: Ekollonförrådet. Slå på det i hushållets inställningar för att samla ett ekollon för varje uppgift ni gör, med veckans högar och sviter på sidan Uppgifter. Det är avstängt tills ert hushåll slår på det."
+    }
+  },
+  {
     "version": "0.165.0",
     "date": "2026-11-27",
     "pr": 1825,
