@@ -5,9 +5,12 @@
 // closes on success): a name, the day (today by default, M4), optional start
 // and end times (none is all day), a repeat, a reminder (GAP-88a), who it's
 // for and a few lines of notes. Both modes are form actions; edit binds the
-// event's id.
+// event's id. GAP-91: a save dated after the agenda's last day wouldn't show
+// on the page, so a toast names the day and offers "Show".
 
 import { useActionState, useState, type FormEvent, type ReactElement } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -22,10 +25,13 @@ import type { ActionState } from "@/lib/actions/auth";
 import {
   EVENT_NOTES_MAX_LENGTH,
   EVENT_TITLE_MAX_LENGTH,
+  eventDayLabel,
+  type AgendaWindow,
   type EventRecurrence,
   type EventReminder,
 } from "@/lib/household-events";
 import { format } from "@/lib/i18n/format";
+import { getDocumentLocale } from "@/lib/i18n/client-locale";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
 export type CalendarDict = Dictionary["calendar"];
@@ -60,6 +66,7 @@ export function EventFormDialog({
   mode,
   event,
   defaultDate,
+  agendaWindow,
   members,
   dict,
   trigger,
@@ -70,6 +77,8 @@ export function EventFormDialog({
   event?: EditableEvent;
   /** Create mode: the date field's starting value, today in the user's zone. */
   defaultDate?: string;
+  /** The agenda the page shows, to tell when a save lands past it. */
+  agendaWindow: AgendaWindow;
   members: MemberOption[];
   dict: CalendarDict;
   trigger: ReactElement;
@@ -106,6 +115,31 @@ export function EventFormDialog({
     if (next) setValues(initial());
   };
 
+  const router = useRouter();
+  // Read from what was submitted, not `values`: the form is the source of
+  // truth for this save. `YYYY-MM-DD` keys compare as strings.
+  function announceIfPastAgenda(formData: FormData) {
+    const date = String(formData.get("date") ?? "");
+    if (date <= agendaWindow.end) return;
+    const message = format(dict.savedLaterToast, {
+      name: String(formData.get("title") ?? "").trim(),
+      date: eventDayLabel(date, getDocumentLocale(), new Date().getFullYear()),
+    });
+    // Past the furthest the page opens there's nothing to show; the
+    // calendar feed still has it.
+    toast.success(
+      message,
+      date <= agendaWindow.maxEnd
+        ? {
+            action: {
+              label: dict.showSaved,
+              onClick: () => router.push(`/dashboard/calendar?until=${date}`, { scroll: false }),
+            },
+          }
+        : undefined,
+    );
+  }
+
   const serverAction =
     mode === "edit" && event ? updateEventAction.bind(null, event.id) : createEventAction;
   const [state, formAction, pending] = useActionState(
@@ -113,6 +147,7 @@ export function EventFormDialog({
       const result = await serverAction(prevState, formData);
       if (result.error) return result;
       handleOpenChange(false);
+      announceIfPastAgenda(formData);
       return {};
     }, dict.saveFailedToast),
     initialState,

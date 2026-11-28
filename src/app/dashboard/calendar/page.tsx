@@ -11,17 +11,20 @@ import { EventFormDialog, type MemberOption } from "@/components/calendar/event-
 import { CalendarAgenda, type AgendaDayView } from "@/components/calendar/calendar-agenda";
 import { todayDayNumber } from "@/app/dashboard/tasks/task-due";
 import { loadUpcomingEvents, upcomingDayHeading } from "@/app/dashboard/calendar/upcoming";
-import { AGENDA_DAYS, dayNumberToDate, describeEventTime, eventDateKey } from "@/lib/household-events";
+import { agendaWindow, dayNumberToDate, describeEventTime, eventDateKey, type AgendaWindow } from "@/lib/household-events";
 
 // GAP-35: the household calendar. An agenda of the next AGENDA_DAYS days,
 // grouped by day, repeats expanded (src/lib/household-events.ts). One query
 // for the events and one for the "For" picker's members, shared by the
 // header's "Add event" and the list through `cache()`, like the tasks page.
-const getCalendarData = cache(async (householdId: string) => {
+// GAP-91: `?until=YYYY-MM-DD` ("Show later", or "Show" on the toast after a
+// save past the window) runs the agenda further, up to AGENDA_MAX_DAYS.
+const getCalendarData = cache(async (householdId: string, until: string | undefined) => {
   const timeZone = await getTimeZone();
   const today = todayDayNumber(new Date(), timeZone);
-  const [{ days, hasEvents }, householdMembers] = await Promise.all([
-    loadUpcomingEvents(householdId, today, AGENDA_DAYS),
+  const range = agendaWindow(today, until);
+  const [{ days, hasEvents, hasLater }, householdMembers] = await Promise.all([
+    loadUpcomingEvents(householdId, today, range.days),
     prisma.householdMember.findMany({
       where: { householdId },
       include: { user: { select: { displayName: true } } },
@@ -29,15 +32,21 @@ const getCalendarData = cache(async (householdId: string) => {
     }),
   ]);
   const members: MemberOption[] = householdMembers.map((m) => ({ id: m.id, displayName: m.user.displayName }));
-  return { today, days, hasEvents, members, defaultDate: eventDateKey(dayNumberToDate(today)) };
+  return { today, range, days, hasEvents, hasLater, members, defaultDate: eventDateKey(dayNumberToDate(today)) };
 });
 
-function addEventDialog(members: MemberOption[], defaultDate: string, dict: Dictionary["calendar"]) {
+function addEventDialog(
+  members: MemberOption[],
+  defaultDate: string,
+  range: AgendaWindow,
+  dict: Dictionary["calendar"],
+) {
   return (
     <EventFormDialog
       mode="create"
       members={members}
       defaultDate={defaultDate}
+      agendaWindow={range}
       dict={dict}
       trigger={
         <Button className="gap-1.5">
@@ -51,22 +60,32 @@ function addEventDialog(members: MemberOption[], defaultDate: string, dict: Dict
 
 // With no events at all the empty state holds "Add event" (UX-50): one
 // primary on screen, not two.
-async function AddEventButton({ householdId, dict }: { householdId: string; dict: Dictionary["calendar"] }) {
-  const { members, defaultDate, hasEvents } = await getCalendarData(householdId);
+async function AddEventButton({
+  householdId,
+  until,
+  dict,
+}: {
+  householdId: string;
+  until: string | undefined;
+  dict: Dictionary["calendar"];
+}) {
+  const { members, defaultDate, range, hasEvents } = await getCalendarData(householdId, until);
   if (!hasEvents) return null;
-  return <PrimaryAction>{addEventDialog(members, defaultDate, dict)}</PrimaryAction>;
+  return <PrimaryAction>{addEventDialog(members, defaultDate, range, dict)}</PrimaryAction>;
 }
 
 async function AgendaSection({
   householdId,
+  until,
   dict,
   locale,
 }: {
   householdId: string;
+  until: string | undefined;
   dict: Dictionary["calendar"];
   locale: Locale;
 }) {
-  const { today, days, hasEvents, members, defaultDate } = await getCalendarData(householdId);
+  const { today, range, days, hasEvents, hasLater, members, defaultDate } = await getCalendarData(householdId, until);
   const memberName = new Map(members.map((m) => [m.id, m.displayName]));
   const repeatLabels = { WEEKLY: dict.repeatsWeekly, MONTHLY: dict.repeatsMonthly, YEARLY: dict.repeatsYearly };
   const view: AgendaDayView[] = days.map((day) => ({
@@ -94,10 +113,11 @@ async function AgendaSection({
     <CalendarAgenda
       days={view}
       hasEvents={hasEvents}
-      windowDays={AGENDA_DAYS}
+      hasLater={hasLater}
+      agendaWindow={range}
       members={members}
       dict={dict}
-      emptyAction={hasEvents ? undefined : addEventDialog(members, defaultDate, dict)}
+      emptyAction={hasEvents ? undefined : addEventDialog(members, defaultDate, range, dict)}
     />
   );
 }
@@ -112,8 +132,15 @@ function AgendaSkeleton({ label }: { label: string }) {
   );
 }
 
-export default async function CalendarPage() {
-  const [{ household }, dict, locale] = await Promise.all([requireHousehold(), getDictionary(), getLocale()]);
+export default async function CalendarPage({ searchParams }: { searchParams: Promise<{ until?: string | string[] }> }) {
+  const [{ household }, dict, locale, params] = await Promise.all([
+    requireHousehold(),
+    getDictionary(),
+    getLocale(),
+    searchParams,
+  ]);
+  // A repeated `?until=` comes as an array; only a single value is read.
+  const until = typeof params.until === "string" ? params.until : undefined;
 
   return (
     <div className="flex flex-col gap-6">
@@ -129,11 +156,11 @@ export default async function CalendarPage() {
             </PrimaryAction>
           }
         >
-          <AddEventButton householdId={household.id} dict={dict.calendar} />
+          <AddEventButton householdId={household.id} until={until} dict={dict.calendar} />
         </Suspense>
       </div>
       <Suspense fallback={<AgendaSkeleton label={dict.common.loading} />}>
-        <AgendaSection householdId={household.id} dict={dict.calendar} locale={locale} />
+        <AgendaSection householdId={household.id} until={until} dict={dict.calendar} locale={locale} />
       </Suspense>
     </div>
   );
