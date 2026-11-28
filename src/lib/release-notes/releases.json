@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.167.0",
+    "date": "2026-11-28",
+    "pr": 1844,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "The calendar can now show events further ahead: tap \"Show later\" under the list to see the next 60 days. When you save an event beyond what's shown, a message tells you which day it's on and lets you jump to it.\n\nYear in review now always starts from the beginning when you open it again, and quick taps on the last card no longer skip it.",
+      "sv": "Kalendern kan nu visa händelser längre fram: tryck på \"Visa senare\" under listan för att se de följande 60 dagarna. När du sparar en händelse längre fram än det som visas talar ett meddelande om vilken dag den ligger på och låter dig hoppa dit.\n\nÅret som gått börjar nu alltid från början när du öppnar den igen, och snabba tryck på sista kortet hoppar inte längre över det."
+    }
+  },
+  {
     "version": "0.166.0",
     "date": "2026-11-28",
     "pr": 1830,
