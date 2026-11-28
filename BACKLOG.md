@@ -99,22 +99,6 @@ Parallel-safe except where noted.
 
 ### Dependencies
 
-- [ ] **DEPS-12. Bump the in-range patch/minor versions** (impact: low, effort: S) —
-      `npm outdated` on a clean `npm ci` of `next` (2026-11-27) lists 10
-      bumps that `package.json`'s ranges already allow: `@sentry/nextjs`
-      11.17.0 → 11.20.0, `lucide-react` 1.79.0 → 1.82.0, `resend` 6.39.0 →
-      6.41.0, `@vercel/functions` 3.11.3 → 3.12.0, `vitest` 5.1.1 → 5.1.2,
-      `@types/node` 22.20.5 → 22.20.7, `@types/react` 19.3.0 → 19.3.3,
-      `@upstash/redis` 1.41.0 → 1.41.1, `barcode-detector` 3.2.4 → 3.2.5,
-      `shadcn` 4.23.0 → 4.23.1. (`knip` and `axe-core` are exact pins
-      already at the versions DEPS-11 chose, so they're out of scope.)
-      `npm audit --omit=dev` is clean (0 advisories), so this is upkeep,
-      not a fix. Sentry moves three minors, so re-check that DEPS-5's
-      send-only-error-details config (REQUIREMENTS.md, "Sentry sends error
-      details only") still holds.
-      Acceptance: `npm outdated` shows none of the above with
-      `current < wanted`; `npm run check && npm run build` pass;
-      `npm audit --omit=dev --audit-level=high` stays clean.
 - [ ] **DEPS-13. TypeScript 6.0** (impact: low, effort: S, own PR — touches
       `package.json`/lockfile) — `typescript` is on 5.9.3. typescript-eslint
       8.70 (via `eslint-config-next`) accepts `>=4.8.4 <6.1.0`, so 6.0.x is
