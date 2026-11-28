@@ -143,6 +143,58 @@ Parallel-safe except where noted.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `E2E_WEBKIT=1 npx playwright test e2e/command-palette.spec.ts --project=iphone --repeat-each=30` passes 30/30 (where WebKit can't be installed, the next two **Nightly e2e** runs list `[iphone] › e2e/command-palette.spec.ts:288` passed on the first attempt, not `flaky`).
 
+
+### UX
+
+- [ ] **UX-215. Keep the Inventory title whole at 200% text** (impact: med, effort: S) —
+      at 200% text on a phone the page title breaks mid-word as "Inventor" / "y"
+      (`text-200-dashboard-inventory.png`, design-audit `text-200` project, Pixel 7).
+      Inventory is the only page whose header is `max-sm:flex-row`
+      (`src/app/dashboard/inventory/page.tsx:273`), so the ⋯ actions button sits
+      beside the title and leaves it about 150 px. `PageTitle`'s
+      `break-words hyphens-auto` (`src/components/dashboard/page-title.tsx:139`, UX-160)
+      can't hyphenate a word that short, so `break-words` splits off the last letter.
+      Breaks DESIGN.md "Hierarchy" (the page title is the first thing read) and the
+      200% text rule in REQUIREMENTS.md "200% text size (UX-9)". Fix: under the
+      `large-text:` variant, let the header wrap (actions drop below the title) or
+      keep the row and let the title column take the free width, never by shrinking
+      the title below `text-large-title`.
+      Acceptance: an `e2e/text-size.mobile.spec.ts` case (`mobile` project, en and sv)
+      with `html { font-size: 200% }` on `/dashboard/inventory` asserts the `h1`
+      renders on one line (its height is under 1.5× its line-height), and the ⋯
+      "More inventory actions" button is still visible and at least 44 × 44 px.
+- [ ] **UX-216. Show full bill names in the budget's Needs attention card on phones** (impact: med, effort: S) —
+      on a 320 px phone a recurring bill named "Broadband and streaming bundle with
+      Telia" reads "Broadband and stre…" on the Overview tab (both budgets, en and sv;
+      seen with the design-audit `small-phone` project). The full name is only in
+      `title`, which never shows on touch, and the row itself isn't tappable (only
+      Log and ⋯ are): `src/components/budget/due-recurring-widget.tsx:223`
+      (recurring), `:310` (planned bill, where the category beside it also
+      truncates, `:313`) and `:350` (shared rows). The same item wraps in full on the
+      Setup tab (`recurring-templates-panel.tsx:254`, `break-words`), so the two tabs
+      disagree. REQUIREMENTS.md "Long names" (line ~10391) says names use
+      `line-clamp-2 break-words sm:line-clamp-1` instead of `truncate` and that "the
+      budget components … are not yet covered"; this covers Needs attention and
+      updates that sentence. Breaks DESIGN.md's no-`title`-only-text rule and M7
+      (nothing reachable only by hover).
+      Acceptance: an `e2e/` budget spec (`mobile` project, plus a 320 px viewport
+      case) seeds a due recurring item with a 40-character name, opens Overview and
+      asserts the whole name is visible (the name element's `scrollWidth` is not
+      larger than its `clientWidth` and it spans at most two lines), in en and sv.
+- [ ] **UX-217. One primary action on the budget's Insights tab** (impact: low, effort: S) —
+      with no income or fixed costs planned, Insights' "Fixed budget" card shows a
+      filled `primary` "Add income" button (`src/components/budget/fixed-budget-summary.tsx:91`,
+      the UX-154 not-set-up state) while the floating "Add transaction" primary
+      button is on screen too (Insights tab at 320 px and on Pixel 7, both budgets).
+      Overview's Safe to spend card already renders its own "Add income" as
+      `variant="outline"` for exactly this reason (`safe-to-spend.tsx:245`, "one
+      primary per view"). Breaks DESIGN.md "Hierarchy": one primary action per view.
+      Fix: `variant="outline"` with the same `border-muted-foreground` setup class.
+      Acceptance: an `e2e/` budget spec (`mobile` and `desktop` projects) on a fresh
+      household's `/dashboard/budget?tab=insights` asserts the "Add income" link is
+      visible and does not carry the primary button's filled background (its
+      computed `background-color` differs from "Add transaction"'s).
+
 ---
 
 ## Phase 2 — schema changes, one at a time
