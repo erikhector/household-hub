@@ -103,6 +103,10 @@ Parallel-safe except where noted.
 
 ### Maintainability
 
+- [ ] **MAINT-127. Flaky: Year in review doesn't reopen on its first card within 20 s on desktop** (low, S) —
+      `e2e/wrapped.spec.ts:252` ("opening it again starts from the first card"), `desktop` project. First sighting: **Nightly e2e** run 46135239385 (job 140948952216) on `next` at ff56b7f, 2026-11-28: failed its first attempt with "Timeout 20000ms exceeded while waiting on the predicate" and passed on retry #1. Mobile passed first time in the same run. The 20 s predicate wait is most likely `expectHydrated` (a `waitForFunction`) on the story's Next button, or the nav link in `openFromNav`, right after the scripted re-open. At about the same time the server log showed `TypeError: Cannot read properties of null (reading 'id')`, which may be related: check whether the second visit's render throws while the page is restored from Cache Components' `<Activity>`. Start from a trace of a desktop run of the spec (`--trace on`). If the page is only slow to hydrate on the second open, wait on its first card with a timeout that fits. If the render throws, fix it in the app.
+      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/wrapped.spec.ts --project=desktop --repeat-each=30` passes 30/30.
 - [ ] **MAINT-12. ESLint 10** (low, S, own PR — touches `package.json`/lockfile) `[!]` —
       the rest of MAINT-12 is done (REQUIREMENTS.md, "Migration drift and
       tooling pins"). Waiting on `eslint-config-next`'s plugins:
