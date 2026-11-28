@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { eventDayLabel } from "@/lib/household-events";
 import { unique } from "./db";
 import {
   dismissCookieNotice,
@@ -116,4 +117,75 @@ test("Undo brings a deleted event back", async ({ page }) => {
   await expect(row).toBeVisible();
   await page.reload();
   await expect(row).toBeVisible();
+});
+
+// GAP-91: past the 60-day agenda.
+
+/** `YYYY-MM-DD` of the day `days` from today, in the browser's (this machine's) zone. */
+function dayFromToday(days: number): string {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+/** Adds a one-off event on `date` from the calendar page, and returns its day's heading. */
+async function addEventOn(page: Page, title: string, date: string) {
+  const add = page.getByRole("button", { name: "Add event" });
+  await expectHydrated(add);
+  await expectRouterPatched(page);
+  await add.click();
+  const addSheet = page.getByRole("dialog", { name: "Add event" });
+  await addSheet.getByRole("textbox", { name: "Event" }).fill(title);
+  await addSheet.getByLabel("Date").fill(date);
+  await addSheet.getByRole("button", { name: "Add", exact: true }).click();
+  await waitForDialogHistory(page);
+  // The toast and the agenda's heading name the day the same way.
+  return eventDayLabel(date, "en", new Date().getFullYear());
+}
+
+function dayGroup(page: Page, heading: string) {
+  return page
+    .getByRole("main")
+    .getByRole("listitem")
+    .filter({ has: page.getByRole("heading", { name: heading, exact: true }) });
+}
+
+test("an event 90 days ahead says where it went, and Show later brings it into the agenda", async ({ page }) => {
+  const title = unique("Wedding");
+  const date = dayFromToday(90);
+
+  await page.goto("/dashboard/calendar");
+  const heading = await addEventOn(page, title, date);
+
+  // Past the 60 days on the page: the toast names the day instead.
+  await expect(page.locator("[data-sonner-toast]").getByText(`Saved "${title}" for ${heading}`)).toBeVisible();
+  const row = dayGroup(page, heading).getByRole("button", { name: title, exact: true });
+  await expect(row).toHaveCount(0);
+
+  const showLater = page.getByRole("button", { name: "Show later" });
+  await expectHydrated(showLater);
+  await expectRouterPatched(page);
+  await showLater.click();
+  await expect(page).toHaveURL(/[?&]until=\d{4}-\d{2}-\d{2}/);
+  await expect(row).toBeVisible();
+  await expect(page.getByRole("main").getByText("The next 120 days.")).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+
+  // The extended agenda is the URL's, so it survives a reload.
+  await page.reload();
+  await expect(row).toBeVisible();
+});
+
+test("the toast's Show opens the agenda as far as the saved day", async ({ page }) => {
+  const title = unique("Passport renewal");
+  const date = dayFromToday(200);
+
+  await page.goto("/dashboard/calendar");
+  const heading = await addEventOn(page, title, date);
+
+  const toast = page.locator("[data-sonner-toast]").filter({ hasText: `Saved "${title}" for ${heading}` });
+  await toast.getByRole("button", { name: "Show", exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`[?&]until=${date}`));
+  await expect(dayGroup(page, heading).getByRole("button", { name: title, exact: true })).toBeVisible();
 });
