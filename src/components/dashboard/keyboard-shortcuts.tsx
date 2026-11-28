@@ -27,6 +27,7 @@ import { isShortcutPath, isTypingTarget, moveIndex, shortcutFor } from "@/compon
 
 const ROW_SELECTOR = "[data-shortcut-row]";
 const ACTIVE_ATTR = "data-shortcut-active";
+const OWNS_KEYBOARD = '[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"]';
 
 function visible(el: HTMLElement) {
   return el.getClientRects().length > 0;
@@ -66,8 +67,11 @@ export function KeyboardShortcuts({ dict }: { dict: Dictionary["shortcuts"] }) {
       if (!window.matchMedia("(hover: hover) and (pointer: fine)").matches) return;
       if (isTypingTarget(event.target)) return;
       // Any open dialog (the palette and this overlay included) or menu owns
-      // the keyboard. Base UI unmounts them when closed.
-      if (document.querySelector('[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"]')) return;
+      // the keyboard. Base UI unmounts them when closed, but a page left
+      // behind stays in the document, hidden, in Next's <Activity> (Cache
+      // Components): Wrapped's story is a dialog that is never unmounted
+      // that way. Only one that can be seen counts.
+      if (Array.from(document.querySelectorAll<HTMLElement>(OWNS_KEYBOARD)).some(visible)) return;
 
       if (action === "help") {
         event.preventDefault();

@@ -319,7 +319,7 @@ export const en = {
     intro: {
       eyebrow: "Squirrel Wrapped",
       heading: "Your {year} in Squirrel",
-      body: "A look back at what {household} got done together. Tap Next, or swipe, to go on.",
+      body: "A look back at what {household} got done together. Use Next to go on.",
     },
     shopping: {
       heading: "Shopping",
@@ -356,7 +356,7 @@ export const en = {
     money: {
       heading: "The budget",
       transactions: { one: "{count} transaction tracked", other: "{count} transactions tracked" },
-      note: "Kept in the household budget, all year.",
+      note: "Kept in the household budget.",
     },
     persona: {
       heading: "Your household was a",
