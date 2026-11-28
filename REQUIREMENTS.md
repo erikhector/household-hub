@@ -7750,13 +7750,17 @@ custom one alike.
 `/dashboard/tasks` (`TasksClient`) — "Household Tasks v1", built from
 [`docs/archive/JOY_GAP_BACKLOG.md`](./docs/archive/JOY_GAP_BACKLOG.md) item 6, the one Joy Gap ticket
 that closes an actual product gap (a shared task list) rather than a tone
-change. One flat, shared `HouseholdTask` list per household — deliberately
-**not** a chore-chart/points/rewards system like Tody or OurHome: no fixed
-due dates or calendar schedule, no per-person scoring, counts, streaks or
-leaderboard, in v1 or planned. Tasks can repeat on a simple interval and a
+change. One flat, shared `HouseholdTask` list per household. By default it
+is **not** a chore-chart/points/rewards system like Tody or OurHome: no
+fixed due dates or calendar schedule, and no per-person scoring, counts,
+streaks or leaderboard. Tasks can repeat on a simple interval and a
 repeating task can rotate between people (both below), but that's only ever
 "whose turn is it", never a tally. Squirrel's audience is adult household
-co-managers, not kids earning rewards.
+co-managers, not kids earning rewards. The one exception is the **Acorn
+stash** (below, TASKS-GAME): a light per-person game a household can switch
+on, off by default. The owner decided on it on 2026-11-27, reversing the
+earlier "no scoring, in v1 or planned" rule; with it off, everything in
+this section still holds.
 
 - **Model**: `HouseholdTask` (`householdId`, `title`, nullable
   `assignedToMemberId`, nullable `completedAt`, nullable
@@ -7782,8 +7786,9 @@ co-managers, not kids earning rewards.
   primary action with no visible words on phones. `flows.spec.ts` asserts the
   visible text on the mobile project.
 - **Recurrence**: `recurrenceIntervalDays` (1–366, the dialog offers every
-  1, 2, 3, 7, 14, 30, 90, 182 or 365 days; null = one-off) is the whole model — no rrule or
-  weekday schedule. Nothing is written when a task reopens:
+  1, 2, 3, 7, 14, 30, 90, 182 or 365 days; null = one-off) is the whole model — no rrule;
+  a whole-weeks repeat's weekday is just where its anchor falls (see "Weekly
+  days" below). Nothing is written when a task reopens:
   `isTaskOpen` (`src/app/dashboard/tasks/recurrence.ts`) derives
   open/completed from `completedAt` and the interval at read time, and
   page.tsx, the dashboard's "my tasks" card and the toggle action all call
@@ -7818,8 +7823,40 @@ co-managers, not kids earning rewards.
   `HouseholdTask.recurrenceAnchorAt` (UX-144): set when a task is created
   with an interval and re-set to the day of the edit whenever its interval
   changes (cleared when the repeat is removed; saving the same interval
-  leaves it), so "every Thursday" is a matter of editing the task on a
-  Thursday. Null (rows from before the column) reads `createdAt`.
+  leaves it). Null (rows from before the column) reads `createdAt`.
+- **Weekly days**: a repeat of whole weeks (every 7 days, every 2 weeks)
+  gets a "Day" picker (Monday to Sunday) under Repeat in the Add/Edit
+  dialog, so "every Thursday" is picked instead of being a matter of
+  editing the task on a Thursday. It starts on the task's own day, or on
+  today's for a new repeat or one switched to whole weeks ("today" in the
+  household's zone, passed from the server, so a browser on another day
+  near midnight can't shift it). There is no weekday column:
+  `anchorForWeekday` (`recurrence.ts`) sets `recurrenceAnchorAt` on create,
+  when the interval changes, or when only the day changes (saving the same
+  interval and day leaves the anchor alone). A task never done gets the
+  start of the next local day on that weekday (today when today is that
+  day); a task that has been done gets the latest one on or before the
+  day of its last tick, so that tick still counts whatever day the edit is
+  made: moved from Mondays to Saturdays after Monday's tick, it is next due
+  the Saturday after (on a Saturday edit, that same day), and a Monday task done Monday and switched to
+  every 2 weeks is due two weeks from that tick. Re-anchoring also drops a
+  skip that has run out, which would otherwise stand in as a never-done
+  task's due day. The weekday a task shows is its anchor's local weekday
+  (`localWeekday`), on the badge as "Repeats every 7 days on Saturdays"
+  ("… på lördagar"). Other intervals ignore a weekday the server is sent.
+  An anchor in the future means the repeat hasn't started: a task never
+  done (or skipped) stays closed until that day (`isUpcoming`), shown in
+  its own "Upcoming" group between the open tasks and "Completed", with an
+  unticked box and "Starts 28 Nov", no Skip, and off Home and the
+  tasks-due-today push. The dialog says so under the picker ("It shows in
+  the list from that day."), for a task never done only. A tick on an upcoming task completes it early:
+  a tick in the interval before the anchor counts as the first occurrence,
+  so it next opens one interval after the anchor. A tick from longer ago
+  than that belongs to no occurrence, so the task is due on the anchor day
+  itself (`getNextDueDate`); a task last done long ago and moved to a new
+  day is overdue from the first such day after that tick. `task-weekday.spec.ts`
+  covers picking a day, the Upcoming group, the edit dialog and the early
+  tick.
   `task-anchor-day.spec.ts` covers the edit (it waits for the tick's
   POST to answer before it reloads, since the tick is optimistic, MAINT-52). "Local" is the
   visitor's browser zone: `TimeZoneCookie` (dashboard layout) keeps the
@@ -7884,7 +7921,8 @@ co-managers, not kids earning rewards.
     `rotationPreviousAssigneeId` to whoever the edit assigned, so undo never
     reverts a human's choice.
   - Deliberately no counts, streaks, "done most" or member-vs-member
-    comparison anywhere — the row only says "Next: <name>".
+    comparison on the rows — the row only says "Next: <name>". Counts and
+    streaks exist only inside the opt-in Acorn stash card.
 - **Actions** (`src/app/dashboard/tasks/actions.ts`): `createTaskAction`
   (form action), `updateTaskAction` (assignee, recurrence and rotation;
   title isn't editable), `toggleTaskCompletedAction` (flips `completedAt`
@@ -7911,6 +7949,40 @@ co-managers, not kids earning rewards.
   rotating one "Next: <name>" — for an open task the person after the
   current assignee, for a completed one the person it has already passed
   to.
+- **Acorn stash (TASKS-GAME, opt-in)**: a household setting,
+  `Household.acornStashEnabled` (default `false`), that any member can
+  switch in household settings (`setAcornStashEnabledAction`, the same rule
+  as the low-stock auto-add switch). While it's on, every tick writes a
+  `TaskCompletion` row (household, task, member, `completedAt`, `acorns`) in
+  the tick's transaction. While it's off, nothing is recorded, so switching
+  it on starts everyone from zero. The rows stay when a task or member is
+  deleted (both ids set to null) and go with the household.
+  - **Earning**: one acorn per tick; a recurring task earns each time it's
+    done. An untick within the undo window (`TASK_UNDO_WINDOW_MS` in
+    `src/lib/tasks/undo-window.ts`: the 5 s Done toast plus 10 s grace)
+    deletes that tick's row. The toast is dismissed before the window
+    ends, so Undo is never offered after the server would ignore it. A later
+    untick reopens the task but keeps the acorn. A re-tick after such an
+    untick is recorded with 0 acorns, so tick, untick, tick can't farm
+    acorns.
+  - **Card**: a collapsed `<details>` "Acorn stash" card below the open
+    tasks (M6). Its 44 px summary shows your own weekly pile. Opened, it
+    lists each current member, in join order and never sorted by count,
+    with this week's acorns (Monday start, the visitor's time zone), their
+    streak (consecutive days with an acorn, ending today or yesterday,
+    capped at 365) and all-time total. A "Busiest this week" badge marks
+    the week's leaders, but only in households with more than one member. An acorn drops on
+    the summary when a tick earns one, and not under reduced motion.
+  - **Reads**: all-time totals come from a household-scoped `groupBy`, and
+    rows only from the last 367 days (`loadAcornStash`,
+    `src/lib/tasks/acorn-stash.ts`).
+  - **Guardrails**: no notifications, push or email, nothing on money
+    screens, and no loss framing; a streak that has ended simply isn't
+    shown. The profile data export includes the member's own completions,
+    and clearing sample data removes the completions of sample tasks.
+  - Design notes: `docs/superpowers/specs/2026-11-27-acorn-stash-design.md`.
+    Tests: `src/lib/tasks/acorn-stash.test.ts`, the tasks and household
+    action tests, and `e2e/acorn-stash.spec.ts`.
 - **Weekly recap**: `src/app/dashboard/tasks/weekly-recap-calc.ts`
   (`computeWeeklyTaskRecap`) groups the current Monday-start week's
   completed tasks by completer, in first-appearance order — **never** sorted

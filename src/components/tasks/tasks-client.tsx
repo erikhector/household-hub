@@ -15,8 +15,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useTickFeedback } from "@/lib/tick-feedback";
 import { Badge } from "@/components/ui/badge";
 import { deleteTaskAction, skipTaskAction, toggleTaskCompletedAction, unskipTaskAction } from "@/app/dashboard/tasks/actions";
-import { getNextDueDate, withLocalSkip } from "@/app/dashboard/tasks/recurrence";
-import { recurrenceText } from "@/app/dashboard/tasks/recurrence-label";
+import { getNextDueDate, isUpcoming, localWeekday, withLocalSkip } from "@/app/dashboard/tasks/recurrence";
+import { WEEKDAY_KEYS, recurrenceText } from "@/app/dashboard/tasks/recurrence-label";
 import { daysOverdue, getTaskUrgency, sortByUrgency, todayDayNumber } from "@/app/dashboard/tasks/task-due";
 import { TaskOverdueBadge } from "@/components/tasks/overdue-badge";
 import { isOlderCompletedOneOff } from "@/app/dashboard/tasks/older-completed";
@@ -30,6 +30,9 @@ import { filterTasks, parseTaskFilter, type TaskFilter } from "@/app/dashboard/t
 import { TASKS_FILTER_STORAGE_KEY } from "@/lib/cookie-inventory";
 import { startUndoableDelete } from "@/components/shared/start-undoable-delete";
 import { TasksWeeklyRecap } from "@/components/tasks/tasks-weekly-recap";
+import { AcornStashCard, type AcornStashRow } from "@/components/tasks/acorn-stash-card";
+import { TASK_DONE_TOAST_MS } from "@/lib/tasks/undo-window";
+import { capUndoToast } from "@/components/tasks/undo-toast-cap";
 import { applyLocalRowChanges, settleDelete, useLocalRowChanges } from "@/components/shared/local-row-changes";
 import { useFlipList } from "@/components/shared/use-flip-list";
 import { computeWeeklyTaskRecap } from "@/app/dashboard/tasks/weekly-recap-calc";
@@ -52,6 +55,8 @@ type TaskRow = {
   completedAt: Date | null;
   createdAt: Date;
   recurrenceAnchorAt: Date | null;
+  /** The weekday (0 Sunday … 6 Saturday) a whole-weeks repeat falls on, else null. */
+  recurrenceWeekday: number | null;
   /** GAP-60: the end of a "Skip this time", when there is one. */
   skippedUntil: Date | null;
   /** GAP-60: closed by a skip that is still running (not by a tick). */
@@ -80,6 +85,7 @@ export function TasksClient({
   timeZone,
   locale,
   emptyAction,
+  acornStash,
 }: {
   dict: TasksDict;
   /** UX-50: the page's "Add task" trigger, passed only while the household
@@ -97,6 +103,9 @@ export function TasksClient({
   /** The visitor's zone: the local day a repeating chore reopens on. */
   timeZone: string;
   locale: Locale;
+  /** Acorn stash: each current member's pile, or null while the household
+   * has the game off (then nothing of it renders). */
+  acornStash: AcornStashRow[] | null;
 }) {
   const memberNameById = new Map(members.map((m) => [m.id, m.displayName]));
   const unitLabel = useUnitLabel();
@@ -122,14 +131,23 @@ export function TasksClient({
   const tasks = filterTasks(allTasks, filter, currentMemberId);
   // UX-105: older completed one-offs stay behind "Show N older" until asked.
   const [showOlder, setShowOlder] = useState(false);
+  // Acorn stash: bumped when the server says one of this person's ticks
+  // earned an acorn, to drop it on their pile (see AcornStashCard). So not
+  // at tap time but once the save answers (usually well under a second):
+  // only then is it known that the tick landed, and that it wasn't a
+  // re-tick earning nothing. Never by an untick or Undo.
+  const [acornDrops, setAcornDrops] = useState(0);
   const toggleCompleted = (task: TaskRow) => {
     const completing = !task.completed;
     const settle = local.markDone(task.id, completing);
     let toastId: string | number | undefined;
     let undone = false;
+    // Undo never outlives the server's undo window (undo-toast-cap.ts).
+    const cap = capUndoToast();
     const doneText = format(dict.doneToast, { title: task.title });
     const doneOptions = {
-      duration: 5000,
+      duration: TASK_DONE_TOAST_MS,
+      ...cap.closeHandlers,
       action: {
         label: dict.swipe.undo,
         onClick: () => {
@@ -143,14 +161,17 @@ export function TasksClient({
       // happened and offer the way back (M5, User control). Undo is the
       // same toggle, from the state this tick left the task in.
       toastId = toast(doneText, doneOptions);
+      cap.start(toastId);
     }
     void (async () => {
       const result = await settleOptimisticAction(() => toggleTaskCompletedAction(task.id), dict.saveFailedToast);
       settle(result !== null);
+      if (result?.earnedAcorn) setAcornDrops((count) => count + 1);
       // GAP-87: the same toast names what the tick took off the pantry, once
       // the server says how much (less than asked when stock ran out). Its
-      // Undo puts that back too. Not after an Undo, which closed it.
-      if (toastId !== undefined && result?.used && !undone) {
+      // Undo puts that back too. Not once it has closed (an Undo, its own
+      // time, or the cap), which would show it again.
+      if (toastId !== undefined && result?.used && !undone && !cap.closed) {
         toast(doneText, {
           ...doneOptions,
           id: toastId,
@@ -165,6 +186,9 @@ export function TasksClient({
   const skipTask = (task: TaskRow) => {
     const previousSkippedUntil = task.skippedUntil;
     const settle = local.markSkipped(task.id, true);
+    // The app's usual 5 s toast, deliberately not TASK_DONE_TOAST_MS: a skip
+    // earns no acorn and its Undo (unskipTaskAction) works at any age, so no
+    // server window ties its length to the "Done" toast's, and no cap.
     toast(format(dict.skippedToast, { title: task.title }), {
       duration: 5000,
       action: {
@@ -208,10 +232,15 @@ export function TasksClient({
   // UX-133: overdue, then today, then later, then undated. Each tier keeps
   // its oldest-first order, so a list with no dates reads as before.
   const today = todayDayNumber(now, timeZone);
+  // Weekly days: a repeat whose first day is still ahead waits under
+  // "Upcoming", soonest first. Worked out from the row, not a server flag, so
+  // ticking it early (and undoing that) moves it at tap time like any tick.
+  const upcoming = (t: TaskRow) => !t.completed && isUpcoming(t, now, timeZone);
   const openTasks = sortByUrgency(
-    tasks.filter((t) => !t.completed),
+    tasks.filter((t) => !t.completed && !upcoming(t)),
     today,
   );
+  const upcomingTasks = sortByUrgency(tasks.filter(upcoming), today);
   // UX-105: a one-off ticked over a week ago collapses behind "Show N older".
   const completedTasks = tasks.filter((t) => t.completed);
   const olderTasks = completedTasks.filter((t) => isOlderCompletedOneOff(t, now));
@@ -230,6 +259,15 @@ export function TasksClient({
       memberName: group.completedByMemberId ? (memberNameById.get(group.completedByMemberId) ?? null) : null,
       titles: group.titles,
     })),
+  );
+
+  // Acorn stash (DESIGN.md M6): secondary to the chores, so it sits below
+  // the open tasks (or below the empty state) as a collapsed card, never
+  // above them where it would push them down on a phone. Inside the flip
+  // list with its own key, so it glides up when a ticked row leaves, and
+  // rendered once at a fixed place in it (see the list below).
+  const stashCard = acornStash && (
+    <AcornStashCard rows={acornStash} currentMemberId={currentMemberId} dropKey={acornDrops} dict={dict.acornStash} />
   );
 
   return (
@@ -253,6 +291,11 @@ export function TasksClient({
 
       {/* Keyed too, so the list glides down when the recap above grows. */}
       <div data-flip-key="tasks" className="relative flex flex-col gap-2">
+        {/* The acorn stash card is one child at a fixed place in this list
+            (after the open section, before the rest), not a copy inside each
+            branch of the ternary: React then keeps the same <details> when
+            the list goes from empty to full or "Mine" empties, where a copy
+            per branch remounted it, folding it shut and replaying the drop. */}
         {allTasks.length === 0 ? (
           <MascotEmptyState alt={dict.mascotAlt} action={emptyAction}>
             <p className="text-sm text-muted-foreground">{dict.emptyState}</p>
@@ -298,39 +341,63 @@ export function TasksClient({
                 <p className="font-heading text-xl font-semibold">{dict.caughtUpTitle}</p>
               </div>
             )}
-            {completedTasks.length > 0 && (
-              <p data-flip-key="label:completed" className="mt-4 text-xs font-medium uppercase text-muted-foreground">
-                {dict.completedSectionLabel}
-              </p>
-            )}
-            {shownCompletedTasks.map((task) => (
-              <TaskItemRow
-                key={task.id}
-                task={task}
-                members={members}
-                pantryItems={pantryItems}
-                memberNameById={memberNameById}
-                onToggleCompleted={toggleCompleted}
-                onDelete={deleteTask}
-                onSkip={skipTask}
-                dict={dict}
-                locale={locale}
-                timeZone={timeZone}
-                today={today}
-              />
-            ))}
-            {olderTasks.length > 0 && (
-              <Button
-                variant="ghost"
-                data-flip-key="older-toggle"
-                className="self-start text-muted-foreground max-sm:min-h-11 pointer-coarse:min-h-11"
-                aria-expanded={showOlder}
-                onClick={() => setShowOlder((v) => !v)}
-              >
-                {showOlder ? dict.hideOlder : format(dict.showOlder, { count: olderTasks.length })}
-              </Button>
-            )}
           </>
+        )}
+        {stashCard}
+        {/* Empty whenever the filtered list is, so no branch is needed. */}
+        {upcomingTasks.length > 0 && (
+          <p data-flip-key="label:upcoming" className="mt-4 text-xs font-medium uppercase text-muted-foreground">
+            {dict.upcomingSectionLabel}
+          </p>
+        )}
+        {upcomingTasks.map((task) => (
+          <TaskItemRow
+            key={task.id}
+            task={task}
+            upcoming
+            members={members}
+            pantryItems={pantryItems}
+            memberNameById={memberNameById}
+            onToggleCompleted={toggleCompleted}
+            onDelete={deleteTask}
+            onSkip={skipTask}
+            dict={dict}
+            locale={locale}
+            timeZone={timeZone}
+            today={today}
+          />
+        ))}
+        {completedTasks.length > 0 && (
+          <p data-flip-key="label:completed" className="mt-4 text-xs font-medium uppercase text-muted-foreground">
+            {dict.completedSectionLabel}
+          </p>
+        )}
+        {shownCompletedTasks.map((task) => (
+          <TaskItemRow
+            key={task.id}
+            task={task}
+            members={members}
+            pantryItems={pantryItems}
+            memberNameById={memberNameById}
+            onToggleCompleted={toggleCompleted}
+            onDelete={deleteTask}
+            onSkip={skipTask}
+            dict={dict}
+            locale={locale}
+            timeZone={timeZone}
+            today={today}
+          />
+        ))}
+        {olderTasks.length > 0 && (
+          <Button
+            variant="ghost"
+            data-flip-key="older-toggle"
+            className="self-start text-muted-foreground max-sm:min-h-11 pointer-coarse:min-h-11"
+            aria-expanded={showOlder}
+            onClick={() => setShowOlder((v) => !v)}
+          >
+            {showOlder ? dict.hideOlder : format(dict.showOlder, { count: olderTasks.length })}
+          </Button>
         )}
       </div>
     </div>
@@ -339,6 +406,7 @@ export function TasksClient({
 
 function TaskItemRow({
   task,
+  upcoming = false,
   members,
   pantryItems,
   memberNameById,
@@ -351,6 +419,8 @@ function TaskItemRow({
   today,
 }: {
   task: TaskRow;
+  /** Weekly days: never done and its first day still ahead (see TasksClient). */
+  upcoming?: boolean;
   members: MemberOption[];
   pantryItems: PantryItemOption[];
   memberNameById: Map<string, string>;
@@ -380,9 +450,17 @@ function TaskItemRow({
   const nextInRotationName = task.nextInRotationMemberId
     ? memberNameById.get(task.nextInRotationMemberId)
     : undefined;
-  const recurrenceLabel = task.recurrenceIntervalDays
+  const repeatText = task.recurrenceIntervalDays
     ? recurrenceText(task.recurrenceIntervalDays, dict.recurrenceBadge, dict.recurrenceNamedBadge)
     : null;
+  // Weekly days: "Repeats every 7 days on Saturdays".
+  const recurrenceLabel =
+    repeatText && task.recurrenceWeekday !== null
+      ? format(dict.recurrenceOnWeekday, {
+          repeat: repeatText,
+          day: dict.weekdayBadge[WEEKDAY_KEYS[task.recurrenceWeekday] ?? "mon"],
+        })
+      : repeatText;
   // Only meaningful while the task is still shown completed — a recurring
   // task's `completedAt` also sticks around once it's auto-reopened past its
   // interval (see recurrence.ts), at which point "next due" would be a date
@@ -411,21 +489,24 @@ function TaskItemRow({
   // already names, so it only ever shows as overdue.
   const urgency = task.completed ? "none" : getTaskUrgency(task.dueDay, today);
   const overdueDays = urgency === "overdue" ? daysOverdue(task.dueDay, today) : 0;
+  // A calendar day, not an instant: format it in UTC so no zone shifts it.
+  const dayText = (day: number) =>
+    new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", timeZone: "UTC" }).format(
+      new Date(day * 24 * 60 * 60 * 1000),
+    );
+  // Weekly days: an upcoming repeat says when it starts.
+  const startsLabel = upcoming && task.dueDay !== null ? format(dict.startsLabel, { date: dayText(task.dueDay) }) : null;
   const dueLabel =
     task.completed || urgency === "overdue" || task.dueDate === null || task.dueDay === null
       ? null
       : urgency === "today"
         ? dict.dueTodayLabel
-        : format(dict.dueLabel, {
-            // A calendar day, not an instant: format it in UTC so no zone shifts it.
-            date: new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", timeZone: "UTC" }).format(
-              new Date(task.dueDay * 24 * 60 * 60 * 1000),
-            ),
-          });
+        : format(dict.dueLabel, { date: dayText(task.dueDay) });
 
   const hasDetails =
     overdueDays > 0 ||
     dueLabel !== null ||
+    startsLabel !== null ||
     recurrenceLabel !== null ||
     nextDueLabel !== null ||
     nextInRotationName !== undefined ||
@@ -433,7 +514,8 @@ function TaskItemRow({
     completerName !== undefined;
   const deleteButtonRef = useRef<HTMLButtonElement>(null);
   const skipButtonRef = useRef<HTMLButtonElement>(null);
-  const canSkip = !task.completed && task.recurrenceIntervalDays !== null;
+  // Nothing to skip before an upcoming repeat has started.
+  const canSkip = !task.completed && !upcoming && task.recurrenceIntervalDays !== null;
 
   return (
     <SwipeRow
@@ -487,6 +569,7 @@ function TaskItemRow({
             <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 pb-1 text-xs text-muted-foreground sm:pb-0">
               {overdueDays > 0 && <TaskOverdueBadge days={overdueDays} label={dict.overdueLabel} />}
               {dueLabel && <span>{dueLabel}</span>}
+              {startsLabel && <span>{startsLabel}</span>}
               {recurrenceLabel && (
                 <Badge variant="outline" className="shrink-0 gap-1 text-muted-foreground">
                   <Repeat className="size-3" />
@@ -531,6 +614,7 @@ function TaskItemRow({
           <TaskFormDialog
             mode="edit"
             task={task}
+            todayWeekday={localWeekday(new Date(today * 24 * 60 * 60 * 1000), "UTC")}
             members={members}
             pantryItems={pantryItems}
             dict={dict}

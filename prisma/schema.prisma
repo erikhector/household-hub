@@ -233,6 +233,15 @@ model Household {
   // transactions anyway.
   shoppingExpenseCategoryId String?
   shoppingExpenseCategory   BudgetCategory? @relation("ShoppingExpenseCategory", fields: [shoppingExpenseCategoryId], references: [id], onDelete: SetNull)
+  // Acorn stash: an opt-in, light chore game on the Tasks page (each tick
+  // earns the ticker an acorn; a small card shows the week's piles, streaks
+  // and all-time totals). Off by default, so a household sees nothing of it
+  // until a member turns it on from Household > Settings
+  // (setAcornStashEnabledAction). TaskCompletion rows are written only
+  // while it's on, so turning it on starts everyone from zero, and turning
+  // it off stops the counting but keeps what was earned.
+  // See docs/superpowers/specs/2026-11-27-acorn-stash-design.md.
+  acornStashEnabled     Boolean @default(false)
 
   members            HouseholdMember[]
   invitations        Invitation[]
@@ -251,6 +260,7 @@ model Household {
   memberSettlements  MemberSettlement[]
   notifications      Notification[]
   tasks              HouseholdTask[]
+  taskCompletions    TaskCompletion[]
   notes              HouseholdNote[]
   // GAP-35: the household calendar's own events (appointments, birthdays).
   events             HouseholdEvent[]
@@ -282,6 +292,8 @@ model HouseholdMember {
   plannedExpenseSplits    PlannedExpenseSplit[]
   assignedTasks           HouseholdTask[]          @relation("TaskAssignedTo")
   completedTasks          HouseholdTask[]          @relation("TaskCompletedBy")
+  // Acorn stash: every tick this member made (see TaskCompletion).
+  taskCompletions         TaskCompletion[]
   authoredNotes           HouseholdNote[]
   // GAP-35: events this member is the one "for", and the ones they added.
   eventsFor               HouseholdEvent[]         @relation("EventFor")
@@ -1742,9 +1754,10 @@ model PersonalPlannedExpense {
 
 // --- Household tasks ---------------------------------------------------------
 // Shared task list for adult household co-managers (see docs/archive/JOY_GAP_BACKLOG.md
-// item 6, "Household Tasks v1") — explicitly not a chore-chart/points/rewards
-// system like Tody or OurHome (see that item's Scope note): no fixed due
-// date, no per-person scoring. `completedAt` nullable-timestamp-as-status (not a
+// item 6, "Household Tasks v1") — not a chore-chart/points/rewards system
+// like Tody or OurHome (see that item's Scope note): no fixed due date, and
+// no per-person scoring unless the household opts into the Acorn stash
+// (TASKS-GAME, Household.acornStashEnabled; history in TaskCompletion). `completedAt` nullable-timestamp-as-status (not a
 // boolean/enum) mirrors MealPlanEntry.consumedAt. `assignedToMemberId`/
 // `completedByMemberId` are two distinct, independently nullable fields — a
 // task can be completed by someone other than whoever it was assigned to,
@@ -1753,11 +1766,14 @@ model PersonalPlannedExpense {
 // removing a household member unassigns/un-attributes their tasks rather
 // than deleting task history.
 // `recurrenceIntervalDays` (nullable) is the whole recurrence model: no
-// rrule/weekday schedule, just "reopen N days after it was last completed".
+// rrule schedule, just "reopen N days after it was last completed". A
+// weekday for a whole-weeks repeat is where `recurrenceAnchorAt` falls, not
+// a column of its own (see recurrence.ts, "Weekly days").
 // See src/app/dashboard/tasks/recurrence.ts for how a recurring task's
 // open/completed state is derived lazily from `completedAt` + this interval
-// at read time — completing it again simply overwrites `completedAt`, so no
-// separate completion-history table is needed.
+// at read time — completing it again simply overwrites `completedAt`. The
+// task's own state never needs history; the only completion history is
+// TaskCompletion, written only while a household's Acorn stash is on.
 // GAP-38: `rotationMemberIds` is an opt-in round-robin ("take turns") on a
 // recurring task — an ordered list of HouseholdMember ids; empty means no
 // rotation. Only valid alongside `recurrenceIntervalDays` and with ≥2
@@ -1821,10 +1837,52 @@ model HouseholdTask {
   completedByMember HouseholdMember? @relation("TaskCompletedBy", fields: [completedByMemberId], references: [id], onDelete: SetNull)
   consumesItem      InventoryItem?   @relation(fields: [consumesItemId], references: [id], onDelete: SetNull)
   stockEvents       InventoryItemEvent[]
+  completions       TaskCompletion[]
 
   @@index([householdId])
   @@index([assignedToMemberId])
   @@index([consumesItemId])
+}
+
+// Acorn stash: one row per tick of a household task, the completion history
+// HouseholdTask itself doesn't keep (it only holds the latest completedAt,
+// overwritten by every tick of a recurring task). toggleTaskCompletedAction
+// writes a row in the same transaction as the tick, and only while
+// Household.acornStashEnabled is on (turning it on starts from zero). An
+// un-tick within the undo window (TASK_UNDO_WINDOW_MS, the toast's Undo)
+// deletes exactly the row that tick wrote, matched by task and the tick's
+// own `completedAt`; a later un-tick keeps it. Because that un-tick puts the
+// task's completedAt back to the completion before, the kept row is then
+// newer than it, and the next tick of the task is written with `acorns` 0:
+// the kept row already paid for it. Otherwise a recurring task earns again
+// each time it's done.
+// The Tasks page sums these per member (src/lib/tasks/acorn-stash.ts) for
+// the opt-in stash card: this week's acorns, the run of local days with a
+// tick, and the all-time total.
+// - householdId cascades: deleting the household deletes its history.
+// - taskId and memberId are SetNull: deleting a task keeps the acorns it
+//   earned, and a member who leaves takes their name off the rows (the card
+//   leaves anyone no longer in the household out), the same trade-off
+//   HouseholdTask.completedByMemberId makes.
+// - `acorns` is 1, or 0 for that re-tick. The card sums it (never counts
+//   rows), and a 0-acorn row doesn't extend a streak. A column rather than
+//   a flag so a later change (say, a bigger chore earning more) doesn't
+//   rewrite history.
+// Never feeds notifications, push, email or anything on the money screens.
+model TaskCompletion {
+  id          String   @id @default(cuid())
+  householdId String
+  taskId      String?
+  memberId    String?
+  completedAt DateTime
+  acorns      Int      @default(1)
+
+  household Household        @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  task      HouseholdTask?   @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  member    HouseholdMember? @relation(fields: [memberId], references: [id], onDelete: SetNull)
+
+  @@index([householdId, completedAt])
+  @@index([taskId])
 }
 
 // GAP-16: a shared household notes board — free-text notes ("the plumber's

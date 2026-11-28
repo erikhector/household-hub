@@ -711,6 +711,33 @@ export async function setAutoAddLowStockToListAction(enabled: boolean): Promise<
   return {};
 }
 
+// Acorn stash: the household's opt-in for the chore game on the Tasks page
+// (Household.acornStashEnabled). Open to every member, like the auto-add
+// switch above: REQUIREMENTS.md's "Roles" keeps owner-only to removing
+// members and deleting the household, and this only switches the game on
+// or off; it never touches data already recorded (turning it on starts the
+// counting from zero, turning it off stops it and keeps what was earned). A
+// click action, so it takes the value directly; the household comes from
+// the session, never the client.
+export async function setAcornStashEnabledAction(enabled: boolean): Promise<ActionState> {
+  const { household } = await requireHousehold();
+
+  if (typeof enabled !== "boolean") return await fail("invalidInput");
+
+  try {
+    await prisma.household.update({
+      where: { id: household.id },
+      data: { acornStashEnabled: enabled },
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+
+  revalidatePath("/dashboard/household");
+  revalidatePath("/dashboard/tasks");
+  return {};
+}
+
 // GAP-71: the household's "must be" diet (Household.requiredTags). Open to
 // every member like the auto-add switch above. A click action (each chip
 // toggle saves the whole set); the keys come from the client, so they go

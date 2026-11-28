@@ -188,6 +188,7 @@ const {
   dismissGettingStartedAction,
   markGettingStartedCelebratedAction,
   setAutoAddLowStockToListAction,
+  setAcornStashEnabledAction,
   setRequiredTagsAction,
   enableCalendarFeedAction,
   regenerateCalendarFeedAction,
@@ -1268,6 +1269,51 @@ describe("setAutoAddLowStockToListAction (AUTO-8)", () => {
     const result = await setAutoAddLowStockToListAction("false" as unknown as boolean);
 
     expect(result.error).toBeDefined();
+    expect(householdUpdateMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("setAcornStashEnabledAction (acorn stash)", () => {
+  it("turns it on for the session's active household only, for any member", async () => {
+    requireHouseholdMock.mockResolvedValue({ household: { id: "household-1" }, role: "CONTRIBUTOR" });
+    householdUpdateMock.mockResolvedValue({});
+
+    const result = await setAcornStashEnabledAction(true);
+
+    expect(result).toEqual({});
+    expect(householdUpdateMock).toHaveBeenCalledWith({
+      where: { id: "household-1" },
+      data: { acornStashEnabled: true },
+    });
+    expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard/household");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard/tasks");
+  });
+
+  it("turns it back off", async () => {
+    requireHouseholdMock.mockResolvedValue({ household: { id: "household-1" }, role: "OWNER" });
+    householdUpdateMock.mockResolvedValue({});
+
+    await setAcornStashEnabledAction(false);
+
+    expect(householdUpdateMock).toHaveBeenCalledWith({
+      where: { id: "household-1" },
+      data: { acornStashEnabled: false },
+    });
+  });
+
+  it("rejects a non-boolean value from a hand-crafted request", async () => {
+    requireHouseholdMock.mockResolvedValue({ household: { id: "household-1" }, role: "OWNER" });
+
+    const result = await setAcornStashEnabledAction("true" as unknown as boolean);
+
+    expect(result.error).toBeDefined();
+    expect(householdUpdateMock).not.toHaveBeenCalled();
+  });
+
+  it("fails without writing when there's no household session", async () => {
+    requireHouseholdMock.mockRejectedValue(new Error("REDIRECT:/no-household"));
+
+    await expect(setAcornStashEnabledAction(true)).rejects.toThrow("REDIRECT:/no-household");
     expect(householdUpdateMock).not.toHaveBeenCalled();
   });
 });

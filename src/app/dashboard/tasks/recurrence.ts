@@ -1,7 +1,8 @@
 // Household task recurrence (see docs/archive/JOY_GAP_BACKLOG.md item 6, superseded for
 // recurring tasks per later request) — deliberately not an rrule/weekday
-// schedule, just a repeat interval in days. There's no completion-history
-// table, so a recurring task's open/completed state is derived lazily from
+// schedule, just a repeat interval in days. A task's state never reads
+// completion history (TaskCompletion exists only for the opt-in Acorn
+// stash), so a recurring task's open/completed state is derived lazily from
 // `completedAt` + `recurrenceIntervalDays` at read time rather than stored:
 // completing it again simply overwrites `completedAt`, the same write a
 // non-recurring task's toggle already does. This file is the one place that
@@ -21,9 +22,25 @@
 //    it until the next occurrence, so a Saturday chore done on Thursday
 //    stays a Saturday chore. The anchor is the local day in
 //    `recurrenceAnchorAt` (UX-144): set when a repeat is created and re-set
-//    whenever the interval is edited, so "every Thursday" is a matter of
-//    editing the task on a Thursday. Rows from before the column (null) keep
-//    reading `createdAt`.
+//    whenever the interval is edited, or (weekly days, below) to a picked
+//    weekday. Rows from before the column (null) keep reading `createdAt`.
+//
+// Weekly days: a repeat whose interval is a whole number of weeks (every
+// week, every 2 weeks) can be put on a chosen weekday in the task dialog.
+// That is only a matter of where the anchor falls, so it needs no column of
+// its own: `anchorForWeekday` sets it to such a day. A task that has never
+// been done gets the next one (today when today is that day): an anchor in
+// the future means the repeat hasn't started, so the task stays out of the
+// open list until that day (`isUpcoming`) rather than showing as due at
+// once, and a tick before then does it early (the tick falls in the
+// interval just before the anchor, which counts as the first occurrence).
+// A task that has been done gets the latest one on or before the day of its
+// last tick instead, so the windows above carry on from that tick whatever
+// day the edit is made: moved from Mondays to Saturdays after Monday's tick,
+// it is next due the Saturday after, not a week later (counting from the
+// edit day, an edit made on a Saturday made the tick cover that day). A tick longer ago than one interval before the
+// anchor belongs to no occurrence, so the task is next due on the anchor day
+// itself (overdue, when that is past).
 //
 // GAP-60: "Skip this time" closes a recurring task until `skippedUntil`
 // (now + one interval when skipped) without writing `completedAt`, which
@@ -56,16 +73,28 @@ const ANCHORED_FROM_DAYS = 7;
 /** `timeZone` when it's a zone Intl knows, else UTC (a bad cookie value). */
 const safeTimeZone = (timeZone: string) => (isTimeZone(timeZone) ? timeZone : "UTC");
 
-/** The calendar day `instant` falls on in `timeZone`, as days since 1970-01-01. */
-export function localDayNumber(instant: Date, timeZone: string): number {
-  const parts = new Intl.DateTimeFormat("en-US", {
+/**
+ * localDayNumber for many instants in one zone: builds the Intl formatter
+ * once instead of once per call, which is most of the cost when it runs over
+ * a list (the acorn stash's completion rows).
+ */
+export function localDayNumberIn(timeZone: string): (instant: Date) => number {
+  const formatter = new Intl.DateTimeFormat("en-US", {
     timeZone,
     year: "numeric",
     month: "numeric",
     day: "numeric",
-  }).formatToParts(instant);
-  const part = (type: string) => Number(parts.find((p) => p.type === type)?.value);
-  return Date.UTC(part("year"), part("month") - 1, part("day")) / MS_PER_DAY;
+  });
+  return (instant) => {
+    const parts = formatter.formatToParts(instant);
+    const part = (type: string) => Number(parts.find((p) => p.type === type)?.value);
+    return Date.UTC(part("year"), part("month") - 1, part("day")) / MS_PER_DAY;
+  };
+}
+
+/** The calendar day `instant` falls on in `timeZone`, as days since 1970-01-01. */
+export function localDayNumber(instant: Date, timeZone: string): number {
+  return localDayNumberIn(timeZone)(instant);
 }
 
 /** How far `timeZone` is ahead of UTC at `instant`, in ms. */
@@ -114,6 +143,7 @@ function scheduledNextDue(task: RecurrenceFields, timeZone: string): Date | null
   // A task ticked before its anchor day (an imported row) counts as the
   // first occurrence.
   const anchorDay = localDayNumber(task.recurrenceAnchorAt ?? task.createdAt, zone);
+  if (completedDay <= anchorDay - interval) return startOfLocalDay(anchorDay, zone);
   const occurrence = Math.max(0, Math.floor((completedDay - anchorDay) / interval));
   return startOfLocalDay(anchorDay + (occurrence + 1) * interval, zone);
 }
@@ -142,11 +172,52 @@ export function getNextDueDate(task: RecurrenceFields, timeZone = "UTC"): Date |
  */
 export function isTaskOpen(task: RecurrenceFields, now: Date, timeZone = "UTC"): boolean {
   if (task.recurrenceIntervalDays === null) return task.completedAt === null;
-  if (task.completedAt === null && (task.skippedUntil ?? null) === null) return true;
+  if (task.completedAt === null && (task.skippedUntil ?? null) === null) return !isUpcoming(task, now, timeZone);
 
   const dueAgainAt = getNextDueDate(task, timeZone);
   if (dueAgainAt === null) return true;
   return now >= dueAgainAt;
+}
+
+/**
+ * Whether a repeating task has never been done (or skipped) and its anchor
+ * day is still ahead: a weekly chore put on Saturday on a Wednesday. It is
+ * closed, but not done, so the list shows it as upcoming and a tick on it
+ * completes it early (the first occurrence) instead of reopening it.
+ */
+export function isUpcoming(task: RecurrenceFields, now: Date, timeZone = "UTC"): boolean {
+  if (task.recurrenceIntervalDays === null || task.completedAt !== null || (task.skippedUntil ?? null) !== null) {
+    return false;
+  }
+  const zone = safeTimeZone(timeZone);
+  return localDayNumber(task.recurrenceAnchorAt ?? task.createdAt, zone) > localDayNumber(now, zone);
+}
+
+/** Whether an interval can be put on a weekday: a whole number of weeks. */
+export function keepsWeekday(recurrenceIntervalDays: number | null): boolean {
+  return recurrenceIntervalDays !== null && recurrenceIntervalDays % 7 === 0;
+}
+
+/** The weekday (0 Sunday … 6 Saturday, as `Date#getDay`) of `instant`'s local day. */
+export function localWeekday(instant: Date, timeZone: string): number {
+  // Day 0 (1970-01-01) was a Thursday.
+  return (((localDayNumber(instant, safeTimeZone(timeZone)) + 4) % 7) + 7) % 7;
+}
+
+/**
+ * The start of a local day on `weekday` (0 Sunday … 6 Saturday): the next
+ * one, or with `"latest"` the last one, today included either way.
+ */
+export function anchorForWeekday(
+  weekday: number,
+  now: Date,
+  timeZone: string,
+  which: "next" | "latest" = "next",
+): Date {
+  const zone = safeTimeZone(timeZone);
+  const ahead = (((weekday - localWeekday(now, zone)) % 7) + 7) % 7;
+  const offset = which === "next" ? ahead : ahead === 0 ? 0 : ahead - 7;
+  return startOfLocalDay(localDayNumber(now, zone) + offset, zone);
 }
 
 /**

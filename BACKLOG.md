@@ -99,6 +99,45 @@ Parallel-safe except where noted.
 
 ### Dependencies
 
+- [ ] **DEPS-12. Bump the in-range patch/minor versions** (impact: low, effort: S) —
+      `npm outdated` on a clean `npm ci` of `next` (2026-11-27) lists 10
+      bumps that `package.json`'s ranges already allow: `@sentry/nextjs`
+      11.17.0 → 11.20.0, `lucide-react` 1.79.0 → 1.82.0, `resend` 6.39.0 →
+      6.41.0, `@vercel/functions` 3.11.3 → 3.12.0, `vitest` 5.1.1 → 5.1.2,
+      `@types/node` 22.20.5 → 22.20.7, `@types/react` 19.3.0 → 19.3.3,
+      `@upstash/redis` 1.41.0 → 1.41.1, `barcode-detector` 3.2.4 → 3.2.5,
+      `shadcn` 4.23.0 → 4.23.1. (`knip` and `axe-core` are exact pins
+      already at the versions DEPS-11 chose, so they're out of scope.)
+      `npm audit --omit=dev` is clean (0 advisories), so this is upkeep,
+      not a fix. Sentry moves three minors, so re-check that DEPS-5's
+      send-only-error-details config (REQUIREMENTS.md, "Sentry sends error
+      details only") still holds.
+      Acceptance: `npm outdated` shows none of the above with
+      `current < wanted`; `npm run check && npm run build` pass;
+      `npm audit --omit=dev --audit-level=high` stays clean.
+- [ ] **DEPS-13. TypeScript 6.0** (impact: low, effort: S, own PR — touches
+      `package.json`/lockfile) — `typescript` is on 5.9.3. typescript-eslint
+      8.70 (via `eslint-config-next`) accepts `>=4.8.4 <6.1.0`, so 6.0.x is
+      the newest TypeScript it installs with; 7 is blocked, and
+      `.github/dependabot.yml:28` ignores every TS major for that reason.
+      A trial on 2026-11-27 (`npm i -D typescript@6.0.3`, `prisma
+      generate`, `next typegen`, `tsc --noEmit`) gave 0 errors with the
+      current `tsconfig.json`, and ESLint ran on `src/lib` with no new
+      errors. Moving to 6 now also surfaces TS 6's deprecation warnings
+      before 7 removes those options. Keep anything typescript-eslint
+      rejects out: pin `"typescript": "~6.0.3"` in `package.json` (not
+      `^6`, which would admit a 6.1), and replace the dependabot ignore's
+      `update-types: [major]` with `versions: [">=6.1.0"]`, its comment
+      tied to typescript-eslint's actual upper bound (widen both when that
+      bound moves). There is no 6.1 on npm today (6.0.3 is the last 6.x and
+      7 follows), but the bound is typescript-eslint's, not ours, so the
+      pin and ignore follow it exactly. Update REQUIREMENTS.md's CI
+      paragraph that says TS majors are skipped to say what's skipped now.
+      Acceptance: `npx tsc -v` prints 6.0.x; `package.json` has
+      `~6.0.3`; `npm run check && npm run build` pass with no new TS
+      deprecation warnings; dependabot still skips any TypeScript version
+      typescript-eslint doesn't accept (`>=6.1.0`).
+
 ### Performance
 
 ### Maintainability
@@ -496,6 +535,94 @@ money question filed under "Needs a decision before building":
 
 - GAP-90 (refunds against an expense category) needs a product call, so
   it is under "Needs a decision before building".
+
+### 2026-11-27 scan
+
+Checked Grocy, Paprika, Plan to Eat, AnyList's 2026 meal-plan release,
+Tody and Cozi. Nearly all of it is already here: freezing and opened
+dates (GAP-44), use-it-up recipes, recipe scaling (GAP-11), saved menus
+(GAP-52), substitution hints (GAP-25), the Cook soon queue (GAP-51),
+sort by times cooked (GAP-80), meal notes (GAP-81), chores due relative
+to when they were last done, and birthdays as yearly events (GAP-35).
+The two gaps left are in the household calendar, which is newer than the
+rest. Cozi charges for exactly these (Cozi Gold: events past 30 days,
+month view; calendar import on every tier):
+
+- [ ] **GAP-91. See calendar events past the 60-day agenda** (impact: med,
+      effort: S) — `/dashboard/calendar` only ever loads
+      `AGENDA_DAYS = 60` (`src/lib/household-events.ts:27`,
+      `src/app/dashboard/calendar/page.tsx:24`) and has no way to look
+      further. A one-off event saved for a date three months out (a
+      wedding, a passport renewal, next summer's trip) disappears from
+      the page as soon as the sheet closes, so the save looks like it
+      failed (DESIGN.md: every action shows its result), and the only
+      way to check it or edit it is the calendar feed. Add a
+      "Show later" / "Visa senare" button under the agenda that loads
+      the next 60 days (a `?until=` search param read by `page.tsx`,
+      capped at a year or two, passed to the existing
+      `loadUpcomingEvents(householdId, today, days)`), and make the
+      "Nothing in the next 60 days" line offer the same button when
+      later events exist. After saving an event past the loaded window,
+      the toast says which day it was saved for and offers "Show"
+      (opening the agenda far enough to include it). No schema change.
+      Acceptance: `e2e/calendar.spec.ts` (`mobile` and `desktop`) adds
+      a one-off event 90 days ahead, sees the toast with its date, taps
+      Show later and sees the row under its day heading; after a reload
+      of the extended URL it is still there.
+
+- [ ] **GAP-92. Import events from a calendar file (.ics)** (impact: med,
+      effort: M) — households already have the school term, the sports
+      club's fixtures or a family member's shifts as an `.ics` file or
+      export, and today each event has to be typed into
+      `EventFormDialog` one at a time. Cozi, Google and Apple Calendar
+      all import a file. Add "Import from file" beside Add event (in a
+      ⋯ menu; the page has none yet): pick an `.ics` file
+      (`accept=".ics,text/calendar"`, a size
+      cap such as 256 KB), see a review list ("12 events, 3 already in
+      the calendar") with a checkbox per event, then import. That's two
+      actions in `src/app/dashboard/calendar/actions.ts`: a preview
+      action that parses the file and returns the rows with their
+      duplicate flags, and an import action that gets the file again
+      with the ticked rows' indexes and parses it again on the server,
+      so the client's copy of the rows is never trusted. Both parse with
+      a small, unit-tested parser (VEVENT `SUMMARY`, `DTSTART`/`DTEND` as
+      a date or a local time, `DESCRIPTION` into notes cut at 500).
+      `RRULE` becomes a Squirrel repeat only where it lands on exactly
+      the same days as `expandEventOccurrences`
+      (`src/lib/household-events.ts`), which clamps a day the month
+      lacks to the month's last day where RFC 5545 skips that month: so
+      `FREQ=WEEKLY` with no `BYDAY` or a single `BYDAY` equal to
+      DTSTART's weekday (how Google and Apple write a weekly event);
+      `FREQ=MONTHLY` on day 1–28; `FREQ=YEARLY` on any date but
+      29 February; and the clamped forms Squirrel's own feed writes
+      (`eventRrule`):
+      `FREQ=MONTHLY;BYMONTHDAY=28,…,<DTSTART's day>;BYSETPOS=-1` and
+      `FREQ=YEARLY;BYMONTH=2;BYMONTHDAY=28,29;BYSETPOS=-1`. Anything else imports as a one-off on its DTSTART:
+      a `COUNT` or `UNTIL`, an `INTERVAL` above 1, any other `BY…` part,
+      a plain `FREQ=MONTHLY` starting on the 29th–31st, or a plain
+      `FREQ=YEARLY` starting on 29 February. Every row goes through the
+      same validation as `createEventAction`, an event whose title and
+      date are already there is skipped, and the rows are written in one
+      `createMany` scoped by `requireHousehold()`, with
+      `createdByMemberId` set to the importing member as
+      `createEventAction` does (from the session, never the form) and no
+      "for" member. Times with a zone (`Z` or `TZID`) convert to the
+      importer's time zone cookie, since `HouseholdEvent` times are
+      floating. A one-time import only: subscribing to a URL that keeps
+      syncing would need a fetch job and stored URLs, so it's a product
+      call and not part of this item. Acceptance: parser tests cover
+      each accepted RRULE above (weekly with and without a matching
+      `BYDAY`, monthly on the 15th, both BYSETPOS forms, yearly) and each
+      refused one importing as a one-off (`COUNT`, `UNTIL`, a `BYDAY`
+      list or a weekday other than DTSTART's, plain monthly on the 31st,
+      plain yearly on 29 February), all-day vs timed, and zoned times;
+      the action tests cover tenancy, `createdByMemberId` from the
+      session, the import re-parsing rather than trusting client rows,
+      and the duplicate skip; a new `e2e/calendar-import.spec.ts`
+      (`mobile` and `desktop`) uploads a fixture with three events (one
+      weekly), unticks one, imports, and sees the other two in the
+      agenda with the repeat badge on the weekly one, and a second
+      import of the same file adds nothing.
 
 ## Needs a decision before building
 
