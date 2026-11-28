@@ -90,7 +90,9 @@ easy for AI coding agents to work in correctly:
   variables, database query data and the AI/MCP categories off. That keeps
   what the privacy page describes (message, stack trace, page address,
   browser and device). `sentry-data-collection.test.ts` pins the opt-outs
-  and that the server's `register()` passes them.
+  and that the server's `register()` passes them. Re-checked on DEPS-12's bump to
+  11.20.0: Sentry's `DataCollection` options are unchanged since 11.17.0, so
+  the opt-outs still cover every category.
 - **Cache Components is on, with nothing cached yet (PERF-31).**
   `next.config.ts` sets `cacheComponents` and `partialPrefetching`, the
   prerequisite for `"use cache"` (PERF-32a on). The five route handlers
@@ -8923,7 +8925,9 @@ Drop the override once `@vercel/cli-config` ships a patched `zod`. Re-run the
 audit on dependency bumps: it was still clean after DEPS-9's grouped
 patch/minor bumps (`next` 16.4.6, `@playwright/test` 1.65.1, `@sentry/nextjs`
 11.12.0 and others) and DEPS-11's (`@sentry/nextjs` 11.17.0, `lucide-react`
-1.79.0, `resend` 6.39.0, `vitest` 5.1.1, `axe-core` 4.14.1, `knip` 6.48.0),
+1.79.0, `resend` 6.39.0, `vitest` 5.1.1, `axe-core` 4.14.1, `knip` 6.48.0)
+and DEPS-12's (`@sentry/nextjs` 11.20.0, `lucide-react` 1.82.0, `resend`
+6.41.0, `@vercel/functions` 3.12.0, `vitest` 5.1.2 and five patch bumps),
 none of which was a security fix. `next-auth` is still
 `5.0.0-beta.32`; there is no stable v5, so watch its advisories through MAINT-12's Dependabot config.
 
