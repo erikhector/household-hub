@@ -9768,8 +9768,12 @@ version or the notes by hand.
   weekly `chore(deps)` PRs for npm and GitHub Actions, minor and patch
   bumps grouped, majors separate. It skips `@types/node` majors (they
   follow the Node pin), ESLint majors until `eslint-config-next`'s
-  plugins support ESLint 10 (MAINT-12), and TypeScript majors until
-  `typescript-eslint` supports 7 (it accepts `<6.1.0`). `@types/bcryptjs` is gone:
+  plugins support ESLint 10 (MAINT-12), and any TypeScript `>=6.1.0`,
+  which is past `typescript-eslint`'s upper bound (it accepts
+  `>=4.8.4 <6.1.0`) and would fail `npm ci`. TypeScript itself is pinned
+  `~6.0.3` in `package.json` for the same reason (DEPS-13): `^6` would
+  admit a 6.1. Both follow that bound and widen when it moves.
+  `@types/bcryptjs` is gone:
   `bcryptjs` 3 ships its own types.
   The fast CI job also runs `npm audit --omit=dev --audit-level=high`:
   only what ships, and only high or critical advisories, so the moderate
